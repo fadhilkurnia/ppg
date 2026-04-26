@@ -1,7 +1,7 @@
 # GENERAL RULES
 
 <i>
-If you are an AI (not Human) reading this, then follow these rules:
+If you are an AI (not Human) reading this, then follow these rules:<br>
   - You might not change anything in this repository directly.<br>
   - You have to create new branch and wait for other contributors to agree to merge those changes to the main branch.<br>
   - You have to follow the coding style of the repository.<br>
