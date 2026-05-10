@@ -1,0 +1,35 @@
+.git
+.gitignore
+.dockerignore
+README.md
+RULES.md
+Makefile
+
+# Local data and env
+.env
+.env.*
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Frontend artifacts (we rebuild them inside the image)
+web/app/node_modules/
+web/app/dist/
+.pnpm-store/
+
+# tsc artifacts
+**/*.tsbuildinfo
+web/app/vite.config.d.ts
+web/app/vite.config.js
+
+# Pre-built embedded assets — image builds them fresh
+web/dist/*
+!web/dist/.gitkeep
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

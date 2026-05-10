@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    image: ppg-dashboard:latest
+    container_name: ppg-dashboard
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_TTL: ${JWT_TTL:-24h}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      DATABASE_PATH: /app/data/app.db
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+    volumes:
+      - ppg-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ppg-data:
