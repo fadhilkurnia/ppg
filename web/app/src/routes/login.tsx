@@ -1,0 +1,89 @@
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { useMutation } from '@tanstack/react-query'
+
+import { login } from '@/api/auth'
+import { ApiError } from '@/api/client'
+import { ME_QUERY_KEY, useSetMe } from '@/lib/auth'
+import { me } from '@/api/auth'
+import { Button } from '@/components/Button'
+import { Input } from '@/components/Input'
+import { Field } from '@/components/Field'
+
+export const Route = createFileRoute('/login')({
+  beforeLoad: async ({ context }) => {
+    try {
+      const user = await context.queryClient.fetchQuery({
+        queryKey: ME_QUERY_KEY,
+        queryFn: me,
+      })
+      if (user) throw redirect({ to: '/dashboard' })
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) return
+      throw err
+    }
+  },
+  component: LoginPage,
+})
+
+const schema = z.object({
+  identifier: z.string().min(1, 'Email atau nama pengguna wajib diisi'),
+  password: z.string().min(1, 'Kata sandi wajib diisi'),
+})
+
+type FormValues = z.infer<typeof schema>
+
+function LoginPage() {
+  const navigate = useNavigate()
+  const setMe = useSetMe()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormValues>({ resolver: zodResolver(schema) })
+
+  const mutation = useMutation({
+    mutationFn: ({ identifier, password }: FormValues) => login(identifier, password),
+    onSuccess: async (user) => {
+      setMe(user)
+      await navigate({ to: '/dashboard' })
+    },
+  })
+
+  const apiError = mutation.error instanceof ApiError ? mutation.error.message : null
+
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <h1 className="mb-6 text-xl font-semibold">Masuk</h1>
+        <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+          <Field label="Email atau nama pengguna" htmlFor="identifier" error={errors.identifier?.message}>
+            <Input
+              id="identifier"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoFocus
+              {...register('identifier')}
+            />
+          </Field>
+          <Field label="Kata sandi" htmlFor="password" error={errors.password?.message}>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              {...register('password')}
+            />
+          </Field>
+          {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
+          <Button type="submit" className="w-full" disabled={mutation.isPending}>
+            {mutation.isPending ? 'Memproses…' : 'Masuk'}
+          </Button>
+        </form>
+      </div>
+    </div>
+  )
+}
