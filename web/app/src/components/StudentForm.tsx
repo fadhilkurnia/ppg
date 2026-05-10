@@ -67,7 +67,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
       className="space-y-4"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="ID Siswa" htmlFor="studentId" error={errors.studentId?.message}>
+        <Field label="ID Generus" htmlFor="studentId" error={errors.studentId?.message}>
           <Input id="studentId" {...register('studentId')} />
         </Field>
         <Field label="Nama" htmlFor="name" error={errors.name?.message}>

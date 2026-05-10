@@ -37,12 +37,12 @@ function StudentsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Siswa</h1>
+        <h1 className="text-2xl font-semibold">Generus</h1>
         {isAdmin ? (
           <Link to="/students/new">
             <Button>
               <Plus size={16} className="mr-1" />
-              Tambah siswa
+              Tambah Generus
             </Button>
           </Link>
         ) : null}
@@ -68,7 +68,7 @@ function StudentsPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-2">ID Siswa</th>
+              <th className="px-4 py-2">ID Generus</th>
               <th className="px-4 py-2">Nama</th>
               <th className="px-4 py-2">Jenis Kelamin</th>
               <th className="px-4 py-2">Orang Tua</th>
@@ -105,7 +105,7 @@ function StudentsPage() {
             ) : (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                  Belum ada data siswa.
+                  Belum ada data Generus.
                 </td>
               </tr>
             )}

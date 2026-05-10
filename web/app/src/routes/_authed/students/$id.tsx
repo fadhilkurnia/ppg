@@ -81,7 +81,7 @@ function StudentDetailPage() {
           />
         ) : (
           <dl className="grid gap-4 sm:grid-cols-2 text-sm">
-            <Row label="ID Siswa" value={s.studentId} />
+            <Row label="ID Generus" value={s.studentId} />
             <Row label="Nama" value={s.name} />
             <Row label="Tanggal Lahir" value={s.dateOfBirth.slice(0, 10)} />
             <Row label="Jenis Kelamin" value={s.gender === 'male' ? 'Laki-laki' : 'Perempuan'} />
