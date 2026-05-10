@@ -77,7 +77,7 @@ export function TeacherForm({ initial, submitLabel, pending, error, onSubmit, on
       className="space-y-4"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nama Guru" htmlFor="name" error={errors.name?.message}>
+        <Field label="Nama Pengajar" htmlFor="name" error={errors.name?.message}>
           <Input id="name" {...register('name')} />
         </Field>
         <Field label="Nama Panggilan" htmlFor="nickname" error={errors.nickname?.message}>

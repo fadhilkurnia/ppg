@@ -96,7 +96,7 @@ func (h *Teachers) List(w http.ResponseWriter, r *http.Request) {
 		Offset: offset,
 	})
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil daftar Guru")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil daftar Pengajar")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, res)
@@ -107,10 +107,10 @@ func (h *Teachers) Get(w http.ResponseWriter, r *http.Request) {
 	tt, err := h.teachers.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			httpx.Error(w, http.StatusNotFound, "not_found", "Guru tidak ditemukan")
+			httpx.Error(w, http.StatusNotFound, "not_found", "Pengajar tidak ditemukan")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil data Guru")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil data Pengajar")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, tt)
@@ -124,7 +124,7 @@ func (h *Teachers) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	tt, err := h.teachers.Create(r.Context(), in)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menyimpan Guru")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menyimpan Pengajar")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, tt)
@@ -140,10 +140,10 @@ func (h *Teachers) Update(w http.ResponseWriter, r *http.Request) {
 	tt, err := h.teachers.Update(r.Context(), id, in)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			httpx.Error(w, http.StatusNotFound, "not_found", "Guru tidak ditemukan")
+			httpx.Error(w, http.StatusNotFound, "not_found", "Pengajar tidak ditemukan")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal memperbarui Guru")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal memperbarui Pengajar")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, tt)
@@ -153,10 +153,10 @@ func (h *Teachers) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.teachers.Delete(r.Context(), id); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			httpx.Error(w, http.StatusNotFound, "not_found", "Guru tidak ditemukan")
+			httpx.Error(w, http.StatusNotFound, "not_found", "Pengajar tidak ditemukan")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menghapus Guru")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menghapus Pengajar")
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

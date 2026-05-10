@@ -30,7 +30,7 @@ function DashboardPage() {
         />
         <Card
           icon={<GraduationCap />}
-          label="Guru aktif"
+          label="Pengajar aktif"
           value={teachersActive.isPending ? '—' : String(teachersActive.data?.total ?? 0)}
         />
       </div>

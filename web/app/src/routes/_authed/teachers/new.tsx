@@ -28,7 +28,7 @@ function NewTeacherPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Tambah Guru</h1>
+      <h1 className="text-2xl font-semibold">Tambah Pengajar</h1>
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <TeacherForm
           submitLabel="Simpan"

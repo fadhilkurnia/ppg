@@ -82,7 +82,7 @@ function TeacherDetailPage() {
           />
         ) : (
           <dl className="grid gap-4 sm:grid-cols-2 text-sm">
-            <Row label="Nama Guru" value={t.name} />
+            <Row label="Nama Pengajar" value={t.name} />
             <Row label="Nama Panggilan" value={t.nickname ?? '—'} />
             <Row label="Kelompok" value={t.kelompok} />
             <Row label="Desa" value={t.desa} />

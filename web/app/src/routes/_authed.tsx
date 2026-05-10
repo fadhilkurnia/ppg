@@ -101,7 +101,7 @@ function AuthedLayout() {
         <nav className="flex-1 space-y-1 p-3">
           <SideLink to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dasbor" />
           <SideLink to="/students" icon={<Users size={16} />} label="Generus" />
-          <SideLink to="/teachers" icon={<GraduationCap size={16} />} label="Guru" />
+          <SideLink to="/teachers" icon={<GraduationCap size={16} />} label="Pengajar" />
         </nav>
         <div className="space-y-2 border-t border-slate-200 p-3">
           <div className="px-2">

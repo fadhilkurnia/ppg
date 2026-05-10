@@ -39,12 +39,12 @@ function TeachersPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold">Guru</h1>
+        <h1 className="text-2xl font-semibold">Pengajar</h1>
         {isAdmin ? (
           <Link to="/teachers/new" className="self-start sm:self-auto">
             <Button>
               <Plus size={16} className="mr-1" />
-              Tambah Guru
+              Tambah Pengajar
             </Button>
           </Link>
         ) : null}
@@ -128,7 +128,7 @@ function TeachersPage() {
             ) : (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                  Belum ada data Guru.
+                  Belum ada data Pengajar.
                 </td>
               </tr>
             )}

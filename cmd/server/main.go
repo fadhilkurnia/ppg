@@ -18,15 +18,68 @@ import (
 	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/handler"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/importer"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 	"github.com/fadhilkurnia/ppg-dashboard/web"
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "import-teachers":
+			if err := runImportTeachers(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "import-teachers:", err)
+				os.Exit(1)
+			}
+			return
+		case "-h", "--help", "help":
+			fmt.Println("usage: server                       (start the HTTP server)")
+			fmt.Println("       server import-teachers FILE  (import teachers CSV)")
+			return
+		}
+	}
+
 	if err := run(); err != nil {
 		slog.Error("server exited with error", "error", err)
 		os.Exit(1)
 	}
+}
+
+func runImportTeachers(args []string) error {
+	if len(args) < 1 {
+		return errors.New("usage: server import-teachers <path-to-csv>")
+	}
+	csvPath := args[0]
+
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "./data/app.db"
+	}
+
+	db, err := store.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("open db at %s: %w", dbPath, err)
+	}
+	defer db.Close()
+	if err := store.Migrate(db); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+
+	f, err := os.Open(csvPath)
+	if err != nil {
+		return fmt.Errorf("open csv: %w", err)
+	}
+	defer f.Close()
+
+	res, err := importer.Teachers(context.Background(), f, store.NewTeachers(db))
+	if err != nil {
+		return err
+	}
+	fmt.Printf("inserted: %d\nskipped:  %d\n", res.Inserted, res.Skipped)
+	for _, e := range res.Errors {
+		fmt.Printf("  line %d: %v\n", e.Line, e.Err)
+	}
+	return nil
 }
 
 func run() error {
