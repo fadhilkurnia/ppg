@@ -28,10 +28,10 @@ function NewStudentPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">New student</h1>
+      <h1 className="text-2xl font-semibold">Tambah siswa</h1>
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <StudentForm
-          submitLabel="Create"
+          submitLabel="Simpan"
           pending={mutation.isPending}
           error={mutation.error}
           onSubmit={(input) => mutation.mutate(input)}

@@ -37,12 +37,12 @@ function StudentsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Students</h1>
+        <h1 className="text-2xl font-semibold">Siswa</h1>
         {isAdmin ? (
           <Link to="/students/new">
             <Button>
               <Plus size={16} className="mr-1" />
-              New student
+              Tambah siswa
             </Button>
           </Link>
         ) : null}
@@ -61,25 +61,25 @@ function StudentsPage() {
           size={16}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
         />
-        <Input name="q" defaultValue={q} placeholder="Search by name or ID" className="pl-9" />
+        <Input name="q" defaultValue={q} placeholder="Cari berdasarkan nama atau ID" className="pl-9" />
       </form>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-2">Student ID</th>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Gender</th>
-              <th className="px-4 py-2">Parent</th>
-              <th className="px-4 py-2">Phone</th>
+              <th className="px-4 py-2">ID Siswa</th>
+              <th className="px-4 py-2">Nama</th>
+              <th className="px-4 py-2">Jenis Kelamin</th>
+              <th className="px-4 py-2">Orang Tua</th>
+              <th className="px-4 py-2">Telepon</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                  Loading…
+                  Memuat…
                 </td>
               </tr>
             ) : data && data.items.length > 0 ? (
@@ -95,7 +95,9 @@ function StudentsPage() {
                       {s.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-2 capitalize">{s.gender}</td>
+                  <td className="px-4 py-2">
+                    {s.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
+                  </td>
                   <td className="px-4 py-2">{s.parentName}</td>
                   <td className="px-4 py-2">{s.parentPhone}</td>
                 </tr>
@@ -103,7 +105,7 @@ function StudentsPage() {
             ) : (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                  No students found.
+                  Belum ada data siswa.
                 </td>
               </tr>
             )}
@@ -113,7 +115,7 @@ function StudentsPage() {
 
       <div className="flex items-center justify-between text-sm text-slate-600">
         <span>
-          Page {page} of {totalPages} · {total} total
+          Halaman {page} dari {totalPages} · {total} total
         </span>
         <div className="flex gap-2">
           <Button
@@ -124,7 +126,7 @@ function StudentsPage() {
               void navigate({ search: { q: q || undefined, page: Math.max(1, page - 1) } })
             }
           >
-            Previous
+            Sebelumnya
           </Button>
           <Button
             variant="secondary"
@@ -134,7 +136,7 @@ function StudentsPage() {
               void navigate({ search: { q: q || undefined, page: Math.min(totalPages, page + 1) } })
             }
           >
-            Next
+            Berikutnya
           </Button>
         </div>
       </div>

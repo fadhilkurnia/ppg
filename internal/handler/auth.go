@@ -31,12 +31,12 @@ type loginRequest struct {
 func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad_request", "invalid JSON body")
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "Format permintaan tidak valid")
 		return
 	}
 	req.Identifier = strings.TrimSpace(req.Identifier)
 	if req.Identifier == "" || req.Password == "" {
-		httpx.Error(w, http.StatusBadRequest, "bad_request", "identifier and password are required")
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "Email/nama pengguna dan kata sandi wajib diisi")
 		return
 	}
 	// Emails are stored lowercase; usernames as-is. Lowercase only when it
@@ -49,21 +49,21 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := a.users.FindByIdentifier(r.Context(), lookup)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "incorrect credentials")
+			httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "Email/nama pengguna atau kata sandi salah")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to look up user")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil data pengguna")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "incorrect credentials")
+		httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "Email/nama pengguna atau kata sandi salah")
 		return
 	}
 
 	tok, err := a.jwt.Issue(user.ID, user.Role)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to issue token")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal membuat token")
 		return
 	}
 
@@ -101,7 +101,7 @@ func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := a.users.FindByID(r.Context(), claims.UserID)
 	if err != nil {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "Pengguna tidak ditemukan")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, user)

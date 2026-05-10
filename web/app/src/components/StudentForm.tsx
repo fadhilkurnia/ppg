@@ -9,16 +9,16 @@ import { Input } from './Input'
 import { Field } from './Field'
 
 const schema = z.object({
-  studentId: z.string().min(1, 'Required').max(64),
-  name: z.string().min(1, 'Required').max(200),
-  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD'),
+  studentId: z.string().min(1, 'Wajib diisi').max(64),
+  name: z.string().min(1, 'Wajib diisi').max(200),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Gunakan format YYYY-MM-DD'),
   gender: z.enum(['male', 'female']),
   address: z.string().max(500).optional().or(z.literal('')),
-  parentName: z.string().min(1, 'Required').max(200),
-  parentPhone: z.string().min(1, 'Required').max(64),
+  parentName: z.string().min(1, 'Wajib diisi').max(200),
+  parentPhone: z.string().min(1, 'Wajib diisi').max(64),
   parentEmail: z
     .string()
-    .email('Invalid email')
+    .email('Format email tidak valid')
     .optional()
     .or(z.literal('')),
 })
@@ -67,41 +67,41 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
       className="space-y-4"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Student ID" htmlFor="studentId" error={errors.studentId?.message}>
+        <Field label="ID Siswa" htmlFor="studentId" error={errors.studentId?.message}>
           <Input id="studentId" {...register('studentId')} />
         </Field>
-        <Field label="Name" htmlFor="name" error={errors.name?.message}>
+        <Field label="Nama" htmlFor="name" error={errors.name?.message}>
           <Input id="name" {...register('name')} />
         </Field>
-        <Field label="Date of birth" htmlFor="dateOfBirth" error={errors.dateOfBirth?.message}>
+        <Field label="Tanggal Lahir" htmlFor="dateOfBirth" error={errors.dateOfBirth?.message}>
           <Input id="dateOfBirth" type="date" {...register('dateOfBirth')} />
         </Field>
-        <Field label="Gender" htmlFor="gender" error={errors.gender?.message}>
+        <Field label="Jenis Kelamin" htmlFor="gender" error={errors.gender?.message}>
           <select
             id="gender"
             className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
             {...register('gender')}
           >
-            <option value="male">Male</option>
-            <option value="female">Female</option>
+            <option value="male">Laki-laki</option>
+            <option value="female">Perempuan</option>
           </select>
         </Field>
         <Field
-          label="Address"
+          label="Alamat"
           htmlFor="address"
           error={errors.address?.message}
           className="sm:col-span-2"
         >
           <Input id="address" {...register('address')} />
         </Field>
-        <Field label="Parent name" htmlFor="parentName" error={errors.parentName?.message}>
+        <Field label="Nama Orang Tua" htmlFor="parentName" error={errors.parentName?.message}>
           <Input id="parentName" {...register('parentName')} />
         </Field>
-        <Field label="Parent phone" htmlFor="parentPhone" error={errors.parentPhone?.message}>
+        <Field label="Telepon Orang Tua" htmlFor="parentPhone" error={errors.parentPhone?.message}>
           <Input id="parentPhone" {...register('parentPhone')} />
         </Field>
         <Field
-          label="Parent email"
+          label="Email Orang Tua"
           htmlFor="parentEmail"
           error={errors.parentEmail?.message}
           className="sm:col-span-2"
@@ -112,11 +112,11 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
       {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : submitLabel}
+          {pending ? 'Menyimpan…' : submitLabel}
         </Button>
         {onCancel ? (
           <Button type="button" variant="secondary" onClick={onCancel}>
-            Cancel
+            Batal
           </Button>
         ) : null}
       </div>

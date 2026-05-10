@@ -71,7 +71,7 @@ func (h *Students) List(w http.ResponseWriter, r *http.Request) {
 		Offset: offset,
 	})
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to list students")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil daftar siswa")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, res)
@@ -82,10 +82,10 @@ func (h *Students) Get(w http.ResponseWriter, r *http.Request) {
 	st, err := h.students.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			httpx.Error(w, http.StatusNotFound, "not_found", "student not found")
+			httpx.Error(w, http.StatusNotFound, "not_found", "Siswa tidak ditemukan")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to get student")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil data siswa")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, st)
@@ -99,7 +99,7 @@ func (h *Students) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	st, err := h.students.Create(r.Context(), in)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to create student")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menyimpan siswa")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, st)
@@ -115,10 +115,10 @@ func (h *Students) Update(w http.ResponseWriter, r *http.Request) {
 	st, err := h.students.Update(r.Context(), id, in)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			httpx.Error(w, http.StatusNotFound, "not_found", "student not found")
+			httpx.Error(w, http.StatusNotFound, "not_found", "Siswa tidak ditemukan")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to update student")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal memperbarui siswa")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, st)
@@ -128,10 +128,10 @@ func (h *Students) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.students.Delete(r.Context(), id); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			httpx.Error(w, http.StatusNotFound, "not_found", "student not found")
+			httpx.Error(w, http.StatusNotFound, "not_found", "Siswa tidak ditemukan")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to delete student")
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menghapus siswa")
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

@@ -92,7 +92,7 @@ func run() error {
 		})
 
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) {
-			httpx.Error(w, http.StatusNotFound, "not_found", "route not found")
+			httpx.Error(w, http.StatusNotFound, "not_found", "Endpoint tidak ditemukan")
 		})
 	})
 

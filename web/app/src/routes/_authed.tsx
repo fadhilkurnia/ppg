@@ -47,8 +47,8 @@ function AuthedLayout() {
               PPG Dashboard
             </Link>
             <nav className="flex items-center gap-1">
-              <NavLink to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dashboard" />
-              <NavLink to="/students" icon={<Users size={16} />} label="Students" />
+              <NavLink to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dasbor" />
+              <NavLink to="/students" icon={<Users size={16} />} label="Siswa" />
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -61,7 +61,7 @@ function AuthedLayout() {
               onClick={() => logoutMutation.mutate()}
               disabled={logoutMutation.isPending}
             >
-              <LogOut size={16} className="mr-1" /> Sign out
+              <LogOut size={16} className="mr-1" /> Keluar
             </Button>
           </div>
         </div>

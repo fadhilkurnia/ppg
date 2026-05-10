@@ -29,8 +29,8 @@ export const Route = createFileRoute('/login')({
 })
 
 const schema = z.object({
-  identifier: z.string().min(1, 'Email or username is required'),
-  password: z.string().min(1, 'Password is required'),
+  identifier: z.string().min(1, 'Email atau nama pengguna wajib diisi'),
+  password: z.string().min(1, 'Kata sandi wajib diisi'),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -57,9 +57,9 @@ function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-6 text-xl font-semibold">Sign in</h1>
+        <h1 className="mb-6 text-xl font-semibold">Masuk</h1>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
-          <Field label="Email or username" htmlFor="identifier" error={errors.identifier?.message}>
+          <Field label="Email atau nama pengguna" htmlFor="identifier" error={errors.identifier?.message}>
             <Input
               id="identifier"
               type="text"
@@ -70,7 +70,7 @@ function LoginPage() {
               {...register('identifier')}
             />
           </Field>
-          <Field label="Password" htmlFor="password" error={errors.password?.message}>
+          <Field label="Kata sandi" htmlFor="password" error={errors.password?.message}>
             <Input
               id="password"
               type="password"
@@ -80,7 +80,7 @@ function LoginPage() {
           </Field>
           {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
           <Button type="submit" className="w-full" disabled={mutation.isPending}>
-            {mutation.isPending ? 'Signing in…' : 'Sign in'}
+            {mutation.isPending ? 'Memproses…' : 'Masuk'}
           </Button>
         </form>
       </div>

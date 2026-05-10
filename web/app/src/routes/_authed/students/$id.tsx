@@ -40,8 +40,8 @@ function StudentDetailPage() {
     },
   })
 
-  if (studentQuery.isPending) return <p className="text-slate-500">Loading…</p>
-  if (studentQuery.isError || !studentQuery.data) return <p className="text-red-600">Failed to load.</p>
+  if (studentQuery.isPending) return <p className="text-slate-500">Memuat…</p>
+  if (studentQuery.isError || !studentQuery.data) return <p className="text-red-600">Gagal memuat data.</p>
 
   const s = studentQuery.data
 
@@ -52,18 +52,18 @@ function StudentDetailPage() {
         {isAdmin && !editing ? (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setEditing(true)}>
-              Edit
+              Ubah
             </Button>
             <Button
               variant="danger"
               onClick={() => {
-                if (confirm(`Delete ${s.name}? This cannot be undone.`)) {
+                if (confirm(`Hapus ${s.name}? Tindakan ini tidak dapat dibatalkan.`)) {
                   deleteMutation.mutate()
                 }
               }}
               disabled={deleteMutation.isPending}
             >
-              Delete
+              Hapus
             </Button>
           </div>
         ) : null}
@@ -73,7 +73,7 @@ function StudentDetailPage() {
         {editing ? (
           <StudentForm
             initial={s}
-            submitLabel="Save"
+            submitLabel="Simpan"
             pending={updateMutation.isPending}
             error={updateMutation.error}
             onSubmit={(input) => updateMutation.mutate(input)}
@@ -81,14 +81,14 @@ function StudentDetailPage() {
           />
         ) : (
           <dl className="grid gap-4 sm:grid-cols-2 text-sm">
-            <Row label="Student ID" value={s.studentId} />
-            <Row label="Name" value={s.name} />
-            <Row label="Date of birth" value={s.dateOfBirth.slice(0, 10)} />
-            <Row label="Gender" value={s.gender} className="capitalize" />
-            <Row label="Address" value={s.address ?? '—'} className="sm:col-span-2" />
-            <Row label="Parent name" value={s.parentName} />
-            <Row label="Parent phone" value={s.parentPhone} />
-            <Row label="Parent email" value={s.parentEmail ?? '—'} className="sm:col-span-2" />
+            <Row label="ID Siswa" value={s.studentId} />
+            <Row label="Nama" value={s.name} />
+            <Row label="Tanggal Lahir" value={s.dateOfBirth.slice(0, 10)} />
+            <Row label="Jenis Kelamin" value={s.gender === 'male' ? 'Laki-laki' : 'Perempuan'} />
+            <Row label="Alamat" value={s.address ?? '—'} className="sm:col-span-2" />
+            <Row label="Nama Orang Tua" value={s.parentName} />
+            <Row label="Telepon Orang Tua" value={s.parentPhone} />
+            <Row label="Email Orang Tua" value={s.parentEmail ?? '—'} className="sm:col-span-2" />
           </dl>
         )}
       </div>
