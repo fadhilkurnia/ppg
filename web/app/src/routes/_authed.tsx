@@ -8,7 +8,16 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
-import { LogOut, Users, LayoutDashboard, GraduationCap, Menu, X } from 'lucide-react'
+import {
+  CalendarCheck,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Trophy,
+  Users,
+  X,
+} from 'lucide-react'
 
 import { logout, me } from '@/api/auth'
 import { ApiError } from '@/api/client'
@@ -102,6 +111,8 @@ function AuthedLayout() {
           <SideLink to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dasbor" />
           <SideLink to="/students" icon={<Users size={16} />} label="Generus" />
           <SideLink to="/teachers" icon={<GraduationCap size={16} />} label="Pengajar" />
+          <SideLink to="/attendance" icon={<CalendarCheck size={16} />} label="Kehadiran" />
+          <SideLink to="/achievement" icon={<Trophy size={16} />} label="Pencapaian" />
         </nav>
         <div className="space-y-2 border-t border-slate-200 p-3">
           <div className="px-2">
