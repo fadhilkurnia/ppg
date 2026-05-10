@@ -25,6 +25,9 @@ data/
 *.db-shm
 *.db-wal
 
+# CSV exports / imports (kept out of source)
+*.csv
+
 # IDE / OS
 .idea/
 .vscode/
