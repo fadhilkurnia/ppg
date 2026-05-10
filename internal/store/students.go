@@ -179,6 +179,112 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 	return &ListResult{Items: items, Total: total}, nil
 }
 
+type Bucket struct {
+	Label string `json:"label"`
+	Count int    `json:"count"`
+}
+
+type LevelKelompokCell struct {
+	Level    string `json:"level"`
+	Kelompok string `json:"kelompok"`
+	Count    int    `json:"count"`
+}
+
+type StudentStats struct {
+	Total      int                 `json:"total"`
+	ByGender   []Bucket            `json:"byGender"`
+	ByStatus   []Bucket            `json:"byStatus"`
+	ByLevel    []Bucket            `json:"byLevel"`
+	ByKelompok []Bucket            `json:"byKelompok"`
+	Matrix     []LevelKelompokCell `json:"matrix"`
+}
+
+// Stats produces the aggregates the dashboard needs in one round trip.
+// Buckets are returned in canonical order (Caberawit → Pra Nikah for level,
+// California → Canada for kelompok), with a trailing zero-count entry for
+// any canonical value that has no rows. Null/blank values become a separate
+// bucket with an empty label.
+func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
+	out := &StudentStats{}
+
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM students`).Scan(&out.Total); err != nil {
+		return nil, err
+	}
+
+	gender, err := s.groupCount(ctx, `SELECT gender, COUNT(*) FROM students GROUP BY gender`)
+	if err != nil {
+		return nil, err
+	}
+	out.ByGender = orderedBuckets(gender, []string{"female", "male"})
+
+	status, err := s.groupCount(ctx, `SELECT status, COUNT(*) FROM students GROUP BY status`)
+	if err != nil {
+		return nil, err
+	}
+	out.ByStatus = orderedBuckets(status, []string{"active", "left"})
+
+	level, err := s.groupCount(ctx, `SELECT COALESCE(level, ''), COUNT(*) FROM students GROUP BY level`)
+	if err != nil {
+		return nil, err
+	}
+	out.ByLevel = orderedBuckets(level, []string{
+		string(model.LevelCaberawit),
+		string(model.LevelPraRemaja),
+		string(model.LevelRemaja),
+		string(model.LevelPraNikah),
+		"",
+	})
+
+	kelompok, err := s.groupCount(ctx, `SELECT COALESCE(kelompok, ''), COUNT(*) FROM students GROUP BY kelompok`)
+	if err != nil {
+		return nil, err
+	}
+	out.ByKelompok = orderedBuckets(kelompok, append(append([]string{}, model.StudentKelompoks...), ""))
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT COALESCE(level, ''), COALESCE(kelompok, ''), COUNT(*)
+		   FROM students
+		  GROUP BY level, kelompok`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var c LevelKelompokCell
+		if err := rows.Scan(&c.Level, &c.Kelompok, &c.Count); err != nil {
+			return nil, err
+		}
+		out.Matrix = append(out.Matrix, c)
+	}
+	return out, rows.Err()
+}
+
+func (s *Students) groupCount(ctx context.Context, query string) (map[string]int, error) {
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var k string
+		var n int
+		if err := rows.Scan(&k, &n); err != nil {
+			return nil, err
+		}
+		out[k] = n
+	}
+	return out, rows.Err()
+}
+
+func orderedBuckets(counts map[string]int, order []string) []Bucket {
+	out := make([]Bucket, 0, len(order))
+	for _, k := range order {
+		out = append(out, Bucket{Label: k, Count: counts[k]})
+	}
+	return out
+}
+
 func nullableLevel(l *model.StudentLevel) any {
 	if l == nil {
 		return nil

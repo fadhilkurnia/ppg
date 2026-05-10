@@ -141,6 +141,9 @@ func run() error {
 			p.Get("/teachers", teachersH.List)
 			p.Get("/teachers/{id}", teachersH.Get)
 
+			statsH := handler.NewStats(students, teachers)
+			p.Get("/stats/dashboard", statsH.Dashboard)
+
 			p.Group(func(adm chi.Router) {
 				adm.Use(auth.RequireRole("admin"))
 				adm.Post("/students", studentsH.Create)

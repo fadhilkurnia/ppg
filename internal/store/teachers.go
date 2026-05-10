@@ -173,6 +173,61 @@ func (t *Teachers) List(ctx context.Context, p TeacherListParams) (*TeacherListR
 	return &TeacherListResult{Items: items, Total: total}, nil
 }
 
+type TeacherStats struct {
+	Total    int      `json:"total"`
+	ByStatus []Bucket `json:"byStatus"`
+	ByDaerah []Bucket `json:"byDaerah"` // sorted by count desc
+}
+
+func (t *Teachers) Stats(ctx context.Context) (*TeacherStats, error) {
+	out := &TeacherStats{}
+
+	if err := t.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM teachers`).Scan(&out.Total); err != nil {
+		return nil, err
+	}
+
+	statusRows, err := t.db.QueryContext(ctx,
+		`SELECT status, COUNT(*) FROM teachers GROUP BY status`)
+	if err != nil {
+		return nil, err
+	}
+	defer statusRows.Close()
+	statusMap := map[string]int{}
+	for statusRows.Next() {
+		var s string
+		var n int
+		if err := statusRows.Scan(&s, &n); err != nil {
+			return nil, err
+		}
+		statusMap[s] = n
+	}
+	if err := statusRows.Err(); err != nil {
+		return nil, err
+	}
+	out.ByStatus = []Bucket{
+		{Label: "active", Count: statusMap["active"]},
+		{Label: "retired", Count: statusMap["retired"]},
+	}
+
+	daerahRows, err := t.db.QueryContext(ctx,
+		`SELECT daerah, COUNT(*) AS n
+		   FROM teachers
+		  GROUP BY daerah
+		  ORDER BY n DESC, daerah ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer daerahRows.Close()
+	for daerahRows.Next() {
+		var b Bucket
+		if err := daerahRows.Scan(&b.Label, &b.Count); err != nil {
+			return nil, err
+		}
+		out.ByDaerah = append(out.ByDaerah, b)
+	}
+	return out, daerahRows.Err()
+}
+
 func nullableDate(t *time.Time) any {
 	if t == nil {
 		return nil
