@@ -9,6 +9,7 @@ import { useMe } from '@/lib/auth'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { RowActions } from '@/components/RowActions'
+import { ageInYears } from '@/lib/age'
 
 const PAGE_SIZE = 20
 
@@ -125,6 +126,7 @@ function StudentsPage() {
               <th className="px-4 py-2">Nama</th>
               <th className="hidden px-4 py-2 sm:table-cell">Panggilan</th>
               <th className="hidden px-4 py-2 sm:table-cell">L/P</th>
+              <th className="hidden px-4 py-2 sm:table-cell">Usia</th>
               <th className="hidden px-4 py-2 md:table-cell">Jenjang</th>
               <th className="hidden px-4 py-2 md:table-cell">Kelompok</th>
               <th className="px-4 py-2">Status</th>
@@ -134,7 +136,7 @@ function StudentsPage() {
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
                   Memuat…
                 </td>
               </tr>
@@ -152,6 +154,12 @@ function StudentsPage() {
                   </td>
                   <td className="hidden px-4 py-2 sm:table-cell">{s.nickname ?? '—'}</td>
                   <td className="hidden px-4 py-2 sm:table-cell">{s.gender === 'male' ? 'L' : 'P'}</td>
+                  <td className="hidden px-4 py-2 sm:table-cell">
+                    {(() => {
+                      const age = ageInYears(s.dateOfBirth)
+                      return age === null ? '—' : age
+                    })()}
+                  </td>
                   <td className="hidden px-4 py-2 md:table-cell">{s.level ?? '—'}</td>
                   <td className="hidden px-4 py-2 md:table-cell">{s.kelompok ?? '—'}</td>
                   <td className="px-4 py-2">
@@ -171,7 +179,7 @@ function StudentsPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
                   Belum ada data Generus.
                 </td>
               </tr>

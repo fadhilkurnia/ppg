@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { deleteStudent, getStudent, updateStudent } from '@/api/students'
 import { useMe } from '@/lib/auth'
+import { ageInYears } from '@/lib/age'
 import { Button } from '@/components/Button'
 import { StudentForm } from '@/components/StudentForm'
 
@@ -87,7 +88,16 @@ function StudentDetailPage() {
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
             <Row label="Nama" value={s.name} />
             <Row label="Nama Panggilan" value={s.nickname ?? '—'} />
-            <Row label="Tanggal Lahir" value={s.dateOfBirth?.slice(0, 10) ?? '—'} />
+            <Row
+              label="Tanggal Lahir"
+              value={
+                s.dateOfBirth
+                  ? `${s.dateOfBirth.slice(0, 10)}${
+                      ageInYears(s.dateOfBirth) !== null ? ` (${ageInYears(s.dateOfBirth)} tahun)` : ''
+                    }`
+                  : '—'
+              }
+            />
             <Row label="Jenis Kelamin" value={s.gender === 'male' ? 'Laki-laki' : 'Perempuan'} />
             <Row label="Jenjang" value={s.level ?? '—'} />
             <Row label="Kelompok" value={s.kelompok ?? '—'} className="sm:col-span-2" />
