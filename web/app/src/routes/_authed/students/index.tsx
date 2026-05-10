@@ -1,12 +1,14 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search } from 'lucide-react'
 import { z } from 'zod'
 
-import { listStudents } from '@/api/students'
+import { deleteStudent, listStudents } from '@/api/students'
+import type { Student } from '@/api/types'
 import { useMe } from '@/lib/auth'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
+import { RowActions } from '@/components/RowActions'
 
 const PAGE_SIZE = 20
 
@@ -30,6 +32,18 @@ function StudentsPage() {
     queryKey: ['students', { q, page }],
     queryFn: () => listStudents({ q, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
   })
+
+  const qc = useQueryClient()
+  const deleteMutation = useMutation({
+    mutationFn: deleteStudent,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['students'] }),
+  })
+
+  const handleDelete = (s: Student) => {
+    if (confirm(`Hapus ${s.name}? Tindakan ini tidak dapat dibatalkan.`)) {
+      deleteMutation.mutate(s.id)
+    }
+  }
 
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -73,12 +87,13 @@ function StudentsPage() {
               <th className="hidden px-4 py-2 sm:table-cell">Jenis Kelamin</th>
               <th className="hidden px-4 py-2 md:table-cell">Orang Tua</th>
               <th className="hidden px-4 py-2 md:table-cell">Telepon</th>
+              {isAdmin ? <th className="px-4 py-2 text-right">Aksi</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
                   Memuat…
                 </td>
               </tr>
@@ -100,11 +115,21 @@ function StudentsPage() {
                   </td>
                   <td className="hidden px-4 py-2 md:table-cell">{s.parentName}</td>
                   <td className="hidden px-4 py-2 md:table-cell">{s.parentPhone}</td>
+                  {isAdmin ? (
+                    <td className="px-4 py-2 text-right">
+                      <RowActions
+                        editTo="/students/$id"
+                        editParams={{ id: s.id }}
+                        onDelete={() => handleDelete(s)}
+                        deleteDisabled={deleteMutation.isPending}
+                      />
+                    </td>
+                  ) : null}
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
                   Belum ada data Generus.
                 </td>
               </tr>

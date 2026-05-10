@@ -1,12 +1,14 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search } from 'lucide-react'
 import { z } from 'zod'
 
-import { listTeachers } from '@/api/teachers'
+import { deleteTeacher, listTeachers } from '@/api/teachers'
+import type { Teacher } from '@/api/types'
 import { useMe } from '@/lib/auth'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
+import { RowActions } from '@/components/RowActions'
 
 const PAGE_SIZE = 20
 
@@ -32,6 +34,18 @@ function TeachersPage() {
     queryFn: () =>
       listTeachers({ q, status, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
   })
+
+  const qc = useQueryClient()
+  const deleteMutation = useMutation({
+    mutationFn: deleteTeacher,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teachers'] }),
+  })
+
+  const handleDelete = (t: Teacher) => {
+    if (confirm(`Hapus ${t.name}? Tindakan ini tidak dapat dibatalkan.`)) {
+      deleteMutation.mutate(t.id)
+    }
+  }
 
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -96,12 +110,13 @@ function TeachersPage() {
               <th className="hidden px-4 py-2 md:table-cell">Kelompok</th>
               <th className="hidden px-4 py-2 md:table-cell">Daerah</th>
               <th className="px-4 py-2">Status</th>
+              {isAdmin ? <th className="px-4 py-2 text-right">Aksi</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
                   Memuat…
                 </td>
               </tr>
@@ -123,11 +138,21 @@ function TeachersPage() {
                   <td className="px-4 py-2">
                     <StatusPill status={t.status} />
                   </td>
+                  {isAdmin ? (
+                    <td className="px-4 py-2 text-right">
+                      <RowActions
+                        editTo="/teachers/$id"
+                        editParams={{ id: t.id }}
+                        onDelete={() => handleDelete(t)}
+                        deleteDisabled={deleteMutation.isPending}
+                      />
+                    </td>
+                  ) : null}
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
                   Belum ada data Pengajar.
                 </td>
               </tr>

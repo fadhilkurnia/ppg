@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { z } from 'zod'
 
 import { deleteStudent, getStudent, updateStudent } from '@/api/students'
 import { useMe } from '@/lib/auth'
@@ -8,16 +9,18 @@ import { Button } from '@/components/Button'
 import { StudentForm } from '@/components/StudentForm'
 
 export const Route = createFileRoute('/_authed/students/$id')({
+  validateSearch: z.object({ edit: z.literal(1).optional().catch(undefined) }),
   component: StudentDetailPage,
 })
 
 function StudentDetailPage() {
   const { id } = Route.useParams()
+  const { edit } = Route.useSearch()
   const { data: user } = useMe()
   const isAdmin = user?.role === 'admin'
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(isAdmin && edit === 1)
 
   const studentQuery = useQuery({
     queryKey: ['students', id],
