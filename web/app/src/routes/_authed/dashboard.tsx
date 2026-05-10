@@ -1,24 +1,38 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Users } from 'lucide-react'
+import { GraduationCap, Users } from 'lucide-react'
 
 import { listStudents } from '@/api/students'
+import { listTeachers } from '@/api/teachers'
 
 export const Route = createFileRoute('/_authed/dashboard')({
   component: DashboardPage,
 })
 
 function DashboardPage() {
-  const { data, isPending } = useQuery({
+  const studentsQuery = useQuery({
     queryKey: ['students', 'count'],
     queryFn: () => listStudents({ limit: 1 }),
+  })
+  const teachersActive = useQuery({
+    queryKey: ['teachers', 'count', 'active'],
+    queryFn: () => listTeachers({ limit: 1, status: 'active' }),
   })
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Dasbor</h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card icon={<Users />} label="Generus" value={isPending ? '—' : String(data?.total ?? 0)} />
+        <Card
+          icon={<Users />}
+          label="Generus"
+          value={studentsQuery.isPending ? '—' : String(studentsQuery.data?.total ?? 0)}
+        />
+        <Card
+          icon={<GraduationCap />}
+          label="Guru aktif"
+          value={teachersActive.isPending ? '—' : String(teachersActive.data?.total ?? 0)}
+        />
       </div>
     </div>
   )

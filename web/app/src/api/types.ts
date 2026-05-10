@@ -39,3 +39,37 @@ export type StudentInput = {
   parentPhone: string
   parentEmail?: string
 }
+
+export type TeacherStatus = 'active' | 'retired'
+
+export type Teacher = {
+  id: string
+  name: string
+  nickname?: string
+  kelompok: string
+  desa: string
+  daerah: string
+  joinedAt?: string
+  retiredAt?: string
+  status: TeacherStatus
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type TeacherList = {
+  items: Teacher[]
+  total: number
+}
+
+export type TeacherInput = {
+  name: string
+  nickname?: string
+  kelompok: string
+  desa: string
+  daerah: string
+  joinedAt?: string
+  retiredAt?: string
+  status: TeacherStatus
+  notes?: string
+}

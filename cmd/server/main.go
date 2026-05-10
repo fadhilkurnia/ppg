@@ -50,6 +50,7 @@ func run() error {
 
 	users := store.NewUsers(db)
 	students := store.NewStudents(db)
+	teachers := store.NewTeachers(db)
 
 	if cfg.SeedAdminEmail != "" && cfg.SeedAdminPass != "" {
 		if err := store.SeedAdmin(context.Background(), users, cfg.SeedAdminEmail, cfg.SeedAdminUsername, cfg.SeedAdminPass); err != nil {
@@ -83,11 +84,19 @@ func run() error {
 			p.Get("/students", studentsH.List)
 			p.Get("/students/{id}", studentsH.Get)
 
+			teachersH := handler.NewTeachers(teachers)
+			p.Get("/teachers", teachersH.List)
+			p.Get("/teachers/{id}", teachersH.Get)
+
 			p.Group(func(adm chi.Router) {
 				adm.Use(auth.RequireRole("admin"))
 				adm.Post("/students", studentsH.Create)
 				adm.Patch("/students/{id}", studentsH.Update)
 				adm.Delete("/students/{id}", studentsH.Delete)
+
+				adm.Post("/teachers", teachersH.Create)
+				adm.Patch("/teachers/{id}", teachersH.Update)
+				adm.Delete("/teachers/{id}", teachersH.Delete)
 			})
 		})
 
