@@ -23,6 +23,7 @@ const schema = z.object({
   name: z.string().min(1, 'Wajib diisi').max(200),
   nickname: z.string().max(200).optional().or(z.literal('')),
   dateOfBirth: isoDateOrEmpty,
+  gender: z.enum(['male', 'female']),
   level: z.enum([...STUDENT_LEVELS, ''] as [string, ...string[]]),
   kelompok: z.enum([...STUDENT_KELOMPOKS, ''] as [string, ...string[]]),
   joinedAt: isoDateOrEmpty,
@@ -56,6 +57,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
       name: initial?.name ?? '',
       nickname: initial?.nickname ?? '',
       dateOfBirth: initial?.dateOfBirth?.slice(0, 10) ?? '',
+      gender: initial?.gender ?? 'female',
       level: (initial?.level as FormValues['level']) ?? '',
       kelompok: (initial?.kelompok as FormValues['kelompok']) ?? '',
       joinedAt: initial?.joinedAt?.slice(0, 10) ?? '',
@@ -77,6 +79,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
           name: v.name,
           nickname: v.nickname || undefined,
           dateOfBirth: v.dateOfBirth || undefined,
+          gender: v.gender,
           level: v.level === '' ? undefined : (v.level as StudentInput['level']),
           kelompok: v.kelompok === '' ? undefined : (v.kelompok as StudentInput['kelompok']),
           joinedAt: v.joinedAt || undefined,
@@ -100,6 +103,12 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
           </Field>
           <Field label="Tanggal Lahir" htmlFor="dateOfBirth" error={errors.dateOfBirth?.message}>
             <Input id="dateOfBirth" type="date" {...register('dateOfBirth')} />
+          </Field>
+          <Field label="Jenis Kelamin" htmlFor="gender" error={errors.gender?.message}>
+            <Select id="gender" {...register('gender')}>
+              <option value="female">Perempuan</option>
+              <option value="male">Laki-laki</option>
+            </Select>
           </Field>
           <Field label="Jenjang" htmlFor="level" error={errors.level?.message}>
             <Select id="level" {...register('level')}>

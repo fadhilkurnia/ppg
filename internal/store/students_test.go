@@ -33,6 +33,7 @@ func sampleInput(name string) StudentInput {
 	return StudentInput{
 		Name:        name,
 		DateOfBirth: &dob,
+		Gender:      "female",
 		Level:       &level,
 		Kelompok:    &kelompok,
 		Status:      model.StudentActive,

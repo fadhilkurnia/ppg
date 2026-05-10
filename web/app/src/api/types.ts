@@ -23,6 +23,7 @@ export type Student = {
   name: string
   nickname?: string
   dateOfBirth?: string
+  gender: 'male' | 'female'
   level?: StudentLevel
   kelompok?: StudentKelompok
   joinedAt?: string
@@ -45,6 +46,7 @@ export type StudentInput = {
   name: string
   nickname?: string
   dateOfBirth?: string
+  gender: 'male' | 'female'
   level?: StudentLevel
   kelompok?: StudentKelompok
   joinedAt?: string

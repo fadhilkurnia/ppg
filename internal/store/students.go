@@ -25,6 +25,7 @@ type StudentInput struct {
 	Name        string
 	Nickname    *string
 	DateOfBirth *time.Time
+	Gender      string
 	Level       *model.StudentLevel
 	Kelompok    *string
 	JoinedAt    *time.Time
@@ -48,7 +49,7 @@ type ListResult struct {
 	Total int             `json:"total"`
 }
 
-const selectStudent = `SELECT id, name, nickname, date_of_birth, level, kelompok,
+const selectStudent = `SELECT id, name, nickname, date_of_birth, gender, level, kelompok,
 	joined_at, left_at, leave_reason, status, parent_name, parent_phone, parent_email,
 	created_at, updated_at FROM students`
 
@@ -60,13 +61,13 @@ func (s *Students) Create(ctx context.Context, in StudentInput) (*model.Student,
 	now := time.Now().UTC()
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO students
-		   (id, name, nickname, date_of_birth, level, kelompok,
+		   (id, name, nickname, date_of_birth, gender, level, kelompok,
 		    joined_at, left_at, leave_reason, status,
 		    parent_name, parent_phone, parent_email,
 		    created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, in.Name, in.Nickname,
-		nullableDate(in.DateOfBirth), nullableLevel(in.Level), in.Kelompok,
+		nullableDate(in.DateOfBirth), in.Gender, nullableLevel(in.Level), in.Kelompok,
 		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason,
 		string(in.Status), in.ParentName, in.ParentPhone, in.ParentEmail,
 		now, now)
@@ -88,12 +89,12 @@ func (s *Students) Update(ctx context.Context, id string, in StudentInput) (*mod
 	now := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE students SET
-		   name = ?, nickname = ?, date_of_birth = ?, level = ?, kelompok = ?,
+		   name = ?, nickname = ?, date_of_birth = ?, gender = ?, level = ?, kelompok = ?,
 		   joined_at = ?, left_at = ?, leave_reason = ?, status = ?,
 		   parent_name = ?, parent_phone = ?, parent_email = ?, updated_at = ?
 		 WHERE id = ?`,
 		in.Name, in.Nickname,
-		nullableDate(in.DateOfBirth), nullableLevel(in.Level), in.Kelompok,
+		nullableDate(in.DateOfBirth), in.Gender, nullableLevel(in.Level), in.Kelompok,
 		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason,
 		string(in.Status), in.ParentName, in.ParentPhone, in.ParentEmail,
 		now, id)
@@ -202,7 +203,7 @@ func readStudent(s scanner) (*model.Student, error) {
 	var dob, joinedAt, leftAt sql.NullTime
 	var level sql.NullString
 	if err := s.Scan(
-		&st.ID, &st.Name, &st.Nickname, &dob, &level, &st.Kelompok,
+		&st.ID, &st.Name, &st.Nickname, &dob, &st.Gender, &level, &st.Kelompok,
 		&joinedAt, &leftAt, &st.LeaveReason, &status,
 		&st.ParentName, &st.ParentPhone, &st.ParentEmail,
 		&st.CreatedAt, &st.UpdatedAt,

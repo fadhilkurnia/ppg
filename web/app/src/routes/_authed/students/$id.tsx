@@ -88,6 +88,7 @@ function StudentDetailPage() {
             <Row label="Nama" value={s.name} />
             <Row label="Nama Panggilan" value={s.nickname ?? '—'} />
             <Row label="Tanggal Lahir" value={s.dateOfBirth?.slice(0, 10) ?? '—'} />
+            <Row label="Jenis Kelamin" value={s.gender === 'male' ? 'Laki-laki' : 'Perempuan'} />
             <Row label="Jenjang" value={s.level ?? '—'} />
             <Row label="Kelompok" value={s.kelompok ?? '—'} className="sm:col-span-2" />
             <Row label="Tanggal Masuk" value={s.joinedAt?.slice(0, 10) ?? '—'} />

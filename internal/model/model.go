@@ -67,6 +67,7 @@ type Student struct {
 	Name        string        `json:"name"`
 	Nickname    *string       `json:"nickname,omitempty"`
 	DateOfBirth *time.Time    `json:"dateOfBirth,omitempty"`
+	Gender      string        `json:"gender"`
 	Level       *StudentLevel `json:"level,omitempty"`
 	Kelompok    *string       `json:"kelompok,omitempty"`
 	JoinedAt    *time.Time    `json:"joinedAt,omitempty"`
