@@ -4,7 +4,7 @@ import { Plus, Search } from 'lucide-react'
 import { z } from 'zod'
 
 import { deleteStudent, listStudents } from '@/api/students'
-import type { Student } from '@/api/types'
+import { STUDENT_KELOMPOKS, type Student } from '@/api/types'
 import { useMe } from '@/lib/auth'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
@@ -15,6 +15,7 @@ const PAGE_SIZE = 20
 const searchSchema = z.object({
   q: z.string().optional().catch(''),
   status: z.enum(['active', 'left']).optional().catch(undefined),
+  kelompok: z.enum(STUDENT_KELOMPOKS).optional().catch(undefined),
   page: z.number().int().min(1).optional().catch(1),
 })
 
@@ -25,14 +26,14 @@ export const Route = createFileRoute('/_authed/students/')({
 
 function StudentsPage() {
   const navigate = useNavigate({ from: '/students/' })
-  const { q = '', status, page = 1 } = Route.useSearch()
+  const { q = '', status, kelompok, page = 1 } = Route.useSearch()
   const { data: user } = useMe()
   const isAdmin = user?.role === 'admin'
 
   const { data, isPending } = useQuery({
-    queryKey: ['students', { q, status, page }],
+    queryKey: ['students', { q, status, kelompok, page }],
     queryFn: () =>
-      listStudents({ q, status, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+      listStudents({ q, status, kelompok, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
   })
 
   const qc = useQueryClient()
@@ -65,16 +66,20 @@ function StudentsPage() {
       </div>
 
       <form
-        className="flex flex-col gap-2 sm:flex-row sm:items-center"
+        className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
         onSubmit={(e) => {
           e.preventDefault()
           const fd = new FormData(e.currentTarget)
           const next = String(fd.get('q') ?? '')
           const nextStatus = String(fd.get('status') ?? '')
+          const nextKelompok = String(fd.get('kelompok') ?? '')
           void navigate({
             search: {
               q: next || undefined,
               status: nextStatus === 'active' || nextStatus === 'left' ? nextStatus : undefined,
+              kelompok: (STUDENT_KELOMPOKS as readonly string[]).includes(nextKelompok)
+                ? (nextKelompok as (typeof STUDENT_KELOMPOKS)[number])
+                : undefined,
               page: 1,
             },
           })
@@ -95,6 +100,18 @@ function StudentsPage() {
           <option value="">Semua status</option>
           <option value="active">Aktif</option>
           <option value="left">Keluar</option>
+        </select>
+        <select
+          name="kelompok"
+          defaultValue={kelompok ?? ''}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        >
+          <option value="">Semua kelompok</option>
+          {STUDENT_KELOMPOKS.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
         </select>
         <Button type="submit" variant="secondary" size="md">
           Terapkan
@@ -174,7 +191,7 @@ function StudentsPage() {
             disabled={page <= 1}
             onClick={() =>
               void navigate({
-                search: { q: q || undefined, status, page: Math.max(1, page - 1) },
+                search: { q: q || undefined, status, kelompok, page: Math.max(1, page - 1) },
               })
             }
           >
@@ -186,7 +203,7 @@ function StudentsPage() {
             disabled={page >= totalPages}
             onClick={() =>
               void navigate({
-                search: { q: q || undefined, status, page: Math.min(totalPages, page + 1) },
+                search: { q: q || undefined, status, kelompok, page: Math.min(totalPages, page + 1) },
               })
             }
           >

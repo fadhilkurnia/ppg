@@ -38,10 +38,11 @@ type StudentInput struct {
 }
 
 type ListParams struct {
-	Query  string
-	Status string // "", "active", "left"
-	Limit  int
-	Offset int
+	Query    string
+	Status   string // "", "active", "left"
+	Kelompok string // "" or one of the canonical kelompoks
+	Limit    int
+	Offset   int
 }
 
 type ListResult struct {
@@ -144,6 +145,10 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 	if p.Status != "" {
 		clauses = append(clauses, "status = ?")
 		args = append(args, p.Status)
+	}
+	if p.Kelompok != "" {
+		clauses = append(clauses, "kelompok = ?")
+		args = append(args, p.Kelompok)
 	}
 
 	where := ""

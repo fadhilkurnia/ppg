@@ -15,6 +15,7 @@ import {
 
 import { getDashboardStats, type Bucket, type LevelKelompokCell } from '@/api/stats'
 import { STUDENT_KELOMPOKS, STUDENT_LEVELS } from '@/api/types'
+import { StudentLocationMap } from '@/components/StudentLocationMap'
 
 export const Route = createFileRoute('/_authed/dashboard')({
   component: DashboardPage,
@@ -76,6 +77,10 @@ function DashboardPage() {
           <KelompokBarChart buckets={data.students.byKelompok} />
         </ChartCard>
       </div>
+
+      <ChartCard title="Sebaran Generus per Kelompok">
+        <StudentLocationMap buckets={data.students.byKelompok} />
+      </ChartCard>
 
       <ChartCard title="Pengajar per Daerah (top 6)">
         <DaerahBarChart buckets={data.teachers.byDaerah} />

@@ -102,10 +102,11 @@ func (h *Students) List(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
 	res, err := h.students.List(r.Context(), store.ListParams{
-		Query:  q.Get("q"),
-		Status: q.Get("status"),
-		Limit:  limit,
-		Offset: offset,
+		Query:    q.Get("q"),
+		Status:   q.Get("status"),
+		Kelompok: q.Get("kelompok"),
+		Limit:    limit,
+		Offset:   offset,
 	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil daftar Generus")
