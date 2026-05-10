@@ -3,6 +3,7 @@ export type Role = 'admin' | 'staff'
 export type User = {
   id: string
   email: string
+  username?: string
   name: string
   role: Role
   createdAt: string

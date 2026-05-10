@@ -11,6 +11,7 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       DATABASE_PATH: /app/data/app.db
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
     volumes:
       - ppg-data:/app/data

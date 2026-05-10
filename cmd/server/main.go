@@ -52,7 +52,7 @@ func run() error {
 	students := store.NewStudents(db)
 
 	if cfg.SeedAdminEmail != "" && cfg.SeedAdminPass != "" {
-		if err := store.SeedAdmin(context.Background(), users, cfg.SeedAdminEmail, cfg.SeedAdminPass); err != nil {
+		if err := store.SeedAdmin(context.Background(), users, cfg.SeedAdminEmail, cfg.SeedAdminUsername, cfg.SeedAdminPass); err != nil {
 			return fmt.Errorf("seed admin: %w", err)
 		}
 	}

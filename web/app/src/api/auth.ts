@@ -1,10 +1,10 @@
 import { apiFetch } from './client'
 import type { User } from './types'
 
-export function login(email: string, password: string) {
+export function login(identifier: string, password: string) {
   return apiFetch<User>('/api/auth/login', {
     method: 'POST',
-    body: { email, password },
+    body: { identifier, password },
   })
 }
 

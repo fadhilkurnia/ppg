@@ -24,8 +24,8 @@ func NewAuth(users *store.Users, jwtSvc *auth.JWT, cookieSecure bool) *Auth {
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Identifier string `json:"identifier"`
+	Password   string `json:"password"`
 }
 
 func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
@@ -34,16 +34,22 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
 	}
-	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
-	if req.Email == "" || req.Password == "" {
-		httpx.Error(w, http.StatusBadRequest, "bad_request", "email and password are required")
+	req.Identifier = strings.TrimSpace(req.Identifier)
+	if req.Identifier == "" || req.Password == "" {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "identifier and password are required")
 		return
 	}
+	// Emails are stored lowercase; usernames as-is. Lowercase only when it
+	// looks like an email so usernames aren't mangled.
+	lookup := req.Identifier
+	if strings.Contains(lookup, "@") {
+		lookup = strings.ToLower(lookup)
+	}
 
-	user, err := a.users.FindByEmail(r.Context(), req.Email)
+	user, err := a.users.FindByIdentifier(r.Context(), lookup)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "incorrect email or password")
+			httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "incorrect credentials")
 			return
 		}
 		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to look up user")
@@ -51,7 +57,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "incorrect email or password")
+		httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "incorrect credentials")
 		return
 	}
 

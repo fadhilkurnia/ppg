@@ -13,8 +13,9 @@ type Config struct {
 	JWTSecret       []byte
 	JWTTTL          time.Duration
 	CookieSecure    bool
-	SeedAdminEmail  string
-	SeedAdminPass   string
+	SeedAdminEmail    string
+	SeedAdminUsername string
+	SeedAdminPass     string
 	Dev             bool
 }
 
@@ -24,8 +25,9 @@ func Load() (Config, error) {
 		DatabasePath:   getString("DATABASE_PATH", "./data/app.db"),
 		JWTTTL:         getDuration("JWT_TTL", 24*time.Hour),
 		CookieSecure:   getBool("COOKIE_SECURE", false),
-		SeedAdminEmail: os.Getenv("SEED_ADMIN_EMAIL"),
-		SeedAdminPass:  os.Getenv("SEED_ADMIN_PASSWORD"),
+		SeedAdminEmail:    os.Getenv("SEED_ADMIN_EMAIL"),
+		SeedAdminUsername: os.Getenv("SEED_ADMIN_USERNAME"),
+		SeedAdminPass:     os.Getenv("SEED_ADMIN_PASSWORD"),
 		Dev:            getBool("DEV", false),
 	}
 

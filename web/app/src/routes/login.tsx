@@ -29,7 +29,7 @@ export const Route = createFileRoute('/login')({
 })
 
 const schema = z.object({
-  email: z.string().email('Enter a valid email'),
+  identifier: z.string().min(1, 'Email or username is required'),
   password: z.string().min(1, 'Password is required'),
 })
 
@@ -45,7 +45,7 @@ function LoginPage() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
   const mutation = useMutation({
-    mutationFn: ({ email, password }: FormValues) => login(email, password),
+    mutationFn: ({ identifier, password }: FormValues) => login(identifier, password),
     onSuccess: async (user) => {
       setMe(user)
       await navigate({ to: '/dashboard' })
@@ -59,13 +59,15 @@ function LoginPage() {
       <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="mb-6 text-xl font-semibold">Sign in</h1>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
-          <Field label="Email" htmlFor="email" error={errors.email?.message}>
+          <Field label="Email or username" htmlFor="identifier" error={errors.identifier?.message}>
             <Input
-              id="email"
-              type="email"
-              autoComplete="email"
+              id="identifier"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
               autoFocus
-              {...register('email')}
+              {...register('identifier')}
             />
           </Field>
           <Field label="Password" htmlFor="password" error={errors.password?.message}>
