@@ -58,6 +58,10 @@ const (
 	LevelPraNikah  StudentLevel = "Pra Nikah"
 )
 
+// StudentKelompoks is the canonical list of valid kelompok values, mirrored
+// in the SQL CHECK constraint and the frontend dropdown.
+var StudentKelompoks = []string{"California", "Chicago", "New Hampshire", "Canada"}
+
 type Student struct {
 	ID          string        `json:"id"`
 	Name        string        `json:"name"`

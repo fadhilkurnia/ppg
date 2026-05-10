@@ -32,7 +32,7 @@ type studentBody struct {
 	Nickname    *string `json:"nickname,omitempty"     validate:"omitempty,max=200"`
 	DateOfBirth *string `json:"dateOfBirth,omitempty"  validate:"omitempty,datetime=2006-01-02"`
 	Level       *string `json:"level,omitempty"        validate:"omitempty,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
-	Kelompok    *string `json:"kelompok,omitempty"     validate:"omitempty,max=200"`
+	Kelompok    *string `json:"kelompok,omitempty"     validate:"omitempty,oneof=California Chicago 'New Hampshire' Canada"`
 	JoinedAt    *string `json:"joinedAt,omitempty"     validate:"omitempty,datetime=2006-01-02"`
 	LeftAt      *string `json:"leftAt,omitempty"       validate:"omitempty,datetime=2006-01-02"`
 	LeaveReason *string `json:"leaveReason,omitempty"  validate:"omitempty,max=500"`

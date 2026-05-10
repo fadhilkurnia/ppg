@@ -13,6 +13,9 @@ export type User = {
 export const STUDENT_LEVELS = ['Caberawit', 'Pra Remaja', 'Remaja', 'Pra Nikah'] as const
 export type StudentLevel = (typeof STUDENT_LEVELS)[number]
 
+export const STUDENT_KELOMPOKS = ['California', 'Chicago', 'New Hampshire', 'Canada'] as const
+export type StudentKelompok = (typeof STUDENT_KELOMPOKS)[number]
+
 export type StudentStatus = 'active' | 'left'
 
 export type Student = {
@@ -21,7 +24,7 @@ export type Student = {
   nickname?: string
   dateOfBirth?: string
   level?: StudentLevel
-  kelompok?: string
+  kelompok?: StudentKelompok
   joinedAt?: string
   leftAt?: string
   leaveReason?: string
@@ -43,7 +46,7 @@ export type StudentInput = {
   nickname?: string
   dateOfBirth?: string
   level?: StudentLevel
-  kelompok?: string
+  kelompok?: StudentKelompok
   joinedAt?: string
   leftAt?: string
   leaveReason?: string

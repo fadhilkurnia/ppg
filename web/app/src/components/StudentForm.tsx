@@ -2,7 +2,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
-import { STUDENT_LEVELS, type Student, type StudentInput } from '@/api/types'
+import {
+  STUDENT_KELOMPOKS,
+  STUDENT_LEVELS,
+  type Student,
+  type StudentInput,
+} from '@/api/types'
 import { ApiError } from '@/api/client'
 import { Button } from './Button'
 import { Input } from './Input'
@@ -19,7 +24,7 @@ const schema = z.object({
   nickname: z.string().max(200).optional().or(z.literal('')),
   dateOfBirth: isoDateOrEmpty,
   level: z.enum([...STUDENT_LEVELS, ''] as [string, ...string[]]),
-  kelompok: z.string().max(200).optional().or(z.literal('')),
+  kelompok: z.enum([...STUDENT_KELOMPOKS, ''] as [string, ...string[]]),
   joinedAt: isoDateOrEmpty,
   leftAt: isoDateOrEmpty,
   leaveReason: z.string().max(500).optional().or(z.literal('')),
@@ -52,7 +57,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
       nickname: initial?.nickname ?? '',
       dateOfBirth: initial?.dateOfBirth?.slice(0, 10) ?? '',
       level: (initial?.level as FormValues['level']) ?? '',
-      kelompok: initial?.kelompok ?? '',
+      kelompok: (initial?.kelompok as FormValues['kelompok']) ?? '',
       joinedAt: initial?.joinedAt?.slice(0, 10) ?? '',
       leftAt: initial?.leftAt?.slice(0, 10) ?? '',
       leaveReason: initial?.leaveReason ?? '',
@@ -73,7 +78,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
           nickname: v.nickname || undefined,
           dateOfBirth: v.dateOfBirth || undefined,
           level: v.level === '' ? undefined : (v.level as StudentInput['level']),
-          kelompok: v.kelompok || undefined,
+          kelompok: v.kelompok === '' ? undefined : (v.kelompok as StudentInput['kelompok']),
           joinedAt: v.joinedAt || undefined,
           leftAt: v.leftAt || undefined,
           leaveReason: v.leaveReason || undefined,
@@ -107,7 +112,14 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
             </Select>
           </Field>
           <Field label="Kelompok" htmlFor="kelompok" error={errors.kelompok?.message} className="sm:col-span-2">
-            <Input id="kelompok" {...register('kelompok')} />
+            <Select id="kelompok" {...register('kelompok')}>
+              <option value="">—</option>
+              {STUDENT_KELOMPOKS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </Select>
           </Field>
         </div>
       </Section>
