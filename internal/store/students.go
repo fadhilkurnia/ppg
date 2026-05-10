@@ -196,7 +196,11 @@ type LevelKelompokCell struct {
 }
 
 type StudentStats struct {
-	Total      int                 `json:"total"`
+	Total       int                 `json:"total"`       // every row
+	ActiveTotal int                 `json:"activeTotal"` // status='active'
+	// All distributions below count active rows only — that's the dashboard's
+	// primary focus. ByStatus is the exception: it keeps the active/left
+	// split so callers can still see the inactive count.
 	ByGender   []Bucket            `json:"byGender"`
 	ByStatus   []Bucket            `json:"byStatus"`
 	ByLevel    []Bucket            `json:"byLevel"`
@@ -215,8 +219,12 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM students`).Scan(&out.Total); err != nil {
 		return nil, err
 	}
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM students WHERE status = 'active'`).Scan(&out.ActiveTotal); err != nil {
+		return nil, err
+	}
 
-	gender, err := s.groupCount(ctx, `SELECT gender, COUNT(*) FROM students GROUP BY gender`)
+	gender, err := s.groupCount(ctx,
+		`SELECT gender, COUNT(*) FROM students WHERE status = 'active' GROUP BY gender`)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +236,8 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	}
 	out.ByStatus = orderedBuckets(status, []string{"active", "left"})
 
-	level, err := s.groupCount(ctx, `SELECT COALESCE(level, ''), COUNT(*) FROM students GROUP BY level`)
+	level, err := s.groupCount(ctx,
+		`SELECT COALESCE(level, ''), COUNT(*) FROM students WHERE status = 'active' GROUP BY level`)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +249,8 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 		"",
 	})
 
-	kelompok, err := s.groupCount(ctx, `SELECT COALESCE(kelompok, ''), COUNT(*) FROM students GROUP BY kelompok`)
+	kelompok, err := s.groupCount(ctx,
+		`SELECT COALESCE(kelompok, ''), COUNT(*) FROM students WHERE status = 'active' GROUP BY kelompok`)
 	if err != nil {
 		return nil, err
 	}
@@ -249,6 +259,7 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT COALESCE(level, ''), COALESCE(kelompok, ''), COUNT(*)
 		   FROM students
+		  WHERE status = 'active'
 		  GROUP BY level, kelompok`)
 	if err != nil {
 		return nil, err

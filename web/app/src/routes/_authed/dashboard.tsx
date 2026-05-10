@@ -44,49 +44,49 @@ function DashboardPage() {
     return <p className="text-slate-500">Memuat…</p>
   }
 
-  const studentsActive =
-    data.students.byStatus.find((b) => b.label === 'active')?.count ?? 0
-  const teachersActive =
-    data.teachers.byStatus.find((b) => b.label === 'active')?.count ?? 0
-
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dasbor</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Dasbor</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Angka utama menampilkan Generus dan Pengajar yang masih aktif.
+        </p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <KPICard
           icon={<Users size={20} />}
-          label="Generus"
-          value={data.students.total}
-          subtitle={`${studentsActive} aktif`}
+          label="Generus aktif"
+          value={data.students.activeTotal}
+          subtitle={`dari ${data.students.total} total`}
         />
         <KPICard
           icon={<GraduationCap size={20} />}
-          label="Pengajar"
-          value={data.teachers.total}
-          subtitle={`${teachersActive} aktif`}
+          label="Pengajar aktif"
+          value={data.teachers.activeTotal}
+          subtitle={`dari ${data.teachers.total} total`}
         />
         <GenderCard buckets={data.students.byGender} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <ChartCard title="Generus per Jenjang">
+        <ChartCard title="Generus aktif per Jenjang">
           <LevelBarChart buckets={data.students.byLevel} />
         </ChartCard>
-        <ChartCard title="Generus per Kelompok">
+        <ChartCard title="Generus aktif per Kelompok">
           <KelompokBarChart buckets={data.students.byKelompok} />
         </ChartCard>
       </div>
 
-      <ChartCard title="Sebaran Generus per Kelompok">
+      <ChartCard title="Sebaran Generus aktif per Kelompok">
         <StudentLocationMap buckets={data.students.byKelompok} />
       </ChartCard>
 
-      <ChartCard title="Pengajar per Daerah (top 6)">
+      <ChartCard title="Pengajar aktif per Daerah (top 6)">
         <DaerahBarChart buckets={data.teachers.byDaerah} />
       </ChartCard>
 
-      <ChartCard title="Matriks Jenjang × Kelompok">
+      <ChartCard title="Matriks Jenjang × Kelompok (Generus aktif)">
         <LevelKelompokMatrix matrix={data.students.matrix} />
       </ChartCard>
     </div>
@@ -130,7 +130,7 @@ function GenderCard({ buckets }: { buckets: Bucket[] }) {
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-sm text-slate-600">Generus per Jenis Kelamin</div>
+      <div className="text-sm text-slate-600">Generus aktif per Jenis Kelamin</div>
       <div className="mt-2 flex items-center gap-4">
         <div className="h-24 w-24 shrink-0">
           <ResponsiveContainer width="100%" height="100%">

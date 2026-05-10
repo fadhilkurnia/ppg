@@ -174,15 +174,19 @@ func (t *Teachers) List(ctx context.Context, p TeacherListParams) (*TeacherListR
 }
 
 type TeacherStats struct {
-	Total    int      `json:"total"`
-	ByStatus []Bucket `json:"byStatus"`
-	ByDaerah []Bucket `json:"byDaerah"` // sorted by count desc
+	Total       int      `json:"total"`       // every row
+	ActiveTotal int      `json:"activeTotal"` // status='active'
+	ByStatus    []Bucket `json:"byStatus"`    // active vs retired
+	ByDaerah    []Bucket `json:"byDaerah"`    // active only, sorted by count desc
 }
 
 func (t *Teachers) Stats(ctx context.Context) (*TeacherStats, error) {
 	out := &TeacherStats{}
 
 	if err := t.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM teachers`).Scan(&out.Total); err != nil {
+		return nil, err
+	}
+	if err := t.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM teachers WHERE status = 'active'`).Scan(&out.ActiveTotal); err != nil {
 		return nil, err
 	}
 
@@ -212,6 +216,7 @@ func (t *Teachers) Stats(ctx context.Context) (*TeacherStats, error) {
 	daerahRows, err := t.db.QueryContext(ctx,
 		`SELECT daerah, COUNT(*) AS n
 		   FROM teachers
+		  WHERE status = 'active'
 		  GROUP BY daerah
 		  ORDER BY n DESC, daerah ASC`)
 	if err != nil {

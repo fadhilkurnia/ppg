@@ -5,6 +5,7 @@ export type LevelKelompokCell = { level: string; kelompok: string; count: number
 
 export type StudentStats = {
   total: number
+  activeTotal: number
   byGender: Bucket[]
   byStatus: Bucket[]
   byLevel: Bucket[]
@@ -14,6 +15,7 @@ export type StudentStats = {
 
 export type TeacherStats = {
   total: number
+  activeTotal: number
   byStatus: Bucket[]
   byDaerah: Bucket[]
 }
