@@ -36,10 +36,10 @@ function StudentsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Generus</h1>
         {isAdmin ? (
-          <Link to="/students/new">
+          <Link to="/students/new" className="self-start sm:self-auto">
             <Button>
               <Plus size={16} className="mr-1" />
               Tambah Generus
@@ -64,15 +64,15 @@ function StudentsPage() {
         <Input name="q" defaultValue={q} placeholder="Cari berdasarkan nama atau ID" className="pl-9" />
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-2">ID Generus</th>
               <th className="px-4 py-2">Nama</th>
-              <th className="px-4 py-2">Jenis Kelamin</th>
-              <th className="px-4 py-2">Orang Tua</th>
-              <th className="px-4 py-2">Telepon</th>
+              <th className="hidden px-4 py-2 sm:table-cell">Jenis Kelamin</th>
+              <th className="hidden px-4 py-2 md:table-cell">Orang Tua</th>
+              <th className="hidden px-4 py-2 md:table-cell">Telepon</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -95,11 +95,11 @@ function StudentsPage() {
                       {s.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="hidden px-4 py-2 sm:table-cell">
                     {s.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
                   </td>
-                  <td className="px-4 py-2">{s.parentName}</td>
-                  <td className="px-4 py-2">{s.parentPhone}</td>
+                  <td className="hidden px-4 py-2 md:table-cell">{s.parentName}</td>
+                  <td className="hidden px-4 py-2 md:table-cell">{s.parentPhone}</td>
                 </tr>
               ))
             ) : (
@@ -113,7 +113,7 @@ function StudentsPage() {
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-slate-600">
+      <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
         <span>
           Halaman {page} dari {totalPages} · {total} total
         </span>
