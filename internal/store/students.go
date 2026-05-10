@@ -22,18 +22,23 @@ func NewStudents(db *sql.DB) *Students {
 }
 
 type StudentInput struct {
-	StudentID   string
 	Name        string
-	DateOfBirth time.Time
-	Gender      string
-	Address     *string
-	ParentName  string
-	ParentPhone string
+	Nickname    *string
+	DateOfBirth *time.Time
+	Level       *model.StudentLevel
+	Kelompok    *string
+	JoinedAt    *time.Time
+	LeftAt      *time.Time
+	LeaveReason *string
+	Status      model.StudentStatus
+	ParentName  *string
+	ParentPhone *string
 	ParentEmail *string
 }
 
 type ListParams struct {
 	Query  string
+	Status string // "", "active", "left"
 	Limit  int
 	Offset int
 }
@@ -43,15 +48,28 @@ type ListResult struct {
 	Total int             `json:"total"`
 }
 
+const selectStudent = `SELECT id, name, nickname, date_of_birth, level, kelompok,
+	joined_at, left_at, leave_reason, status, parent_name, parent_phone, parent_email,
+	created_at, updated_at FROM students`
+
 func (s *Students) Create(ctx context.Context, in StudentInput) (*model.Student, error) {
+	if in.Status == "" {
+		in.Status = model.StudentActive
+	}
 	id := ulid.Make().String()
 	now := time.Now().UTC()
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO students (id, student_id, name, date_of_birth, gender, address,
-		   parent_name, parent_phone, parent_email, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, in.StudentID, in.Name, in.DateOfBirth, in.Gender, in.Address,
-		in.ParentName, in.ParentPhone, in.ParentEmail, now, now)
+		`INSERT INTO students
+		   (id, name, nickname, date_of_birth, level, kelompok,
+		    joined_at, left_at, leave_reason, status,
+		    parent_name, parent_phone, parent_email,
+		    created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, in.Name, in.Nickname,
+		nullableDate(in.DateOfBirth), nullableLevel(in.Level), in.Kelompok,
+		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason,
+		string(in.Status), in.ParentName, in.ParentPhone, in.ParentEmail,
+		now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -64,14 +82,21 @@ func (s *Students) Get(ctx context.Context, id string) (*model.Student, error) {
 }
 
 func (s *Students) Update(ctx context.Context, id string, in StudentInput) (*model.Student, error) {
+	if in.Status == "" {
+		in.Status = model.StudentActive
+	}
 	now := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE students
-		    SET student_id = ?, name = ?, date_of_birth = ?, gender = ?, address = ?,
-		        parent_name = ?, parent_phone = ?, parent_email = ?, updated_at = ?
-		  WHERE id = ?`,
-		in.StudentID, in.Name, in.DateOfBirth, in.Gender, in.Address,
-		in.ParentName, in.ParentPhone, in.ParentEmail, now, id)
+		`UPDATE students SET
+		   name = ?, nickname = ?, date_of_birth = ?, level = ?, kelompok = ?,
+		   joined_at = ?, left_at = ?, leave_reason = ?, status = ?,
+		   parent_name = ?, parent_phone = ?, parent_email = ?, updated_at = ?
+		 WHERE id = ?`,
+		in.Name, in.Nickname,
+		nullableDate(in.DateOfBirth), nullableLevel(in.Level), in.Kelompok,
+		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason,
+		string(in.Status), in.ParentName, in.ParentPhone, in.ParentEmail,
+		now, id)
 	if err != nil {
 		return nil, err
 	}
@@ -108,18 +133,26 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 		p.Offset = 0
 	}
 
-	args := []any{}
-	where := ""
+	var clauses []string
+	var args []any
 	if q := strings.TrimSpace(p.Query); q != "" {
-		where = ` WHERE name LIKE ? OR student_id LIKE ?`
+		clauses = append(clauses, "(name LIKE ? OR nickname LIKE ?)")
 		like := "%" + q + "%"
 		args = append(args, like, like)
 	}
+	if p.Status != "" {
+		clauses = append(clauses, "status = ?")
+		args = append(args, p.Status)
+	}
+
+	where := ""
+	if len(clauses) > 0 {
+		where = " WHERE " + strings.Join(clauses, " AND ")
+	}
 
 	var total int
-	countQuery := `SELECT COUNT(*) FROM students` + where
-	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, fmt.Errorf("count: %w", err)
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM students`+where, args...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("count students: %w", err)
 	}
 
 	listArgs := append(append([]any{}, args...), p.Limit, p.Offset)
@@ -133,7 +166,7 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 
 	items := []model.Student{}
 	for rows.Next() {
-		st, err := scanStudentRows(rows)
+		st, err := readStudent(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -145,11 +178,11 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 	return &ListResult{Items: items, Total: total}, nil
 }
 
-const selectStudent = `SELECT id, student_id, name, date_of_birth, gender, address,
-	parent_name, parent_phone, parent_email, created_at, updated_at FROM students`
-
-type scanner interface {
-	Scan(dest ...any) error
+func nullableLevel(l *model.StudentLevel) any {
+	if l == nil {
+		return nil
+	}
+	return string(*l)
 }
 
 func scanStudent(s scanner) (*model.Student, error) {
@@ -163,17 +196,35 @@ func scanStudent(s scanner) (*model.Student, error) {
 	return st, nil
 }
 
-func scanStudentRows(s scanner) (*model.Student, error) {
-	return readStudent(s)
-}
-
 func readStudent(s scanner) (*model.Student, error) {
 	var st model.Student
+	var status string
+	var dob, joinedAt, leftAt sql.NullTime
+	var level sql.NullString
 	if err := s.Scan(
-		&st.ID, &st.StudentID, &st.Name, &st.DateOfBirth, &st.Gender, &st.Address,
-		&st.ParentName, &st.ParentPhone, &st.ParentEmail, &st.CreatedAt, &st.UpdatedAt,
+		&st.ID, &st.Name, &st.Nickname, &dob, &level, &st.Kelompok,
+		&joinedAt, &leftAt, &st.LeaveReason, &status,
+		&st.ParentName, &st.ParentPhone, &st.ParentEmail,
+		&st.CreatedAt, &st.UpdatedAt,
 	); err != nil {
 		return nil, err
+	}
+	st.Status = model.StudentStatus(status)
+	if dob.Valid {
+		v := dob.Time
+		st.DateOfBirth = &v
+	}
+	if joinedAt.Valid {
+		v := joinedAt.Time
+		st.JoinedAt = &v
+	}
+	if leftAt.Valid {
+		v := leftAt.Time
+		st.LeftAt = &v
+	}
+	if level.Valid {
+		v := model.StudentLevel(level.String)
+		st.Level = &v
 	}
 	return &st, nil
 }

@@ -5,12 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/model"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 )
 
@@ -23,14 +25,20 @@ func NewStudents(students *store.Students) *Students {
 	return &Students{students: students, validator: validator.New()}
 }
 
+var errBadJSON = errors.New("invalid JSON body")
+
 type studentBody struct {
-	StudentID   string  `json:"studentId"   validate:"required,max=64"`
 	Name        string  `json:"name"        validate:"required,max=200"`
-	DateOfBirth string  `json:"dateOfBirth" validate:"required,datetime=2006-01-02"`
-	Gender      string  `json:"gender"      validate:"required,oneof=male female"`
-	Address     *string `json:"address,omitempty"      validate:"omitempty,max=500"`
-	ParentName  string  `json:"parentName"  validate:"required,max=200"`
-	ParentPhone string  `json:"parentPhone" validate:"required,max=64"`
+	Nickname    *string `json:"nickname,omitempty"     validate:"omitempty,max=200"`
+	DateOfBirth *string `json:"dateOfBirth,omitempty"  validate:"omitempty,datetime=2006-01-02"`
+	Level       *string `json:"level,omitempty"        validate:"omitempty,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
+	Kelompok    *string `json:"kelompok,omitempty"     validate:"omitempty,max=200"`
+	JoinedAt    *string `json:"joinedAt,omitempty"     validate:"omitempty,datetime=2006-01-02"`
+	LeftAt      *string `json:"leftAt,omitempty"       validate:"omitempty,datetime=2006-01-02"`
+	LeaveReason *string `json:"leaveReason,omitempty"  validate:"omitempty,max=500"`
+	Status      string  `json:"status"      validate:"required,oneof=active left"`
+	ParentName  *string `json:"parentName,omitempty"   validate:"omitempty,max=200"`
+	ParentPhone *string `json:"parentPhone,omitempty"  validate:"omitempty,max=64"`
 	ParentEmail *string `json:"parentEmail,omitempty"  validate:"omitempty,email"`
 }
 
@@ -42,23 +50,49 @@ func (h *Students) parse(r *http.Request) (store.StudentInput, error) {
 	if err := h.validator.Struct(b); err != nil {
 		return store.StudentInput{}, err
 	}
-	dob, err := time.Parse("2006-01-02", b.DateOfBirth)
-	if err != nil {
-		return store.StudentInput{}, err
+
+	in := store.StudentInput{
+		Name:        strings.TrimSpace(b.Name),
+		Nickname:    trimPtr(b.Nickname),
+		Kelompok:    trimPtr(b.Kelompok),
+		LeaveReason: trimPtr(b.LeaveReason),
+		Status:      model.StudentStatus(b.Status),
+		ParentName:  trimPtr(b.ParentName),
+		ParentPhone: trimPtr(b.ParentPhone),
+		ParentEmail: trimPtr(b.ParentEmail),
 	}
-	return store.StudentInput{
-		StudentID:   b.StudentID,
-		Name:        b.Name,
-		DateOfBirth: dob,
-		Gender:      b.Gender,
-		Address:     b.Address,
-		ParentName:  b.ParentName,
-		ParentPhone: b.ParentPhone,
-		ParentEmail: b.ParentEmail,
-	}, nil
+	if b.Level != nil && *b.Level != "" {
+		l := model.StudentLevel(*b.Level)
+		in.Level = &l
+	}
+	if t, err := parseOptionalDate(b.DateOfBirth); err != nil {
+		return store.StudentInput{}, err
+	} else {
+		in.DateOfBirth = t
+	}
+	if t, err := parseOptionalDate(b.JoinedAt); err != nil {
+		return store.StudentInput{}, err
+	} else {
+		in.JoinedAt = t
+	}
+	if t, err := parseOptionalDate(b.LeftAt); err != nil {
+		return store.StudentInput{}, err
+	} else {
+		in.LeftAt = t
+	}
+	return in, nil
 }
 
-var errBadJSON = errors.New("invalid JSON body")
+func parseOptionalDate(s *string) (*time.Time, error) {
+	if s == nil || *s == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", *s)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
 
 func (h *Students) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -67,6 +101,7 @@ func (h *Students) List(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.students.List(r.Context(), store.ListParams{
 		Query:  q.Get("q"),
+		Status: q.Get("status"),
 		Limit:  limit,
 		Offset: offset,
 	})

@@ -10,15 +10,24 @@ export type User = {
   updatedAt: string
 }
 
+export const STUDENT_LEVELS = ['Caberawit', 'Pra Remaja', 'Remaja', 'Pra Nikah'] as const
+export type StudentLevel = (typeof STUDENT_LEVELS)[number]
+
+export type StudentStatus = 'active' | 'left'
+
 export type Student = {
   id: string
-  studentId: string
   name: string
-  dateOfBirth: string
-  gender: 'male' | 'female'
-  address?: string
-  parentName: string
-  parentPhone: string
+  nickname?: string
+  dateOfBirth?: string
+  level?: StudentLevel
+  kelompok?: string
+  joinedAt?: string
+  leftAt?: string
+  leaveReason?: string
+  status: StudentStatus
+  parentName?: string
+  parentPhone?: string
   parentEmail?: string
   createdAt: string
   updatedAt: string
@@ -30,13 +39,17 @@ export type StudentList = {
 }
 
 export type StudentInput = {
-  studentId: string
   name: string
-  dateOfBirth: string
-  gender: 'male' | 'female'
-  address?: string
-  parentName: string
-  parentPhone: string
+  nickname?: string
+  dateOfBirth?: string
+  level?: StudentLevel
+  kelompok?: string
+  joinedAt?: string
+  leftAt?: string
+  leaveReason?: string
+  status: StudentStatus
+  parentName?: string
+  parentPhone?: string
   parentEmail?: string
 }
 

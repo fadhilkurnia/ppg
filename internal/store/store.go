@@ -36,6 +36,11 @@ func Open(path string) (*sql.DB, error) {
 	return db, nil
 }
 
+// scanner abstracts *sql.Row and *sql.Rows so we can share scan helpers.
+type scanner interface {
+	Scan(dest ...any) error
+}
+
 func Migrate(db *sql.DB) error {
 	src, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
