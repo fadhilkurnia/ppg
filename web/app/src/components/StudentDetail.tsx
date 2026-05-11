@@ -17,6 +17,7 @@ export function StudentDetail({ student: s }: { student: Student }) {
       <Row label="Jenis Kelamin" value={s.gender === 'male' ? 'Laki-laki' : 'Perempuan'} />
       <Row label="Jenjang" value={s.level ?? '—'} />
       <Row label="Kelompok" value={s.kelompok} />
+      <Row label="Kota" value={s.city ?? '—'} />
       <Row label="Tanggal Masuk" value={s.joinedAt?.slice(0, 10) ?? '—'} />
       <Row label="Status" value={statusLabel} />
       <Row label="Tanggal Keluar" value={s.leftAt?.slice(0, 10) ?? '—'} />

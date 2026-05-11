@@ -104,6 +104,7 @@ func run() error {
 	users := store.NewUsers(db)
 	students := store.NewStudents(db)
 	teachers := store.NewTeachers(db)
+	attendances := store.NewAttendances(db)
 
 	if cfg.SeedAdminEmail != "" && cfg.SeedAdminPass != "" {
 		if err := store.SeedAdmin(context.Background(), users, cfg.SeedAdminEmail, cfg.SeedAdminUsername, cfg.SeedAdminPass); err != nil {
@@ -141,8 +142,13 @@ func run() error {
 			p.Get("/teachers", teachersH.List)
 			p.Get("/teachers/{id}", teachersH.Get)
 
-			statsH := handler.NewStats(students, teachers)
+			statsH := handler.NewStats(students, teachers, attendances)
 			p.Get("/stats/dashboard", statsH.Dashboard)
+			p.Get("/stats/attendance", statsH.Attendance)
+
+			attendancesH := handler.NewAttendances(attendances)
+			p.Get("/attendances", attendancesH.List)
+			p.Get("/attendances/{id}", attendancesH.Get)
 
 			p.Group(func(adm chi.Router) {
 				adm.Use(auth.RequireRole("admin"))
@@ -153,6 +159,10 @@ func run() error {
 				adm.Post("/teachers", teachersH.Create)
 				adm.Patch("/teachers/{id}", teachersH.Update)
 				adm.Delete("/teachers/{id}", teachersH.Delete)
+
+				adm.Post("/attendances", attendancesH.Create)
+				adm.Patch("/attendances/{id}", attendancesH.Update)
+				adm.Delete("/attendances/{id}", attendancesH.Delete)
 			})
 		})
 
