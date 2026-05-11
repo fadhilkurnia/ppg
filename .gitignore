@@ -28,6 +28,9 @@ data/
 # CSV exports / imports (kept out of source)
 *.csv
 
+# Claude Code local state (per-machine worktrees, settings, etc.)
+.claude/
+
 # IDE / OS
 .idea/
 .vscode/
