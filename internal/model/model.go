@@ -62,6 +62,32 @@ const (
 // in the SQL CHECK constraint and the frontend dropdown.
 var StudentKelompoks = []string{"California", "Chicago", "New Hampshire", "Canada"}
 
+type AttendanceStatus string
+
+const (
+	AttendanceHadir     AttendanceStatus = "hadir"
+	AttendanceIzinMurid AttendanceStatus = "izin_murid"
+	AttendanceIzinGuru  AttendanceStatus = "izin_guru"
+	AttendanceByVN      AttendanceStatus = "by_vn"
+)
+
+// Attendance is one teaching session row. teacher_id and student_id are
+// strict FKs to the teachers / students tables; the inline TeacherName /
+// StudentName fields are populated by store.List/Get via JOIN for the UI.
+type Attendance struct {
+	ID          string           `json:"id"`
+	Date        time.Time        `json:"date"`
+	DurationMin *int             `json:"durationMin,omitempty"`
+	TeacherID   string           `json:"teacherId"`
+	TeacherName string           `json:"teacherName"`
+	StudentID   string           `json:"studentId"`
+	StudentName string           `json:"studentName"`
+	Status      AttendanceStatus `json:"status"`
+	Materi      *string          `json:"materi,omitempty"`
+	CreatedAt   time.Time        `json:"createdAt"`
+	UpdatedAt   time.Time        `json:"updatedAt"`
+}
+
 type Student struct {
 	ID          string        `json:"id"`
 	Name        string        `json:"name"`

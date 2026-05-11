@@ -82,6 +82,44 @@ export type TeacherList = {
   total: number
 }
 
+export const ATTENDANCE_STATUSES = ['hadir', 'izin_murid', 'izin_guru', 'by_vn'] as const
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number]
+
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+  hadir: 'Hadir',
+  izin_murid: 'Izin (Murid)',
+  izin_guru: 'Izin (Guru)',
+  by_vn: 'Via Voice Note',
+}
+
+export type Attendance = {
+  id: string
+  date: string
+  durationMin?: number
+  teacherId: string
+  teacherName: string
+  studentId: string
+  studentName: string
+  status: AttendanceStatus
+  materi?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type AttendanceList = {
+  items: Attendance[]
+  total: number
+}
+
+export type AttendanceInput = {
+  date: string
+  durationMin?: number
+  teacherId: string
+  studentId: string
+  status: AttendanceStatus
+  materi?: string
+}
+
 export type TeacherInput = {
   name: string
   nickname?: string
