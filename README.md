@@ -126,6 +126,11 @@ Role is stored on the user row; the seed admin is created with `admin`.
   to UID 1001 first; otherwise use the named volume in the compose
   file.
 
+## Database schema
+
+See [`docs/schema.md`](./docs/schema.md) for an authoritative reference of
+every table, enum, and migration. Update it whenever you add a migration.
+
 ## Project rules
 
 See [`RULES.md`](./RULES.md) — branch + PR workflow, commit message
