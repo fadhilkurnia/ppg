@@ -26,7 +26,7 @@ type StudentInput struct {
 	Nickname    *string
 	DateOfBirth *time.Time
 	Gender      string
-	Level       *model.StudentLevel
+	Level       model.StudentLevel
 	Kelompok    string
 	City        *string
 	JoinedAt    *time.Time
@@ -69,7 +69,7 @@ func (s *Students) Create(ctx context.Context, in StudentInput) (*model.Student,
 		    created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, in.Name, in.Nickname,
-		nullableDate(in.DateOfBirth), in.Gender, nullableLevel(in.Level), in.Kelompok, in.City,
+		nullableDate(in.DateOfBirth), in.Gender, string(in.Level), in.Kelompok, in.City,
 		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason,
 		string(in.Status), in.ParentName, in.ParentPhone, in.ParentEmail,
 		now, now)
@@ -96,7 +96,7 @@ func (s *Students) Update(ctx context.Context, id string, in StudentInput) (*mod
 		   parent_name = ?, parent_phone = ?, parent_email = ?, updated_at = ?
 		 WHERE id = ?`,
 		in.Name, in.Nickname,
-		nullableDate(in.DateOfBirth), in.Gender, nullableLevel(in.Level), in.Kelompok, in.City,
+		nullableDate(in.DateOfBirth), in.Gender, string(in.Level), in.Kelompok, in.City,
 		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason,
 		string(in.Status), in.ParentName, in.ParentPhone, in.ParentEmail,
 		now, id)
@@ -212,8 +212,7 @@ type StudentStats struct {
 // Stats produces the aggregates the dashboard needs in one round trip.
 // Buckets are returned in canonical order (Caberawit → Pra Nikah for level,
 // California → Canada for kelompok), with a trailing zero-count entry for
-// any canonical value that has no rows. Null/blank values become a separate
-// bucket with an empty label.
+// any canonical value that has no rows.
 func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	out := &StudentStats{}
 
@@ -238,7 +237,7 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	out.ByStatus = orderedBuckets(status, []string{"active", "left"})
 
 	level, err := s.groupCount(ctx,
-		`SELECT COALESCE(level, ''), COUNT(*) FROM students WHERE status = 'active' GROUP BY level`)
+		`SELECT level, COUNT(*) FROM students WHERE status = 'active' GROUP BY level`)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +246,6 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 		string(model.LevelPraRemaja),
 		string(model.LevelRemaja),
 		string(model.LevelPraNikah),
-		"",
 	})
 
 	kelompok, err := s.groupCount(ctx,
@@ -258,7 +256,7 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	out.ByKelompok = orderedBuckets(kelompok, model.StudentKelompoks)
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT COALESCE(level, ''), kelompok, COUNT(*)
+		`SELECT level, kelompok, COUNT(*)
 		   FROM students
 		  WHERE status = 'active'
 		  GROUP BY level, kelompok`)
@@ -302,13 +300,6 @@ func orderedBuckets(counts map[string]int, order []string) []Bucket {
 	return out
 }
 
-func nullableLevel(l *model.StudentLevel) any {
-	if l == nil {
-		return nil
-	}
-	return string(*l)
-}
-
 func scanStudent(s scanner) (*model.Student, error) {
 	st, err := readStudent(s)
 	if err != nil {
@@ -322,9 +313,8 @@ func scanStudent(s scanner) (*model.Student, error) {
 
 func readStudent(s scanner) (*model.Student, error) {
 	var st model.Student
-	var status string
+	var status, level string
 	var dob, joinedAt, leftAt sql.NullTime
-	var level sql.NullString
 	if err := s.Scan(
 		&st.ID, &st.Name, &st.Nickname, &dob, &st.Gender, &level, &st.Kelompok, &st.City,
 		&joinedAt, &leftAt, &st.LeaveReason, &status,
@@ -334,6 +324,7 @@ func readStudent(s scanner) (*model.Student, error) {
 		return nil, err
 	}
 	st.Status = model.StudentStatus(status)
+	st.Level = model.StudentLevel(level)
 	if dob.Valid {
 		v := dob.Time
 		st.DateOfBirth = &v
@@ -345,10 +336,6 @@ func readStudent(s scanner) (*model.Student, error) {
 	if leftAt.Valid {
 		v := leftAt.Time
 		st.LeftAt = &v
-	}
-	if level.Valid {
-		v := model.StudentLevel(level.String)
-		st.Level = &v
 	}
 	return &st, nil
 }

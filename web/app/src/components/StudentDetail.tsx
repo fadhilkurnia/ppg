@@ -15,7 +15,7 @@ export function StudentDetail({ student: s }: { student: Student }) {
       <Row label="Nama Panggilan" value={s.nickname ?? '—'} />
       <Row label="Tanggal Lahir" value={dobLabel} />
       <Row label="Jenis Kelamin" value={s.gender === 'male' ? 'Laki-laki' : 'Perempuan'} />
-      <Row label="Jenjang" value={s.level ?? '—'} />
+      <Row label="Jenjang" value={s.level} />
       <Row label="Kelompok" value={s.kelompok} />
       <Row label="Kota" value={s.city ?? '—'} />
       <Row label="Tanggal Masuk" value={s.joinedAt?.slice(0, 10) ?? '—'} />
