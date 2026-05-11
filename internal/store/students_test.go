@@ -26,7 +26,6 @@ func newTestDB(t *testing.T) *Students {
 
 func sampleInput(name string) StudentInput {
 	level := model.LevelCaberawit
-	kelompok := "Chicago"
 	parentName := "Bob"
 	parentPhone := "+62123"
 	dob := time.Date(2015, 6, 1, 0, 0, 0, 0, time.UTC)
@@ -35,7 +34,7 @@ func sampleInput(name string) StudentInput {
 		DateOfBirth: &dob,
 		Gender:      "female",
 		Level:       &level,
-		Kelompok:    &kelompok,
+		Kelompok:    "Chicago",
 		Status:      model.StudentActive,
 		ParentName:  &parentName,
 		ParentPhone: &parentPhone,

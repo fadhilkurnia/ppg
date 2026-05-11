@@ -27,7 +27,7 @@ type StudentInput struct {
 	DateOfBirth *time.Time
 	Gender      string
 	Level       *model.StudentLevel
-	Kelompok    *string
+	Kelompok    string
 	JoinedAt    *time.Time
 	LeftAt      *time.Time
 	LeaveReason *string
@@ -40,7 +40,7 @@ type StudentInput struct {
 type ListParams struct {
 	Query    string
 	Status   string // "", "active", "left"
-	Kelompok string // "" or one of the canonical kelompoks
+	Kelompok string // "" (no filter) or one of the canonical kelompoks
 	Limit    int
 	Offset   int
 }
@@ -250,14 +250,14 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	})
 
 	kelompok, err := s.groupCount(ctx,
-		`SELECT COALESCE(kelompok, ''), COUNT(*) FROM students WHERE status = 'active' GROUP BY kelompok`)
+		`SELECT kelompok, COUNT(*) FROM students WHERE status = 'active' GROUP BY kelompok`)
 	if err != nil {
 		return nil, err
 	}
-	out.ByKelompok = orderedBuckets(kelompok, append(append([]string{}, model.StudentKelompoks...), ""))
+	out.ByKelompok = orderedBuckets(kelompok, model.StudentKelompoks)
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT COALESCE(level, ''), COALESCE(kelompok, ''), COUNT(*)
+		`SELECT COALESCE(level, ''), kelompok, COUNT(*)
 		   FROM students
 		  WHERE status = 'active'
 		  GROUP BY level, kelompok`)

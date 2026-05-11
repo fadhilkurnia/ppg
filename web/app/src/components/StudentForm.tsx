@@ -25,7 +25,9 @@ const schema = z.object({
   dateOfBirth: isoDateOrEmpty,
   gender: z.enum(['male', 'female']),
   level: z.enum([...STUDENT_LEVELS, ''] as [string, ...string[]]),
-  kelompok: z.enum([...STUDENT_KELOMPOKS, ''] as [string, ...string[]]),
+  kelompok: z
+    .enum([...STUDENT_KELOMPOKS, ''] as [string, ...string[]])
+    .refine((v) => v !== '', { message: 'Wajib diisi' }),
   joinedAt: isoDateOrEmpty,
   leftAt: isoDateOrEmpty,
   leaveReason: z.string().max(500).optional().or(z.literal('')),
@@ -81,7 +83,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
           dateOfBirth: v.dateOfBirth || undefined,
           gender: v.gender,
           level: v.level === '' ? undefined : (v.level as StudentInput['level']),
-          kelompok: v.kelompok === '' ? undefined : (v.kelompok as StudentInput['kelompok']),
+          kelompok: v.kelompok as StudentInput['kelompok'],
           joinedAt: v.joinedAt || undefined,
           leftAt: v.leftAt || undefined,
           leaveReason: v.leaveReason || undefined,

@@ -33,7 +33,7 @@ type studentBody struct {
 	DateOfBirth *string `json:"dateOfBirth,omitempty"  validate:"omitempty,datetime=2006-01-02"`
 	Gender      string  `json:"gender"      validate:"required,oneof=male female"`
 	Level       *string `json:"level,omitempty"        validate:"omitempty,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
-	Kelompok    *string `json:"kelompok,omitempty"     validate:"omitempty,oneof=California Chicago 'New Hampshire' Canada"`
+	Kelompok    string  `json:"kelompok"               validate:"required,oneof=California Chicago 'New Hampshire' Canada"`
 	JoinedAt    *string `json:"joinedAt,omitempty"     validate:"omitempty,datetime=2006-01-02"`
 	LeftAt      *string `json:"leftAt,omitempty"       validate:"omitempty,datetime=2006-01-02"`
 	LeaveReason *string `json:"leaveReason,omitempty"  validate:"omitempty,max=500"`
@@ -56,7 +56,7 @@ func (h *Students) parse(r *http.Request) (store.StudentInput, error) {
 		Name:        strings.TrimSpace(b.Name),
 		Nickname:    trimPtr(b.Nickname),
 		Gender:      b.Gender,
-		Kelompok:    trimPtr(b.Kelompok),
+		Kelompok:    b.Kelompok,
 		LeaveReason: trimPtr(b.LeaveReason),
 		Status:      model.StudentStatus(b.Status),
 		ParentName:  trimPtr(b.ParentName),
