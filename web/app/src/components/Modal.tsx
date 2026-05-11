@@ -43,7 +43,7 @@ export function Modal({ open, onClose, title, size = 'lg', children }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
@@ -51,7 +51,7 @@ export function Modal({ open, onClose, title, size = 'lg', children }: Props) {
       <button
         type="button"
         aria-label="Tutup"
-        className="absolute inset-0 cursor-default bg-slate-900/50"
+        className="absolute inset-0 cursor-default bg-slate-900/70 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
