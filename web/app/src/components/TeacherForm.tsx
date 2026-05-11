@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
@@ -40,6 +40,7 @@ type Props = {
 export function TeacherForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: Props) {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({
@@ -104,14 +105,20 @@ export function TeacherForm({ initial, submitLabel, pending, error, onSubmit, on
           <Input id="retiredAt" type="date" {...register('retiredAt')} />
         </Field>
         <Field label="Status" htmlFor="status" error={errors.status?.message}>
-          <select
-            id="status"
-            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-            {...register('status')}
-          >
-            <option value="active">Aktif</option>
-            <option value="retired">Purna</option>
-          </select>
+          <Controller
+            control={control}
+            name="status"
+            render={({ field }) => (
+              <select
+                id="status"
+                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                {...field}
+              >
+                <option value="active">Aktif</option>
+                <option value="retired">Purna</option>
+              </select>
+            )}
+          />
         </Field>
         <Field
           label="Keterangan"

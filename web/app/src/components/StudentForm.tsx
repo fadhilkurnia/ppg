@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
@@ -51,6 +51,7 @@ type Props = {
 export function StudentForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: Props) {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({
@@ -107,30 +108,53 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
             <Input id="dateOfBirth" type="date" {...register('dateOfBirth')} />
           </Field>
           <Field label="Jenis Kelamin" htmlFor="gender" error={errors.gender?.message}>
-            <Select id="gender" {...register('gender')}>
-              <option value="female">Perempuan</option>
-              <option value="male">Laki-laki</option>
-            </Select>
+            <Controller
+              control={control}
+              name="gender"
+              render={({ field }) => (
+                <Select id="gender" {...field}>
+                  <option value="female">Perempuan</option>
+                  <option value="male">Laki-laki</option>
+                </Select>
+              )}
+            />
           </Field>
           <Field label="Jenjang" htmlFor="level" error={errors.level?.message}>
-            <Select id="level" {...register('level')}>
-              <option value="">—</option>
-              {STUDENT_LEVELS.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </Select>
+            <Controller
+              control={control}
+              name="level"
+              render={({ field }) => (
+                <Select id="level" {...field}>
+                  <option value="">—</option>
+                  {STUDENT_LEVELS.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            />
           </Field>
-          <Field label="Kelompok" htmlFor="kelompok" error={errors.kelompok?.message} className="sm:col-span-2">
-            <Select id="kelompok" {...register('kelompok')}>
-              <option value="">—</option>
-              {STUDENT_KELOMPOKS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </Select>
+          <Field
+            label="Kelompok"
+            htmlFor="kelompok"
+            error={errors.kelompok?.message}
+            className="sm:col-span-2"
+          >
+            <Controller
+              control={control}
+              name="kelompok"
+              render={({ field }) => (
+                <Select id="kelompok" {...field}>
+                  <option value="">—</option>
+                  {STUDENT_KELOMPOKS.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            />
           </Field>
         </div>
       </Section>
@@ -141,10 +165,16 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
             <Input id="joinedAt" type="date" {...register('joinedAt')} />
           </Field>
           <Field label="Status" htmlFor="status" error={errors.status?.message}>
-            <Select id="status" {...register('status')}>
-              <option value="active">Aktif</option>
-              <option value="left">Keluar</option>
-            </Select>
+            <Controller
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <Select id="status" {...field}>
+                  <option value="active">Aktif</option>
+                  <option value="left">Keluar</option>
+                </Select>
+              )}
+            />
           </Field>
           <Field label="Tanggal Keluar" htmlFor="leftAt" error={errors.leftAt?.message}>
             <Input id="leftAt" type="date" {...register('leftAt')} />
