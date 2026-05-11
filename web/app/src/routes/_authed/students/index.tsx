@@ -183,7 +183,7 @@ function StudentsPage() {
                     })()}
                   </td>
                   <td className="hidden px-4 py-2 md:table-cell">{s.level ?? '—'}</td>
-                  <td className="hidden px-4 py-2 md:table-cell">{s.kelompok ?? '—'}</td>
+                  <td className="hidden px-4 py-2 md:table-cell">{s.kelompok}</td>
                   <td className="px-4 py-2">
                     <StatusPill status={s.status} />
                   </td>

@@ -245,16 +245,8 @@ function canonicalLevelIndex(label: string) {
 }
 
 function KelompokBarChart({ buckets }: { buckets: Bucket[] }) {
-  const rows = buckets.map((b) => ({
-    label: b.label === '' ? '(belum diisi)' : b.label,
-    count: b.count,
-    muted: b.label === '',
-  }))
-  rows.sort((a, b) => {
-    const idxA = canonicalKelompokIndex(a.label)
-    const idxB = canonicalKelompokIndex(b.label)
-    return idxA - idxB
-  })
+  const rows = buckets.map((b) => ({ label: b.label, count: b.count }))
+  rows.sort((a, b) => canonicalKelompokIndex(a.label) - canonicalKelompokIndex(b.label))
   return <HorizontalBarChart rows={rows} emptyMessage="Belum ada data kelompok." />
 }
 
@@ -286,7 +278,7 @@ function DaerahBarChart({ buckets }: { buckets: Bucket[] }) {
 
 function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
   const levels = [...STUDENT_LEVELS, '']
-  const kelompoks = [...STUDENT_KELOMPOKS, '']
+  const kelompoks = [...STUDENT_KELOMPOKS]
 
   // Build a level → kelompok → count grid.
   const grid: Record<string, Record<string, number>> = {}
@@ -316,8 +308,8 @@ function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
           <tr className="text-xs uppercase tracking-wide text-slate-500">
             <th className="px-3 py-2 text-left">Jenjang \\ Kelompok</th>
             {kelompoks.map((k) => (
-              <th key={k || 'null'} className="px-3 py-2 text-right">
-                {k === '' ? '(belum diisi)' : k}
+              <th key={k} className="px-3 py-2 text-right">
+                {k}
               </th>
             ))}
             <th className="px-3 py-2 text-right text-slate-700">Total</th>
@@ -333,7 +325,7 @@ function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
                 {kelompoks.map((k) => {
                   const n = grid[l]?.[k] ?? 0
                   return (
-                    <td key={k || 'null'} className="px-3 py-2 text-right">
+                    <td key={k} className="px-3 py-2 text-right">
                       <Cellish count={n} max={max} />
                     </td>
                   )
@@ -347,7 +339,7 @@ function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
           <tr className="border-t-2 border-slate-200">
             <th className="px-3 py-2 text-left font-semibold text-slate-700">Total</th>
             {kelompoks.map((k) => (
-              <td key={k || 'null'} className="px-3 py-2 text-right font-semibold text-slate-700">
+              <td key={k} className="px-3 py-2 text-right font-semibold text-slate-700">
                 {colTotals[k] || '—'}
               </td>
             ))}
