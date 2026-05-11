@@ -26,6 +26,7 @@ export type Student = {
   gender: 'male' | 'female'
   level?: StudentLevel
   kelompok: StudentKelompok
+  city?: string
   joinedAt?: string
   leftAt?: string
   leaveReason?: string
@@ -49,6 +50,7 @@ export type StudentInput = {
   gender: 'male' | 'female'
   level?: StudentLevel
   kelompok: StudentKelompok
+  city?: string
   joinedAt?: string
   leftAt?: string
   leaveReason?: string

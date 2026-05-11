@@ -70,6 +70,7 @@ type Student struct {
 	Gender      string        `json:"gender"`
 	Level       *StudentLevel `json:"level,omitempty"`
 	Kelompok    string        `json:"kelompok"`
+	City        *string       `json:"city,omitempty"`
 	JoinedAt    *time.Time    `json:"joinedAt,omitempty"`
 	LeftAt      *time.Time    `json:"leftAt,omitempty"`
 	LeaveReason *string       `json:"leaveReason,omitempty"`
