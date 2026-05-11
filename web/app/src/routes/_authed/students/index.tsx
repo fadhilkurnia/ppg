@@ -1,15 +1,24 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search } from 'lucide-react'
 import { z } from 'zod'
 
-import { deleteStudent, listStudents } from '@/api/students'
+import {
+  createStudent,
+  deleteStudent,
+  getStudent,
+  listStudents,
+  updateStudent,
+} from '@/api/students'
 import { STUDENT_KELOMPOKS, type Student } from '@/api/types'
 import { useMe } from '@/lib/auth'
+import { ageInYears } from '@/lib/age'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
+import { Modal } from '@/components/Modal'
 import { RowActions } from '@/components/RowActions'
-import { ageInYears } from '@/lib/age'
+import { StudentDetail } from '@/components/StudentDetail'
+import { StudentForm } from '@/components/StudentForm'
 
 const PAGE_SIZE = 20
 
@@ -18,7 +27,12 @@ const searchSchema = z.object({
   status: z.enum(['active', 'left']).optional().catch(undefined),
   kelompok: z.enum(STUDENT_KELOMPOKS).optional().catch(undefined),
   page: z.number().int().min(1).optional().catch(1),
+  view: z.string().optional().catch(undefined),
+  edit: z.string().optional().catch(undefined),
+  new: z.boolean().optional().catch(undefined),
 })
+
+type SearchState = z.infer<typeof searchSchema>
 
 export const Route = createFileRoute('/_authed/students/')({
   validateSearch: searchSchema,
@@ -27,9 +41,19 @@ export const Route = createFileRoute('/_authed/students/')({
 
 function StudentsPage() {
   const navigate = useNavigate({ from: '/students/' })
-  const { q = '', status, kelompok, page = 1 } = Route.useSearch()
+  const search = Route.useSearch()
+  const { q = '', status, kelompok, page = 1, view, edit, new: isNew } = search
   const { data: user } = useMe()
   const isAdmin = user?.role === 'admin'
+
+  const filterSearch: SearchState = { q, status, kelompok, page }
+
+  const goTo = (next: Partial<SearchState>) =>
+    void navigate({
+      search: { ...filterSearch, ...next },
+    })
+
+  const close = () => goTo({ view: undefined, edit: undefined, new: undefined })
 
   const { data, isPending } = useQuery({
     queryKey: ['students', { q, status, kelompok, page }],
@@ -57,12 +81,10 @@ function StudentsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Generus</h1>
         {isAdmin ? (
-          <Link to="/students/new" className="self-start sm:self-auto">
-            <Button>
-              <Plus size={16} className="mr-1" />
-              Tambah Generus
-            </Button>
-          </Link>
+          <Button onClick={() => goTo({ new: true })} className="self-start sm:self-auto">
+            <Plus size={16} className="mr-1" />
+            Tambah Generus
+          </Button>
         ) : null}
       </div>
 
@@ -144,13 +166,13 @@ function StudentsPage() {
               data.items.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50">
                   <td className="px-4 py-2">
-                    <Link
-                      to="/students/$id"
-                      params={{ id: s.id }}
-                      className="text-slate-900 hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => goTo({ view: s.id })}
+                      className="text-left text-slate-900 hover:underline"
                     >
                       {s.name}
-                    </Link>
+                    </button>
                   </td>
                   <td className="hidden px-4 py-2 sm:table-cell">{s.nickname ?? '—'}</td>
                   <td className="hidden px-4 py-2 sm:table-cell">{s.gender === 'male' ? 'L' : 'P'}</td>
@@ -168,8 +190,7 @@ function StudentsPage() {
                   {isAdmin ? (
                     <td className="px-4 py-2 text-right">
                       <RowActions
-                        editTo="/students/$id"
-                        editParams={{ id: s.id }}
+                        onEdit={() => goTo({ edit: s.id })}
                         onDelete={() => handleDelete(s)}
                         deleteDisabled={deleteMutation.isPending}
                       />
@@ -197,11 +218,7 @@ function StudentsPage() {
             variant="secondary"
             size="sm"
             disabled={page <= 1}
-            onClick={() =>
-              void navigate({
-                search: { q: q || undefined, status, kelompok, page: Math.max(1, page - 1) },
-              })
-            }
+            onClick={() => goTo({ page: Math.max(1, page - 1) })}
           >
             Sebelumnya
           </Button>
@@ -209,16 +226,16 @@ function StudentsPage() {
             variant="secondary"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() =>
-              void navigate({
-                search: { q: q || undefined, status, kelompok, page: Math.min(totalPages, page + 1) },
-              })
-            }
+            onClick={() => goTo({ page: Math.min(totalPages, page + 1) })}
           >
             Berikutnya
           </Button>
         </div>
       </div>
+
+      <ViewModal id={view} open={!!view && !edit} onClose={close} isAdmin={isAdmin} onEdit={(id) => goTo({ view: undefined, edit: id })} />
+      <EditModal id={edit} open={!!edit && isAdmin} onClose={close} onSaved={(s) => goTo({ edit: undefined, view: s.id })} />
+      <NewModal open={!!isNew && isAdmin} onClose={close} />
     </div>
   )
 }
@@ -235,5 +252,124 @@ function StatusPill({ status }: { status: 'active' | 'left' }) {
     <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
       Keluar
     </span>
+  )
+}
+
+/* ---------- modals ---------- */
+
+function ViewModal({
+  id,
+  open,
+  onClose,
+  isAdmin,
+  onEdit,
+}: {
+  id: string | undefined
+  open: boolean
+  onClose: () => void
+  isAdmin: boolean
+  onEdit: (id: string) => void
+}) {
+  const query = useQuery({
+    queryKey: ['students', id],
+    queryFn: () => getStudent(id as string),
+    enabled: open && !!id,
+  })
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="lg"
+      title={query.data?.name ?? 'Detail Generus'}
+    >
+      {query.isPending ? (
+        <p className="text-slate-500">Memuat…</p>
+      ) : query.isError || !query.data ? (
+        <p className="text-red-600">Gagal memuat data.</p>
+      ) : (
+        <>
+          <StudentDetail student={query.data} />
+          {isAdmin ? (
+            <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
+              <Button variant="secondary" onClick={onClose}>
+                Tutup
+              </Button>
+              <Button onClick={() => onEdit(query.data!.id)}>Ubah</Button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </Modal>
+  )
+}
+
+function EditModal({
+  id,
+  open,
+  onClose,
+  onSaved,
+}: {
+  id: string | undefined
+  open: boolean
+  onClose: () => void
+  onSaved: (student: Student) => void
+}) {
+  const qc = useQueryClient()
+  const query = useQuery({
+    queryKey: ['students', id],
+    queryFn: () => getStudent(id as string),
+    enabled: open && !!id,
+  })
+
+  const mutation = useMutation({
+    mutationFn: (input: Parameters<typeof updateStudent>[1]) =>
+      updateStudent(id as string, input),
+    onSuccess: async (saved) => {
+      await qc.invalidateQueries({ queryKey: ['students'] })
+      onSaved(saved)
+    },
+  })
+
+  return (
+    <Modal open={open} onClose={onClose} size="xl" title="Ubah Generus">
+      {query.isPending ? (
+        <p className="text-slate-500">Memuat…</p>
+      ) : query.isError || !query.data ? (
+        <p className="text-red-600">Gagal memuat data.</p>
+      ) : (
+        <StudentForm
+          initial={query.data}
+          submitLabel="Simpan"
+          pending={mutation.isPending}
+          error={mutation.error}
+          onSubmit={(input) => mutation.mutate(input)}
+          onCancel={onClose}
+        />
+      )}
+    </Modal>
+  )
+}
+
+function NewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const qc = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: createStudent,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['students'] })
+      onClose()
+    },
+  })
+
+  return (
+    <Modal open={open} onClose={onClose} size="xl" title="Tambah Generus">
+      <StudentForm
+        submitLabel="Simpan"
+        pending={mutation.isPending}
+        error={mutation.error}
+        onSubmit={(input) => mutation.mutate(input)}
+        onCancel={onClose}
+      />
+    </Modal>
   )
 }
