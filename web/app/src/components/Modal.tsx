@@ -43,7 +43,7 @@ export function Modal({ open, onClose, title, size = 'lg', children }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
+      className="!m-0 fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
