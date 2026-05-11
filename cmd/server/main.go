@@ -142,8 +142,9 @@ func run() error {
 			p.Get("/teachers", teachersH.List)
 			p.Get("/teachers/{id}", teachersH.Get)
 
-			statsH := handler.NewStats(students, teachers)
+			statsH := handler.NewStats(students, teachers, attendances)
 			p.Get("/stats/dashboard", statsH.Dashboard)
+			p.Get("/stats/attendance", statsH.Attendance)
 
 			attendancesH := handler.NewAttendances(attendances)
 			p.Get("/attendances", attendancesH.List)

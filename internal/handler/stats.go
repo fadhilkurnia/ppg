@@ -8,12 +8,13 @@ import (
 )
 
 type Stats struct {
-	students *store.Students
-	teachers *store.Teachers
+	students    *store.Students
+	teachers    *store.Teachers
+	attendances *store.Attendances
 }
 
-func NewStats(s *store.Students, t *store.Teachers) *Stats {
-	return &Stats{students: s, teachers: t}
+func NewStats(s *store.Students, t *store.Teachers, a *store.Attendances) *Stats {
+	return &Stats{students: s, teachers: t, attendances: a}
 }
 
 type dashboardResponse struct {
@@ -33,4 +34,13 @@ func (h *Stats) Dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, dashboardResponse{Students: ss, Teachers: ts})
+}
+
+func (h *Stats) Attendance(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.attendances.Stats(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil ringkasan kehadiran")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, stats)
 }

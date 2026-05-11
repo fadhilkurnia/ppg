@@ -1,449 +1,373 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
-import { z } from 'zod'
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import {
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import { CalendarCheck, Clock, Users, Sparkles } from 'lucide-react'
 
 import {
-  createAttendance,
-  deleteAttendance,
-  getAttendance,
-  listAttendances,
-  updateAttendance,
-} from '@/api/attendances'
-import { listStudents } from '@/api/students'
-import { listTeachers } from '@/api/teachers'
-import {
-  ATTENDANCE_STATUSES,
-  ATTENDANCE_STATUS_LABELS,
-  type Attendance,
-  type AttendanceStatus,
-} from '@/api/types'
-import { useMe } from '@/lib/auth'
-import { Button } from '@/components/Button'
-import { Input } from '@/components/Input'
-import { Modal } from '@/components/Modal'
-import { RowActions } from '@/components/RowActions'
-import { AttendanceDetail } from '@/components/AttendanceDetail'
-import { AttendanceForm } from '@/components/AttendanceForm'
-
-const PAGE_SIZE = 25
-
-const searchSchema = z.object({
-  dateFrom: z.string().optional().catch(undefined),
-  dateTo: z.string().optional().catch(undefined),
-  teacherId: z.string().optional().catch(undefined),
-  studentId: z.string().optional().catch(undefined),
-  status: z.enum(ATTENDANCE_STATUSES).optional().catch(undefined),
-  page: z.number().int().min(1).optional().catch(1),
-  view: z.string().optional().catch(undefined),
-  edit: z.string().optional().catch(undefined),
-  new: z.boolean().optional().catch(undefined),
-})
-
-type SearchState = z.infer<typeof searchSchema>
+  getAttendanceStats,
+  type StudentAggregate,
+  type TeacherAggregate,
+} from '@/api/stats'
+import { ATTENDANCE_STATUS_LABELS, type AttendanceStatus } from '@/api/types'
 
 export const Route = createFileRoute('/_authed/attendance')({
-  validateSearch: searchSchema,
-  component: AttendancePage,
+  component: AttendanceStatsPage,
 })
 
-function AttendancePage() {
-  const navigate = useNavigate({ from: '/attendance' })
-  const search = Route.useSearch()
-  const {
-    dateFrom,
-    dateTo,
-    teacherId,
-    studentId,
-    status,
-    page = 1,
-    view,
-    edit,
-    new: isNew,
-  } = search
-  const { data: user } = useMe()
-  const isAdmin = user?.role === 'admin'
+const STATUS_COLORS: Record<AttendanceStatus, string> = {
+  hadir: '#10b981',        // emerald-500
+  izin_murid: '#f59e0b',   // amber-500
+  izin_guru: '#f97316',    // orange-500
+  by_vn: '#0ea5e9',        // sky-500
+}
 
-  const filterSearch: SearchState = { dateFrom, dateTo, teacherId, studentId, status, page }
-  const goTo = (next: Partial<SearchState>) =>
-    void navigate({ search: { ...filterSearch, ...next } })
-  const close = () => goTo({ view: undefined, edit: undefined, new: undefined })
-
-  const { data, isPending } = useQuery({
-    queryKey: ['attendances', { dateFrom, dateTo, teacherId, studentId, status, page }],
-    queryFn: () =>
-      listAttendances({
-        dateFrom,
-        dateTo,
-        teacherId,
-        studentId,
-        status,
-        limit: PAGE_SIZE,
-        offset: (page - 1) * PAGE_SIZE,
-      }),
+function AttendanceStatsPage() {
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['stats', 'attendance'],
+    queryFn: getAttendanceStats,
+    staleTime: 60_000,
   })
 
-  // For filter dropdowns
-  const teachersQ = useQuery({
-    queryKey: ['teachers', 'all-for-filter'],
-    queryFn: () => listTeachers({ limit: 200 }),
-    staleTime: 5 * 60_000,
-  })
-  const studentsQ = useQuery({
-    queryKey: ['students', 'all-for-filter'],
-    queryFn: () => listStudents({ limit: 200 }),
-    staleTime: 5 * 60_000,
-  })
-
-  const qc = useQueryClient()
-  const deleteMutation = useMutation({
-    mutationFn: deleteAttendance,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendances'] }),
-  })
-  const handleDelete = (a: Attendance) => {
-    const label = `${a.date.slice(0, 10)} — ${a.studentName} · ${a.teacherName}`
-    if (confirm(`Hapus kehadiran ${label}?\nTindakan ini tidak dapat dibatalkan.`)) {
-      deleteMutation.mutate(a.id)
-    }
-  }
-
-  const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  if (isError) return <p className="text-red-600">Gagal memuat statistik kehadiran.</p>
+  if (isPending || !data) return <p className="text-slate-500">Memuat…</p>
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6">
+      <div>
         <h1 className="text-2xl font-semibold">Kehadiran</h1>
-        {isAdmin ? (
-          <Button onClick={() => goTo({ new: true })} className="self-start sm:self-auto">
-            <Plus size={16} className="mr-1" />
-            Tambah Kehadiran
-          </Button>
-        ) : null}
+        <p className="mt-1 text-sm text-slate-500">
+          Ringkasan dan analitik dari seluruh data Pengajian.
+        </p>
       </div>
 
-      <form
-        className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6"
-        onSubmit={(e) => {
-          e.preventDefault()
-          const fd = new FormData(e.currentTarget)
-          const next: SearchState = {
-            dateFrom: (String(fd.get('dateFrom') ?? '') || undefined) as string | undefined,
-            dateTo: (String(fd.get('dateTo') ?? '') || undefined) as string | undefined,
-            teacherId: (String(fd.get('teacherId') ?? '') || undefined) as string | undefined,
-            studentId: (String(fd.get('studentId') ?? '') || undefined) as string | undefined,
-            status: (() => {
-              const v = String(fd.get('status') ?? '')
-              return ATTENDANCE_STATUSES.includes(v as AttendanceStatus)
-                ? (v as AttendanceStatus)
-                : undefined
-            })(),
-            page: 1,
-          }
-          void navigate({ search: next })
-        }}
-      >
-        <div>
-          <label className="block text-xs text-slate-500">Dari</label>
-          <Input type="date" name="dateFrom" defaultValue={dateFrom ?? ''} />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500">Sampai</label>
-          <Input type="date" name="dateTo" defaultValue={dateTo ?? ''} />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500">Pengajar</label>
-          <SelectFilter name="teacherId" defaultValue={teacherId ?? ''}>
-            <option value="">Semua</option>
-            {teachersQ.data?.items.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </SelectFilter>
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500">Generus</label>
-          <SelectFilter name="studentId" defaultValue={studentId ?? ''}>
-            <option value="">Semua</option>
-            {studentsQ.data?.items.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </SelectFilter>
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500">Status</label>
-          <SelectFilter name="status" defaultValue={status ?? ''}>
-            <option value="">Semua</option>
-            {ATTENDANCE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {ATTENDANCE_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </SelectFilter>
-        </div>
-        <div className="flex items-end">
-          <Button type="submit" variant="secondary" size="md" className="w-full">
-            Terapkan
-          </Button>
-        </div>
-      </form>
-
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-2">Tanggal</th>
-              <th className="px-4 py-2">Generus</th>
-              <th className="hidden px-4 py-2 sm:table-cell">Pengajar</th>
-              <th className="hidden px-4 py-2 md:table-cell">Durasi</th>
-              <th className="px-4 py-2">Status</th>
-              {isAdmin ? <th className="px-4 py-2 text-right">Aksi</th> : null}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {isPending ? (
-              <tr>
-                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
-                  Memuat…
-                </td>
-              </tr>
-            ) : data && data.items.length > 0 ? (
-              data.items.map((a) => (
-                <tr key={a.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-2 font-mono text-xs">{a.date.slice(0, 10)}</td>
-                  <td className="px-4 py-2">
-                    <button
-                      type="button"
-                      onClick={() => goTo({ view: a.id })}
-                      className="text-left text-slate-900 hover:underline"
-                    >
-                      {a.studentName}
-                    </button>
-                  </td>
-                  <td className="hidden px-4 py-2 sm:table-cell">{a.teacherName}</td>
-                  <td className="hidden px-4 py-2 md:table-cell">
-                    {a.durationMin != null ? `${a.durationMin} min` : '—'}
-                  </td>
-                  <td className="px-4 py-2">
-                    <StatusPill status={a.status} />
-                  </td>
-                  {isAdmin ? (
-                    <td className="px-4 py-2 text-right">
-                      <RowActions
-                        onEdit={() => goTo({ edit: a.id })}
-                        onDelete={() => handleDelete(a)}
-                        deleteDisabled={deleteMutation.isPending}
-                      />
-                    </td>
-                  ) : null}
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
-                  Belum ada data kehadiran untuk filter ini.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KPICard
+          icon={<CalendarCheck size={20} />}
+          label="Total Sesi"
+          value={data.total.sessions.toLocaleString('id-ID')}
+        />
+        <KPICard
+          icon={<Clock size={20} />}
+          label="Total Jam Ngaji"
+          value={`${data.total.hours.toFixed(0).toLocaleString()} jam`}
+        />
+        <KPICard
+          icon={<Sparkles size={20} />}
+          label="Sesi 30 Hari Terakhir"
+          value={data.total.last30Days.toLocaleString('id-ID')}
+        />
+        <KPICard
+          icon={<Users size={20} />}
+          label="Pasangan Aktif (30hr)"
+          value={data.total.activePairs.toLocaleString('id-ID')}
+          subtitle="Generus × Pengajar"
+        />
       </div>
 
-      <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-        <span>
-          Halaman {page} dari {totalPages} · {total} total
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => goTo({ page: Math.max(1, page - 1) })}
-          >
-            Sebelumnya
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => goTo({ page: Math.min(totalPages, page + 1) })}
-          >
-            Berikutnya
-          </Button>
-        </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <ChartCard title="Sesi per Bulan" className="lg:col-span-2">
+          <MonthlyChart data={data.monthly} />
+        </ChartCard>
+        <ChartCard title="Distribusi Status">
+          <StatusDonut buckets={data.byStatus} total={data.total.sessions} />
+        </ChartCard>
       </div>
 
-      <ViewModal
-        id={view}
-        open={!!view && !edit}
-        onClose={close}
-        isAdmin={isAdmin}
-        onEdit={(id) => goTo({ view: undefined, edit: id })}
-      />
-      <EditModal
-        id={edit}
-        open={!!edit && isAdmin}
-        onClose={close}
-        onSaved={(att) => goTo({ edit: undefined, view: att.id })}
-      />
-      <NewModal open={!!isNew && isAdmin} onClose={close} />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ChartCard title="Per Generus">
+          <StudentTable rows={data.byStudent} />
+        </ChartCard>
+        <ChartCard title="Per Pengajar">
+          <TeacherTable rows={data.byTeacher} />
+        </ChartCard>
+      </div>
     </div>
   )
 }
 
-function SelectFilter(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-    />
-  )
-}
+/* --- KPI card --- */
 
-function StatusPill({ status }: { status: AttendanceStatus }) {
-  const label = ATTENDANCE_STATUS_LABELS[status]
-  if (status === 'hadir') {
-    return (
-      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-        {label}
-      </span>
-    )
-  }
-  if (status === 'by_vn') {
-    return (
-      <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">
-        {label}
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-      {label}
-    </span>
-  )
-}
-
-/* ---------- modals ---------- */
-
-function ViewModal({
-  id,
-  open,
-  onClose,
-  isAdmin,
-  onEdit,
+function KPICard({
+  icon,
+  label,
+  value,
+  subtitle,
 }: {
-  id: string | undefined
-  open: boolean
-  onClose: () => void
-  isAdmin: boolean
-  onEdit: (id: string) => void
+  icon: React.ReactNode
+  label: string
+  value: string | number
+  subtitle?: string
 }) {
-  const query = useQuery({
-    queryKey: ['attendances', id],
-    queryFn: () => getAttendance(id as string),
-    enabled: open && !!id,
-  })
-
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="xl"
-      title={
-        query.data
-          ? `Kehadiran — ${query.data.studentName} (${query.data.date.slice(0, 10)})`
-          : 'Detail Kehadiran'
-      }
-    >
-      {query.isPending ? (
-        <p className="text-slate-500">Memuat…</p>
-      ) : query.isError || !query.data ? (
-        <p className="text-red-600">Gagal memuat data.</p>
-      ) : (
-        <>
-          <AttendanceDetail attendance={query.data} />
-          {isAdmin ? (
-            <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
-              <Button variant="secondary" onClick={onClose}>
-                Tutup
-              </Button>
-              <Button onClick={() => onEdit(query.data!.id)}>Ubah</Button>
-            </div>
-          ) : null}
-        </>
-      )}
-    </Modal>
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3 text-slate-600">
+        <span className="rounded-md bg-slate-100 p-2">{icon}</span>
+        <span className="text-sm">{label}</span>
+      </div>
+      <p className="mt-3 text-3xl font-semibold">{value}</p>
+      {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
+    </div>
   )
 }
 
-function EditModal({
-  id,
-  open,
-  onClose,
-  onSaved,
+function ChartCard({
+  title,
+  children,
+  className,
 }: {
-  id: string | undefined
-  open: boolean
-  onClose: () => void
-  onSaved: (att: Attendance) => void
+  title: string
+  children: React.ReactNode
+  className?: string
 }) {
-  const qc = useQueryClient()
-  const query = useQuery({
-    queryKey: ['attendances', id],
-    queryFn: () => getAttendance(id as string),
-    enabled: open && !!id,
-  })
-  const mutation = useMutation({
-    mutationFn: (input: Parameters<typeof updateAttendance>[1]) =>
-      updateAttendance(id as string, input),
-    onSuccess: async (saved) => {
-      await qc.invalidateQueries({ queryKey: ['attendances'] })
-      onSaved(saved)
-    },
-  })
-
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Ubah Kehadiran">
-      {query.isPending ? (
-        <p className="text-slate-500">Memuat…</p>
-      ) : query.isError || !query.data ? (
-        <p className="text-red-600">Gagal memuat data.</p>
-      ) : (
-        <AttendanceForm
-          initial={query.data}
-          submitLabel="Simpan"
-          pending={mutation.isPending}
-          error={mutation.error}
-          onSubmit={(input) => mutation.mutate(input)}
-          onCancel={onClose}
-        />
-      )}
-    </Modal>
+    <div className={`rounded-lg border border-slate-200 bg-white p-5 shadow-sm ${className ?? ''}`}>
+      <h2 className="mb-3 text-sm font-semibold text-slate-700">{title}</h2>
+      {children}
+    </div>
   )
 }
 
-function NewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const qc = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: createAttendance,
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['attendances'] })
-      onClose()
-    },
-  })
+/* --- monthly trend chart --- */
+
+function MonthlyChart({ data }: { data: { month: string; sessions: number; hours: number }[] }) {
+  if (data.length === 0) {
+    return <p className="text-sm text-slate-500">Belum ada data.</p>
+  }
+  return (
+    <div style={{ width: '100%', height: 280 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
+          <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+          <XAxis dataKey="month" stroke="#64748b" fontSize={11} interval="preserveStartEnd" />
+          <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
+          <Tooltip
+            formatter={(v: number, k: string) => (k === 'hours' ? [`${v.toFixed(1)} jam`, 'Jam'] : [v, 'Sesi'])}
+            labelFormatter={(label) => `Bulan ${label}`}
+          />
+          <Line type="monotone" dataKey="sessions" stroke="#0f172a" strokeWidth={2} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+/* --- status donut --- */
+
+function StatusDonut({
+  buckets,
+  total,
+}: {
+  buckets: { label: string; count: number }[]
+  total: number
+}) {
+  const data = buckets
+    .filter((b) => b.count > 0)
+    .map((b) => ({
+      name: ATTENDANCE_STATUS_LABELS[b.label as AttendanceStatus] ?? b.label,
+      key: b.label as AttendanceStatus,
+      value: b.count,
+    }))
+  if (data.length === 0) {
+    return <p className="text-sm text-slate-500">Belum ada data.</p>
+  }
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="h-40 w-40 shrink-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              innerRadius={42}
+              outerRadius={70}
+              paddingAngle={2}
+              stroke="none"
+            >
+              {data.map((d) => (
+                <Cell key={d.key} fill={STATUS_COLORS[d.key]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(v: number) => `${v.toLocaleString('id-ID')} (${total ? ((v / total) * 100).toFixed(1) : 0}%)`}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <ul className="grid w-full grid-cols-2 gap-x-3 gap-y-2 text-sm">
+        {buckets.map((b) => (
+          <li key={b.label} className="flex items-center gap-2">
+            <span
+              className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: STATUS_COLORS[b.label as AttendanceStatus] }}
+            />
+            <span className="truncate font-medium">
+              {ATTENDANCE_STATUS_LABELS[b.label as AttendanceStatus] ?? b.label}
+            </span>
+            <span className="ml-auto text-slate-500">{b.count.toLocaleString('id-ID')}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/* --- sortable tables --- */
+
+type StudentSortKey = 'totalSessions' | 'hadirRate' | 'totalHours'
+type TeacherSortKey = 'totalSessions' | 'totalHours' | 'uniqueStudents'
+
+function StudentTable({ rows }: { rows: StudentAggregate[] }) {
+  const [sortKey, setSortKey] = useState<StudentSortKey>('totalSessions')
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc')
+
+  const sorted = useMemo(() => {
+    const out = [...rows]
+    out.sort((a, b) => {
+      const av = a[sortKey]
+      const bv = b[sortKey]
+      return dir === 'asc' ? av - bv : bv - av
+    })
+    return out
+  }, [rows, sortKey, dir])
+
+  const setSort = (k: StudentSortKey) => {
+    if (k === sortKey) setDir(dir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortKey(k)
+      setDir('desc')
+    }
+  }
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Tambah Kehadiran">
-      <AttendanceForm
-        submitLabel="Simpan"
-        pending={mutation.isPending}
-        error={mutation.error}
-        onSubmit={(input) => mutation.mutate(input)}
-        onCancel={onClose}
-      />
-    </Modal>
+    <div className="max-h-96 overflow-auto rounded-md border border-slate-200">
+      <table className="min-w-full text-sm">
+        <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-3 py-2">Nama</th>
+            <SortHeader active={sortKey === 'totalSessions'} dir={dir} onClick={() => setSort('totalSessions')}>
+              Sesi
+            </SortHeader>
+            <SortHeader active={sortKey === 'hadirRate'} dir={dir} onClick={() => setSort('hadirRate')}>
+              % Hadir
+            </SortHeader>
+            <SortHeader active={sortKey === 'totalHours'} dir={dir} onClick={() => setSort('totalHours')}>
+              Jam
+            </SortHeader>
+            <th className="px-3 py-2 text-right">Sesi Terakhir</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {sorted.map((s) => (
+            <tr key={s.studentId}>
+              <td className="px-3 py-2">{s.studentName}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{s.totalSessions}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{s.hadirRate.toFixed(0)}%</td>
+              <td className="px-3 py-2 text-right tabular-nums">{s.totalHours.toFixed(1)}</td>
+              <td className="px-3 py-2 text-right font-mono text-xs text-slate-500">
+                {s.lastDate ?? '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function TeacherTable({ rows }: { rows: TeacherAggregate[] }) {
+  const [sortKey, setSortKey] = useState<TeacherSortKey>('totalSessions')
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc')
+
+  const sorted = useMemo(() => {
+    const out = [...rows]
+    out.sort((a, b) => {
+      const av = a[sortKey]
+      const bv = b[sortKey]
+      return dir === 'asc' ? av - bv : bv - av
+    })
+    return out
+  }, [rows, sortKey, dir])
+
+  const setSort = (k: TeacherSortKey) => {
+    if (k === sortKey) setDir(dir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortKey(k)
+      setDir('desc')
+    }
+  }
+
+  return (
+    <div className="max-h-96 overflow-auto rounded-md border border-slate-200">
+      <table className="min-w-full text-sm">
+        <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-3 py-2">Nama</th>
+            <SortHeader active={sortKey === 'totalSessions'} dir={dir} onClick={() => setSort('totalSessions')}>
+              Sesi
+            </SortHeader>
+            <SortHeader active={sortKey === 'totalHours'} dir={dir} onClick={() => setSort('totalHours')}>
+              Jam
+            </SortHeader>
+            <SortHeader active={sortKey === 'uniqueStudents'} dir={dir} onClick={() => setSort('uniqueStudents')}>
+              # Generus
+            </SortHeader>
+            <th className="px-3 py-2 text-right">Sesi Terakhir</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {sorted.map((t) => (
+            <tr key={t.teacherId}>
+              <td className="px-3 py-2">{t.teacherName}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{t.totalSessions}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{t.totalHours.toFixed(1)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{t.uniqueStudents}</td>
+              <td className="px-3 py-2 text-right font-mono text-xs text-slate-500">
+                {t.lastDate ?? '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function SortHeader({
+  children,
+  active,
+  dir,
+  onClick,
+}: {
+  children: React.ReactNode
+  active: boolean
+  dir: 'asc' | 'desc'
+  onClick: () => void
+}) {
+  return (
+    <th className="px-3 py-2 text-right">
+      <button
+        type="button"
+        onClick={onClick}
+        className={`inline-flex items-center gap-1 hover:text-slate-700 ${
+          active ? 'text-slate-900' : ''
+        }`}
+      >
+        {children}
+        {active ? <span className="text-[10px]">{dir === 'asc' ? '▲' : '▼'}</span> : null}
+      </button>
+    </th>
   )
 }
