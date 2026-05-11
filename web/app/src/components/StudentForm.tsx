@@ -24,7 +24,9 @@ const schema = z.object({
   nickname: z.string().max(200).optional().or(z.literal('')),
   dateOfBirth: isoDateOrEmpty,
   gender: z.enum(['male', 'female']),
-  level: z.enum([...STUDENT_LEVELS, ''] as [string, ...string[]]),
+  level: z
+    .enum([...STUDENT_LEVELS, ''] as [string, ...string[]])
+    .refine((v) => v !== '', { message: 'Wajib diisi' }),
   kelompok: z
     .enum([...STUDENT_KELOMPOKS, ''] as [string, ...string[]])
     .refine((v) => v !== '', { message: 'Wajib diisi' }),
@@ -85,7 +87,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
           nickname: v.nickname || undefined,
           dateOfBirth: v.dateOfBirth || undefined,
           gender: v.gender,
-          level: v.level === '' ? undefined : (v.level as StudentInput['level']),
+          level: v.level as StudentInput['level'],
           kelompok: v.kelompok as StudentInput['kelompok'],
           city: v.city || undefined,
           joinedAt: v.joinedAt || undefined,

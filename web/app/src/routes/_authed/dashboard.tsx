@@ -28,7 +28,7 @@ const GENDER_COLORS: Record<string, string> = {
 
 const BAR_COLOR = '#0f172a' // slate-900
 const BAR_MUTED = '#cbd5e1' // slate-300
-const TOP_DAERAH_LIMIT = 6
+const TOP_DAERAH_LIMIT = 10
 
 function DashboardPage() {
   const { data, isPending, isError } = useQuery({
@@ -82,7 +82,7 @@ function DashboardPage() {
         <StudentLocationMap buckets={data.students.byKelompok} />
       </ChartCard>
 
-      <ChartCard title="Pengajar aktif per Daerah (top 6)">
+      <ChartCard title="Pengajar aktif per Daerah (top 10)">
         <DaerahBarChart buckets={data.teachers.byDaerah} />
       </ChartCard>
 
@@ -277,7 +277,7 @@ function DaerahBarChart({ buckets }: { buckets: Bucket[] }) {
 /* --- matrix --- */
 
 function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
-  const levels = [...STUDENT_LEVELS, '']
+  const levels = [...STUDENT_LEVELS]
   const kelompoks = [...STUDENT_KELOMPOKS]
 
   // Build a level → kelompok → count grid.
@@ -317,11 +317,10 @@ function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
         </thead>
         <tbody className="divide-y divide-slate-100">
           {levels.map((l) => {
-            const rowLabel = l === '' ? '(belum diisi)' : l
             const rowTotal = kelompoks.reduce((acc, k) => acc + (grid[l]?.[k] ?? 0), 0)
             return (
-              <tr key={l || 'null'}>
-                <th className="px-3 py-2 text-left font-medium text-slate-700">{rowLabel}</th>
+              <tr key={l}>
+                <th className="px-3 py-2 text-left font-medium text-slate-700">{l}</th>
                 {kelompoks.map((k) => {
                   const n = grid[l]?.[k] ?? 0
                   return (

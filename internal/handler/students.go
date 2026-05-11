@@ -32,7 +32,7 @@ type studentBody struct {
 	Nickname    *string `json:"nickname,omitempty"     validate:"omitempty,max=200"`
 	DateOfBirth *string `json:"dateOfBirth,omitempty"  validate:"omitempty,datetime=2006-01-02"`
 	Gender      string  `json:"gender"      validate:"required,oneof=male female"`
-	Level       *string `json:"level,omitempty"        validate:"omitempty,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
+	Level       string  `json:"level"                  validate:"required,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
 	Kelompok    string  `json:"kelompok"               validate:"required,oneof=California Chicago 'New Hampshire' Canada"`
 	City        *string `json:"city,omitempty"         validate:"omitempty,max=200"`
 	JoinedAt    *string `json:"joinedAt,omitempty"     validate:"omitempty,datetime=2006-01-02"`
@@ -57,6 +57,7 @@ func (h *Students) parse(r *http.Request) (store.StudentInput, error) {
 		Name:        strings.TrimSpace(b.Name),
 		Nickname:    trimPtr(b.Nickname),
 		Gender:      b.Gender,
+		Level:       model.StudentLevel(b.Level),
 		Kelompok:    b.Kelompok,
 		City:        trimPtr(b.City),
 		LeaveReason: trimPtr(b.LeaveReason),
@@ -64,10 +65,6 @@ func (h *Students) parse(r *http.Request) (store.StudentInput, error) {
 		ParentName:  trimPtr(b.ParentName),
 		ParentPhone: trimPtr(b.ParentPhone),
 		ParentEmail: trimPtr(b.ParentEmail),
-	}
-	if b.Level != nil && *b.Level != "" {
-		l := model.StudentLevel(*b.Level)
-		in.Level = &l
 	}
 	if t, err := parseOptionalDate(b.DateOfBirth); err != nil {
 		return store.StudentInput{}, err
