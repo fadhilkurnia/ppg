@@ -210,25 +210,57 @@ type TeacherAggregate struct {
 	LastDate       *string `json:"lastDate,omitempty"`
 }
 
+type AttendanceStatsParams struct {
+	DateFrom *time.Time
+	DateTo   *time.Time
+}
+
 type AttendanceStats struct {
-	Total     AttendanceTotals   `json:"total"`
-	Monthly   []MonthlyBucket    `json:"monthly"`
-	ByStatus  []Bucket           `json:"byStatus"`
-	ByStudent []StudentAggregate `json:"byStudent"`
-	ByTeacher []TeacherAggregate `json:"byTeacher"`
+	Total          AttendanceTotals   `json:"total"`
+	Monthly        []MonthlyBucket    `json:"monthly"`
+	ByStatus       []Bucket           `json:"byStatus"`
+	ByStudent      []StudentAggregate `json:"byStudent"`
+	ByTeacher      []TeacherAggregate `json:"byTeacher"`
+	AvailableYears []int              `json:"availableYears"` // years with any data, unfiltered
 }
 
 // Stats computes the aggregates the Kehadiran (analytics) page renders. All
-// counts run over the entire attendances table; status buckets include every
-// status value, monthly buckets are yyyy-mm strings ordered ascending.
-func (a *Attendances) Stats(ctx context.Context) (*AttendanceStats, error) {
+// five sub-aggregations honor the optional dateFrom/dateTo bounds.
+// AvailableYears is always computed across the full table so the UI can list
+// year options even after a filter has been applied.
+func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*AttendanceStats, error) {
 	out := &AttendanceStats{}
 
+	// Build the WHERE clause once.
+	var clauses []string
+	var args []any
+	if p.DateFrom != nil {
+		clauses = append(clauses, "date >= ?")
+		args = append(args, p.DateFrom.UTC())
+	}
+	if p.DateTo != nil {
+		clauses = append(clauses, "date <= ?")
+		args = append(args, p.DateTo.UTC())
+	}
+	where := ""
+	if len(clauses) > 0 {
+		where = " WHERE " + strings.Join(clauses, " AND ")
+	}
+	// Same WHERE but with a leading AND for compound predicates.
+	andExtra := ""
+	if where != "" {
+		andExtra = " AND " + strings.Join(clauses, " AND ")
+	}
+
 	if err := a.db.QueryRowContext(ctx,
-		`SELECT COUNT(*), COALESCE(SUM(duration_min), 0) / 60.0 FROM attendances`,
+		`SELECT COUNT(*), COALESCE(SUM(duration_min), 0) / 60.0 FROM attendances`+where,
+		args...,
 	).Scan(&out.Total.Sessions, &out.Total.Hours); err != nil {
 		return nil, fmt.Errorf("totals: %w", err)
 	}
+	// Last 30 days and active pairs are intentionally NOT filtered by the
+	// user-selected date range — they always report the "currently active"
+	// view so the KPIs stay meaningful when the user picks e.g. 2024.
 	if err := a.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM attendances WHERE date >= date('now', '-30 days')`,
 	).Scan(&out.Total.Last30Days); err != nil {
@@ -246,9 +278,9 @@ func (a *Attendances) Stats(ctx context.Context) (*AttendanceStats, error) {
 		`SELECT strftime('%Y-%m', date) AS month,
 		        COUNT(*) AS sessions,
 		        COALESCE(SUM(duration_min), 0) / 60.0 AS hours
-		   FROM attendances
+		   FROM attendances`+where+`
 		  GROUP BY month
-		  ORDER BY month ASC`)
+		  ORDER BY month ASC`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("monthly: %w", err)
 	}
@@ -265,7 +297,8 @@ func (a *Attendances) Stats(ctx context.Context) (*AttendanceStats, error) {
 	}
 
 	statusRows, err := a.db.QueryContext(ctx,
-		`SELECT status, COUNT(*) FROM attendances GROUP BY status`)
+		`SELECT status, COUNT(*) FROM attendances`+where+` GROUP BY status`,
+		args...)
 	if err != nil {
 		return nil, fmt.Errorf("status: %w", err)
 	}
@@ -286,6 +319,15 @@ func (a *Attendances) Stats(ctx context.Context) (*AttendanceStats, error) {
 		out.ByStatus = append(out.ByStatus, Bucket{Label: s, Count: statusMap[s]})
 	}
 
+	// For the JOIN aggregations the date column must be qualified with `a.`.
+	studentWhere := ""
+	studentArgs := args
+	if where != "" {
+		// rewrite "date >= ?" -> "a.date >= ?"
+		studentWhere = " WHERE " + strings.ReplaceAll(strings.Join(clauses, " AND "), "date ", "a.date ")
+	}
+	_ = andExtra // reserved for future per-status aggregations
+
 	studentRows, err := a.db.QueryContext(ctx,
 		`SELECT a.student_id, s.name,
 		        COUNT(*) AS total,
@@ -293,9 +335,9 @@ func (a *Attendances) Stats(ctx context.Context) (*AttendanceStats, error) {
 		        COALESCE(SUM(a.duration_min), 0) / 60.0 AS hours,
 		        MAX(a.date) AS last_date
 		   FROM attendances a
-		   JOIN students s ON s.id = a.student_id
+		   JOIN students s ON s.id = a.student_id`+studentWhere+`
 		  GROUP BY a.student_id, s.name
-		  ORDER BY total DESC`)
+		  ORDER BY total DESC`, studentArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("by_student: %w", err)
 	}
@@ -329,9 +371,9 @@ func (a *Attendances) Stats(ctx context.Context) (*AttendanceStats, error) {
 		        COUNT(DISTINCT a.student_id) AS uniq,
 		        MAX(a.date) AS last_date
 		   FROM attendances a
-		   JOIN teachers t ON t.id = a.teacher_id
+		   JOIN teachers t ON t.id = a.teacher_id`+studentWhere+`
 		  GROUP BY a.teacher_id, t.name
-		  ORDER BY total DESC`)
+		  ORDER BY total DESC`, studentArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("by_teacher: %w", err)
 	}
@@ -351,7 +393,28 @@ func (a *Attendances) Stats(ctx context.Context) (*AttendanceStats, error) {
 		}
 		out.ByTeacher = append(out.ByTeacher, t)
 	}
-	return out, teacherRows.Err()
+	if err := teacherRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// AvailableYears is unfiltered so the UI keeps showing all year options
+	// even after a year filter is selected.
+	yearRows, err := a.db.QueryContext(ctx,
+		`SELECT DISTINCT CAST(strftime('%Y', date) AS INTEGER) AS y
+		   FROM attendances
+		  ORDER BY y ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("available_years: %w", err)
+	}
+	defer yearRows.Close()
+	for yearRows.Next() {
+		var y int
+		if err := yearRows.Scan(&y); err != nil {
+			return nil, err
+		}
+		out.AvailableYears = append(out.AvailableYears, y)
+	}
+	return out, yearRows.Err()
 }
 
 func nullableInt(p *int) any {

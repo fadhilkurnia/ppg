@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import {
@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts'
 import { CalendarCheck, Clock, Users, Sparkles } from 'lucide-react'
+import { z } from 'zod'
 
 import {
   getAttendanceStats,
@@ -21,10 +22,44 @@ import {
   type TeacherAggregate,
 } from '@/api/stats'
 import { ATTENDANCE_STATUS_LABELS, type AttendanceStatus } from '@/api/types'
+import { cn } from '@/lib/cn'
+
+const searchSchema = z.object({
+  range: z.string().optional().catch(undefined),
+})
 
 export const Route = createFileRoute('/_authed/attendance')({
+  validateSearch: searchSchema,
   component: AttendanceStatsPage,
 })
+
+/**
+ * Resolve a `range` token into ISO `dateFrom`/`dateTo` strings, plus a
+ * human-readable label for the UI. `all` (or any unknown token) returns
+ * undefined bounds so the API sees no date filter.
+ */
+function resolveRange(token: string | undefined, today = new Date()) {
+  const yyyy = today.getFullYear()
+  const mm = String(today.getMonth() + 1).padStart(2, '0')
+  const dd = String(today.getDate()).padStart(2, '0')
+  const todayIso = `${yyyy}-${mm}-${dd}`
+
+  if (token === 'ytd') {
+    return { dateFrom: `${yyyy}-01-01`, dateTo: todayIso, label: 'Tahun Ini' }
+  }
+  if (token === 'mtd') {
+    return { dateFrom: `${yyyy}-${mm}-01`, dateTo: todayIso, label: 'Bulan Ini' }
+  }
+  // Numeric year, e.g. "2024"
+  if (token && /^\d{4}$/.test(token)) {
+    return {
+      dateFrom: `${token}-01-01`,
+      dateTo: `${token}-12-31`,
+      label: token,
+    }
+  }
+  return { dateFrom: undefined, dateTo: undefined, label: 'Semua' }
+}
 
 const STATUS_COLORS: Record<AttendanceStatus, string> = {
   hadir: '#10b981',        // emerald-500
@@ -34,15 +69,21 @@ const STATUS_COLORS: Record<AttendanceStatus, string> = {
 }
 
 function AttendanceStatsPage() {
+  const navigate = useNavigate({ from: '/attendance' })
+  const { range } = Route.useSearch()
+  const resolved = useMemo(() => resolveRange(range), [range])
+
   const { data, isPending, isError } = useQuery({
-    queryKey: ['stats', 'attendance'],
-    queryFn: getAttendanceStats,
+    queryKey: ['stats', 'attendance', resolved.dateFrom ?? null, resolved.dateTo ?? null],
+    queryFn: () =>
+      getAttendanceStats({ dateFrom: resolved.dateFrom, dateTo: resolved.dateTo }),
     staleTime: 60_000,
   })
 
   if (isError) return <p className="text-red-600">Gagal memuat statistik kehadiran.</p>
   if (isPending || !data) return <p className="text-slate-500">Memuat…</p>
 
+  const activeToken = range ?? 'all'
   return (
     <div className="space-y-6">
       <div>
@@ -52,21 +93,32 @@ function AttendanceStatsPage() {
         </p>
       </div>
 
+      <RangeFilter
+        active={activeToken}
+        availableYears={data.availableYears}
+        onChange={(t) =>
+          void navigate({ search: { range: t === 'all' ? undefined : t } })
+        }
+      />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
           icon={<CalendarCheck size={20} />}
           label="Total Sesi"
           value={data.total.sessions.toLocaleString('id-ID')}
+          subtitle={resolved.label}
         />
         <KPICard
           icon={<Clock size={20} />}
           label="Total Jam Ngaji"
           value={`${data.total.hours.toFixed(0).toLocaleString()} jam`}
+          subtitle={resolved.label}
         />
         <KPICard
           icon={<Sparkles size={20} />}
           label="Sesi 30 Hari Terakhir"
           value={data.total.last30Days.toLocaleString('id-ID')}
+          subtitle="Tidak terpengaruh filter"
         />
         <KPICard
           icon={<Users size={20} />}
@@ -369,5 +421,47 @@ function SortHeader({
         {active ? <span className="text-[10px]">{dir === 'asc' ? '▲' : '▼'}</span> : null}
       </button>
     </th>
+  )
+}
+
+/* --- range filter pills --- */
+
+function RangeFilter({
+  active,
+  availableYears,
+  onChange,
+}: {
+  active: string
+  availableYears: number[]
+  onChange: (token: string) => void
+}) {
+  const years = [...availableYears].sort((a, b) => b - a) // newest first
+  const options: { token: string; label: string }[] = [
+    { token: 'all', label: 'Semua' },
+    { token: 'ytd', label: 'Tahun Ini' },
+    { token: 'mtd', label: 'Bulan Ini' },
+    ...years.map((y) => ({ token: String(y), label: String(y) })),
+  ]
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs uppercase tracking-wide text-slate-500">Rentang waktu</span>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((opt) => (
+          <button
+            key={opt.token}
+            type="button"
+            onClick={() => onChange(opt.token)}
+            className={cn(
+              'rounded-full border px-3 py-1 text-sm transition',
+              opt.token === active
+                ? 'border-slate-900 bg-slate-900 text-white'
+                : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50',
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

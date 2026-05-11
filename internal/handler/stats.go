@@ -2,6 +2,8 @@ package handler
 
 import (
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
@@ -37,7 +39,19 @@ func (h *Stats) Dashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Stats) Attendance(w http.ResponseWriter, r *http.Request) {
-	stats, err := h.attendances.Stats(r.Context())
+	q := r.URL.Query()
+	var p store.AttendanceStatsParams
+	if v := strings.TrimSpace(q.Get("dateFrom")); v != "" {
+		if t, err := time.Parse("2006-01-02", v); err == nil {
+			p.DateFrom = &t
+		}
+	}
+	if v := strings.TrimSpace(q.Get("dateTo")); v != "" {
+		if t, err := time.Parse("2006-01-02", v); err == nil {
+			p.DateTo = &t
+		}
+	}
+	stats, err := h.attendances.Stats(r.Context(), p)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil ringkasan kehadiran")
 		return

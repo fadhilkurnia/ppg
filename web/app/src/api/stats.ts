@@ -67,8 +67,18 @@ export type AttendanceStats = {
   byStatus: Bucket[]
   byStudent: StudentAggregate[]
   byTeacher: TeacherAggregate[]
+  availableYears: number[]
 }
 
-export function getAttendanceStats() {
-  return apiFetch<AttendanceStats>('/api/stats/attendance')
+export type AttendanceStatsQuery = {
+  dateFrom?: string
+  dateTo?: string
+}
+
+export function getAttendanceStats(params: AttendanceStatsQuery = {}) {
+  const q = new URLSearchParams()
+  if (params.dateFrom) q.set('dateFrom', params.dateFrom)
+  if (params.dateTo) q.set('dateTo', params.dateTo)
+  const qs = q.toString()
+  return apiFetch<AttendanceStats>(`/api/stats/attendance${qs ? `?${qs}` : ''}`)
 }
