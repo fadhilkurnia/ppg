@@ -16,6 +16,7 @@ export type StudentStats = {
 export type TeacherStats = {
   total: number
   activeTotal: number
+  byGender: Bucket[]
   byStatus: Bucket[]
   byDaerah: Bucket[]
 }

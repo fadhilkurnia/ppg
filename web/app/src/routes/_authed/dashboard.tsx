@@ -53,7 +53,7 @@ function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
           icon={<Users size={20} />}
           label="Generus aktif"
@@ -66,7 +66,8 @@ function DashboardPage() {
           value={data.teachers.activeTotal}
           subtitle={`dari ${data.teachers.total} total`}
         />
-        <GenderCard buckets={data.students.byGender} />
+        <GenderCard title="Generus per Jenis Kelamin" buckets={data.students.byGender} />
+        <GenderCard title="Pengajar per Jenis Kelamin" buckets={data.teachers.byGender} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -118,7 +119,7 @@ function KPICard({
   )
 }
 
-function GenderCard({ buckets }: { buckets: Bucket[] }) {
+function GenderCard({ title, buckets }: { title: string; buckets: Bucket[] }) {
   const total = buckets.reduce((acc, b) => acc + b.count, 0)
   const data = buckets
     .filter((b) => b.count > 0)
@@ -130,7 +131,7 @@ function GenderCard({ buckets }: { buckets: Bucket[] }) {
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-sm text-slate-600">Generus aktif per Jenis Kelamin</div>
+      <div className="text-sm text-slate-600">{title}</div>
       <div className="mt-2 flex items-center gap-4">
         <div className="h-24 w-24 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
