@@ -177,6 +177,7 @@ func (t *Teachers) List(ctx context.Context, p TeacherListParams) (*TeacherListR
 type TeacherStats struct {
 	Total       int      `json:"total"`       // every row
 	ActiveTotal int      `json:"activeTotal"` // status='active'
+	ByGender    []Bucket `json:"byGender"`    // active only, female then male; NULL is dropped
 	ByStatus    []Bucket `json:"byStatus"`    // active vs retired
 	ByDaerah    []Bucket `json:"byDaerah"`    // active only, sorted by count desc
 }
@@ -212,6 +213,34 @@ func (t *Teachers) Stats(ctx context.Context) (*TeacherStats, error) {
 	out.ByStatus = []Bucket{
 		{Label: "active", Count: statusMap["active"]},
 		{Label: "retired", Count: statusMap["retired"]},
+	}
+
+	// Gender breakdown — active only; NULL gender is excluded so the bucket
+	// counts reflect rows the admin has actually classified. Mirrors the
+	// `byGender` shape on StudentStats.
+	genderRows, err := t.db.QueryContext(ctx,
+		`SELECT gender, COUNT(*) FROM teachers
+		  WHERE status = 'active' AND gender IS NOT NULL
+		  GROUP BY gender`)
+	if err != nil {
+		return nil, err
+	}
+	defer genderRows.Close()
+	genderMap := map[string]int{}
+	for genderRows.Next() {
+		var g string
+		var n int
+		if err := genderRows.Scan(&g, &n); err != nil {
+			return nil, err
+		}
+		genderMap[g] = n
+	}
+	if err := genderRows.Err(); err != nil {
+		return nil, err
+	}
+	out.ByGender = []Bucket{
+		{Label: "female", Count: genderMap["female"]},
+		{Label: "male", Count: genderMap["male"]},
 	}
 
 	daerahRows, err := t.db.QueryContext(ctx,
