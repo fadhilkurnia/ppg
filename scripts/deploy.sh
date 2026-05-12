@@ -5,19 +5,24 @@
 #
 # What it does:
 #   1. rsync the project source to $REMOTE_DIR on the remote (excluding
-#      node_modules, build artefacts, local .env, the local SQLite DB, .git, etc.)
+#      node_modules, build artefacts, local .env, .git, etc.). The project-root
+#      app.db is included so a fresh remote can be seeded with it.
 #   2. seed $REMOTE_DIR/.env from .env.example on first deploy (never overwrites
 #      an existing remote .env)
 #   3. `podman build` the image on the remote
-#   4. stop+remove the previous container, then `podman run` the new one with the
-#      remote .env file and a named volume for SQLite persistence
-#   5. tail the new container's logs for a few seconds so you can confirm it came up
+#   4. ensure the named data volume contains app.db. On first deploy (or with
+#      FORCE_SEED_DB=1) the bundled $REMOTE_DIR/app.db is copied into the volume;
+#      otherwise the existing volume data is left untouched.
+#   5. stop+remove the previous container, then `podman run` the new one with the
+#      remote .env file and the named volume for SQLite persistence
+#   6. tail the new container's logs for a few seconds so you can confirm it came up
 #
 # Usage:
 #   scripts/deploy.sh                  # deploy to default host
 #   SSH_HOST=user@host scripts/deploy.sh
 #   PORT=9090 scripts/deploy.sh        # publish on a different host port
 #   PUSH_ENV=1 scripts/deploy.sh       # also sync local .env to the remote (overwrites)
+#   FORCE_SEED_DB=1 scripts/deploy.sh  # overwrite the remote volume's app.db with the local one
 #
 # Requirements on local: ssh, rsync.
 # Requirements on remote: podman (already installed per project setup).
@@ -31,6 +36,7 @@ CONTAINER="${CONTAINER:-ppg-dashboard}"
 VOLUME="${VOLUME:-ppg-data}"
 PORT="${PORT:-8080}"
 PUSH_ENV="${PUSH_ENV:-0}"
+FORCE_SEED_DB="${FORCE_SEED_DB:-0}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -46,8 +52,9 @@ ssh -o BatchMode=yes -o ConnectTimeout=5 "$SSH_HOST" 'command -v podman >/dev/nu
 # 2. Make sure the remote project directory exists.
 ssh "$SSH_HOST" "mkdir -p '$REMOTE_DIR'"
 
-# 3. Rsync source. Exclude artefacts and local-only files. We never push the
-#    local SQLite DB — the remote keeps its own data in the named volume.
+# 3. Rsync source. Exclude artefacts and local-only files. The project-root
+#    app.db is included (so a fresh remote can be seeded from it); any other
+#    *.db files (journals, scratch copies, dbs in subdirs) are excluded.
 say "Syncing source → $SSH_HOST:$REMOTE_DIR"
 RSYNC_EXCLUDES=(
   --exclude='.git/'
@@ -61,6 +68,7 @@ RSYNC_EXCLUDES=(
   --exclude='web/dist/*'
   --include='web/dist/.gitkeep'
   --exclude='data/'
+  --include='/app.db'
   --exclude='*.db'
   --exclude='*.db-journal'
   --exclude='*.db-shm'
@@ -82,6 +90,7 @@ ssh "$SSH_HOST" \
   CONTAINER="$CONTAINER" \
   VOLUME="$VOLUME" \
   PORT="$PORT" \
+  FORCE_SEED_DB="$FORCE_SEED_DB" \
   bash -s <<'REMOTE'
 set -euo pipefail
 
@@ -104,9 +113,36 @@ podman build -t "$IMAGE" .
 # Make sure the data volume exists (idempotent).
 podman volume inspect "$VOLUME" >/dev/null 2>&1 || podman volume create "$VOLUME"
 
-# Stop and remove the old container if it exists.
+# Stop and remove the old container if it exists. (Done before seeding so the
+# DB file isn't held open by a running process when we touch it.)
 if podman container exists "$CONTAINER"; then
   podman rm -f "$CONTAINER" >/dev/null
+fi
+
+# Seed the data volume with the bundled app.db. Only runs when the volume has
+# no app.db yet, or when FORCE_SEED_DB=1 is set. We never silently clobber an
+# existing remote DB.
+if [[ -f "$REMOTE_DIR/app.db" ]]; then
+  if podman run --rm --entrypoint /bin/sh \
+       -v "$VOLUME:/app/data" \
+       "$IMAGE" \
+       -c 'test -f /app/data/app.db' 2>/dev/null; then
+    has_db=1
+  else
+    has_db=0
+  fi
+  if [[ "$has_db" == "0" || "$FORCE_SEED_DB" == "1" ]]; then
+    echo "Seeding volume $VOLUME from $REMOTE_DIR/app.db"
+    podman run --rm --entrypoint /bin/sh \
+      -v "$VOLUME:/app/data" \
+      -v "$REMOTE_DIR/app.db:/seed/app.db:ro" \
+      "$IMAGE" \
+      -c 'cp /seed/app.db /app/data/app.db'
+  else
+    echo "Volume $VOLUME already has app.db — leaving it untouched (use FORCE_SEED_DB=1 to overwrite)."
+  fi
+else
+  echo "No $REMOTE_DIR/app.db present — skipping volume seed."
 fi
 
 # Run the new container, detached, restart-on-failure, with the env file
