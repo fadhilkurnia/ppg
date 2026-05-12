@@ -17,6 +17,7 @@ type Config struct {
 	SeedAdminUsername string
 	SeedAdminPass     string
 	Dev             bool
+	DynamicAPIPath  bool
 
 	// WhatsApp outbound. WhatsAppProvider="" disables sending entirely
 	// (handler uses a Noop sender). When enabled, Token must be set; the
@@ -38,6 +39,7 @@ func Load() (Config, error) {
 		SeedAdminUsername: os.Getenv("SEED_ADMIN_USERNAME"),
 		SeedAdminPass:     os.Getenv("SEED_ADMIN_PASSWORD"),
 		Dev:            getBool("DEV", false),
+		DynamicAPIPath: getBool("DYNAMIC_API_PATH", false),
 
 		WhatsAppProvider:        getString("WHATSAPP_PROVIDER", ""),
 		WhatsAppToken:           os.Getenv("WHATSAPP_TOKEN"),
