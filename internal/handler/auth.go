@@ -15,20 +15,39 @@ import (
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 )
 
+// defaultAPIBase is the canonical API prefix the SPA falls back to when
+// no dynamic path is in effect.
+const defaultAPIBase = "/api"
+
 type Auth struct {
-	users        *store.Users
-	roles        *store.Roles
-	jwt          *auth.JWT
-	cookieSecure bool
+	users          *store.Users
+	roles          *store.Roles
+	jwt            *auth.JWT
+	cookieSecure   bool
+	dynamicAPIPath bool
 }
 
-func NewAuth(users *store.Users, roles *store.Roles, jwtSvc *auth.JWT, cookieSecure bool) *Auth {
-	return &Auth{users: users, roles: roles, jwt: jwtSvc, cookieSecure: cookieSecure}
+func NewAuth(users *store.Users, roles *store.Roles, jwtSvc *auth.JWT, cookieSecure, dynamicAPIPath bool) *Auth {
+	return &Auth{
+		users:          users,
+		roles:          roles,
+		jwt:            jwtSvc,
+		cookieSecure:   cookieSecure,
+		dynamicAPIPath: dynamicAPIPath,
+	}
 }
 
 type loginRequest struct {
 	Identifier string `json:"identifier"`
 	Password   string `json:"password"`
+}
+
+// authResponse extends the public user shape with the resolved API base
+// for the current session. apiBase is always populated so callers do not
+// have to special-case the dynamic-disabled deployment.
+type authResponse struct {
+	*model.User
+	APIBase string `json:"apiBase"`
 }
 
 func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
@@ -71,12 +90,25 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal membuat sesi")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, user)
+
+	apiBase := defaultAPIBase
+	if a.dynamicAPIPath {
+		path, err := auth.GeneratePath()
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal membuat jalur API")
+			return
+		}
+		auth.SetAPIPathCookie(w, path, a.cookieSecure, int(a.jwt.TTL().Seconds()))
+		apiBase = "/" + path
+	}
+
+	httpx.JSON(w, http.StatusOK, authResponse{User: user, APIBase: apiBase})
 }
 
 func (a *Auth) Logout(w http.ResponseWriter, _ *http.Request) {
 	a.clearCookie(w, auth.CookieName)
 	a.clearCookie(w, auth.RefreshCookieName)
+	auth.ClearAPIPathCookie(w, a.cookieSecure)
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
@@ -91,7 +123,13 @@ func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "Pengguna tidak ditemukan")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, user)
+	apiBase := defaultAPIBase
+	if a.dynamicAPIPath {
+		if p, ok := auth.ReadAPIPathCookie(r); ok {
+			apiBase = "/" + p
+		}
+	}
+	httpx.JSON(w, http.StatusOK, authResponse{User: user, APIBase: apiBase})
 }
 
 // Verify is an alias of Me so SPA boot-time checks have a distinct endpoint.
@@ -133,7 +171,14 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal memperbarui sesi")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, user)
+
+	apiBase := defaultAPIBase
+	if a.dynamicAPIPath {
+		if p, ok := auth.ReadAPIPathCookie(r); ok {
+			apiBase = "/" + p
+		}
+	}
+	httpx.JSON(w, http.StatusOK, authResponse{User: user, APIBase: apiBase})
 }
 
 func (a *Auth) issueSession(r *http.Request, w http.ResponseWriter, user *model.User) error {
