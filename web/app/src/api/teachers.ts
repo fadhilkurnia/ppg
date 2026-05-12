@@ -5,6 +5,7 @@ export type TeacherListQuery = {
   q?: string
   status?: TeacherStatus
   daerah?: string
+  gender?: 'male' | 'female'
   limit?: number
   offset?: number
 }
@@ -14,6 +15,7 @@ export function listTeachers(params: TeacherListQuery = {}) {
   if (params.q) q.set('q', params.q)
   if (params.status) q.set('status', params.status)
   if (params.daerah) q.set('daerah', params.daerah)
+  if (params.gender) q.set('gender', params.gender)
   if (params.limit !== undefined) q.set('limit', String(params.limit))
   if (params.offset !== undefined) q.set('offset', String(params.offset))
   const qs = q.toString()

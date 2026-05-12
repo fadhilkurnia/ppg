@@ -24,6 +24,7 @@ const PAGE_SIZE = 20
 const searchSchema = z.object({
   q: z.string().optional().catch(''),
   status: z.enum(['active', 'retired']).optional().catch(undefined),
+  gender: z.enum(['male', 'female']).optional().catch(undefined),
   page: z.number().int().min(1).optional().catch(1),
   view: z.string().optional().catch(undefined),
   edit: z.string().optional().catch(undefined),
@@ -40,19 +41,19 @@ export const Route = createFileRoute('/_authed/teachers/')({
 function TeachersPage() {
   const navigate = useNavigate({ from: '/teachers/' })
   const search = Route.useSearch()
-  const { q = '', status, page = 1, view, edit, new: isNew } = search
+  const { q = '', status, gender, page = 1, view, edit, new: isNew } = search
   const { data: user } = useMe()
   const isAdmin = user?.role === 'admin'
 
-  const filterSearch: SearchState = { q, status, page }
+  const filterSearch: SearchState = { q, status, gender, page }
   const goTo = (next: Partial<SearchState>) =>
     void navigate({ search: { ...filterSearch, ...next } })
   const close = () => goTo({ view: undefined, edit: undefined, new: undefined })
 
   const { data, isPending } = useQuery({
-    queryKey: ['teachers', { q, status, page }],
+    queryKey: ['teachers', { q, status, gender, page }],
     queryFn: () =>
-      listTeachers({ q, status, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+      listTeachers({ q, status, gender, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
   })
 
   const qc = useQueryClient()
@@ -89,11 +90,14 @@ function TeachersPage() {
           const fd = new FormData(e.currentTarget)
           const next = String(fd.get('q') ?? '')
           const nextStatus = String(fd.get('status') ?? '')
+          const nextGender = String(fd.get('gender') ?? '')
           void navigate({
             search: {
               q: next || undefined,
               status:
                 nextStatus === 'active' || nextStatus === 'retired' ? nextStatus : undefined,
+              gender:
+                nextGender === 'male' || nextGender === 'female' ? nextGender : undefined,
               page: 1,
             },
           })
@@ -114,6 +118,15 @@ function TeachersPage() {
           <option value="">Semua status</option>
           <option value="active">Aktif</option>
           <option value="retired">Purna</option>
+        </select>
+        <select
+          name="gender"
+          defaultValue={gender ?? ''}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        >
+          <option value="">Semua jenis kelamin</option>
+          <option value="female">Perempuan</option>
+          <option value="male">Laki-laki</option>
         </select>
         <Button type="submit" variant="secondary" size="md">
           Terapkan
