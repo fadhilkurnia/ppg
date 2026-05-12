@@ -102,6 +102,7 @@ export type Attendance = {
   studentName: string
   status: AttendanceStatus
   materi?: string
+  submittedPhone?: string
   createdAt: string
   updatedAt: string
 }

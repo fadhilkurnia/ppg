@@ -75,17 +75,18 @@ const (
 // strict FKs to the teachers / students tables; the inline TeacherName /
 // StudentName fields are populated by store.List/Get via JOIN for the UI.
 type Attendance struct {
-	ID          string           `json:"id"`
-	Date        time.Time        `json:"date"`
-	DurationMin *int             `json:"durationMin,omitempty"`
-	TeacherID   string           `json:"teacherId"`
-	TeacherName string           `json:"teacherName"`
-	StudentID   string           `json:"studentId"`
-	StudentName string           `json:"studentName"`
-	Status      AttendanceStatus `json:"status"`
-	Materi      *string          `json:"materi,omitempty"`
-	CreatedAt   time.Time        `json:"createdAt"`
-	UpdatedAt   time.Time        `json:"updatedAt"`
+	ID             string           `json:"id"`
+	Date           time.Time        `json:"date"`
+	DurationMin    *int             `json:"durationMin,omitempty"`
+	TeacherID      string           `json:"teacherId"`
+	TeacherName    string           `json:"teacherName"`
+	StudentID      string           `json:"studentId"`
+	StudentName    string           `json:"studentName"`
+	Status         AttendanceStatus `json:"status"`
+	Materi         *string          `json:"materi,omitempty"`
+	SubmittedPhone *string          `json:"submittedPhone,omitempty"`
+	CreatedAt      time.Time        `json:"createdAt"`
+	UpdatedAt      time.Time        `json:"updatedAt"`
 }
 
 type Student struct {

@@ -19,6 +19,7 @@ import (
 	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/handler"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/messaging"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 	"github.com/fadhilkurnia/ppg-dashboard/web"
 )
@@ -120,6 +121,12 @@ func run() error {
 
 	jwtSvc := auth.NewJWT(cfg.JWTSecret, cfg.JWTTTL)
 
+	var waSender messaging.Sender = messaging.Noop{}
+	if cfg.WhatsAppProvider == "fonnte" && cfg.WhatsAppToken != "" {
+		waSender = &messaging.Fonnte{Token: cfg.WhatsAppToken}
+	}
+	publicAttRL := httpx.NewIPRateLimiter(10, time.Minute)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -134,6 +141,14 @@ func run() error {
 		authH := handler.NewAuth(users, roles, jwtSvc, cfg.CookieSecure)
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
+
+		pubAttH := handler.NewPublicAttendance(
+			attendances, students, teachers,
+			waSender, cfg.WhatsAppAdminNumber, cfg.WhatsAppSendToSubmitter,
+		)
+		api.Get("/public/teachers", pubAttH.ListTeachers)
+		api.Get("/public/students", pubAttH.ListStudents)
+		api.With(publicAttRL.Middleware).Post("/public/attendances", pubAttH.Create)
 
 		authMw := auth.Middleware(jwtSvc)
 		api.Group(func(p chi.Router) {
