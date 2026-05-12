@@ -17,14 +17,13 @@ import (
 
 type Auth struct {
 	users        *store.Users
-	scopes       *store.Scopes
 	roles        *store.Roles
 	jwt          *auth.JWT
 	cookieSecure bool
 }
 
-func NewAuth(users *store.Users, scopes *store.Scopes, roles *store.Roles, jwtSvc *auth.JWT, cookieSecure bool) *Auth {
-	return &Auth{users: users, scopes: scopes, roles: roles, jwt: jwtSvc, cookieSecure: cookieSecure}
+func NewAuth(users *store.Users, roles *store.Roles, jwtSvc *auth.JWT, cookieSecure bool) *Auth {
+	return &Auth{users: users, roles: roles, jwt: jwtSvc, cookieSecure: cookieSecure}
 }
 
 type loginRequest struct {
@@ -139,8 +138,6 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 
 func (a *Auth) issueSession(r *http.Request, w http.ResponseWriter, user *model.User) error {
 	roles := []string{string(user.Role)}
-	var primaryScopeID string
-	var scopeIDs []string
 
 	if a.roles != nil {
 		bindings, err := a.roles.ListBindings(r.Context(), user.ID)
@@ -157,17 +154,7 @@ func (a *Auth) issueSession(r *http.Request, w http.ResponseWriter, user *model.
 		}
 	}
 
-	if a.scopes != nil {
-		effective, primary, err := a.scopes.EffectiveIDs(r.Context(), user.ID)
-		if err == nil {
-			primaryScopeID = primary
-			for id := range effective {
-				scopeIDs = append(scopeIDs, id)
-			}
-		}
-	}
-
-	tok, err := a.jwt.IssueScoped(user.ID, user.Role, roles, primaryScopeID, scopeIDs)
+	tok, err := a.jwt.IssueWithRoles(user.ID, user.Role, roles)
 	if err != nil {
 		return err
 	}

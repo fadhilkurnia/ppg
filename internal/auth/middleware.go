@@ -33,24 +33,6 @@ func IsAdmin(c *Claims) bool {
 	return false
 }
 
-// ScopeAllowed reports whether the claims permit access to the given scope.
-// Admins are unconditionally allowed; otherwise the scope must appear in
-// ScopeIDs (which the issuer pre-populates with descendants).
-func ScopeAllowed(c *Claims, scopeID string) bool {
-	if IsAdmin(c) {
-		return true
-	}
-	if c == nil || scopeID == "" {
-		return false
-	}
-	for _, s := range c.ScopeIDs {
-		if s == scopeID {
-			return true
-		}
-	}
-	return false
-}
-
 func Middleware(j *JWT) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

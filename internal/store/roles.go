@@ -88,7 +88,7 @@ func (r *Roles) Update(ctx context.Context, id string, in UpdateRoleInput) (*mod
 
 func (r *Roles) ListBindings(ctx context.Context, userID string) ([]model.UserRoleBinding, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT user_id, role_id, scope_id, is_primary, created_at
+		`SELECT user_id, role_id, is_primary, created_at
 		   FROM user_roles WHERE user_id = ?
 		  ORDER BY is_primary DESC, role_id ASC`, userID)
 	if err != nil {
@@ -98,14 +98,9 @@ func (r *Roles) ListBindings(ctx context.Context, userID string) ([]model.UserRo
 	out := []model.UserRoleBinding{}
 	for rows.Next() {
 		var b model.UserRoleBinding
-		var scope sql.NullString
 		var prim int
-		if err := rows.Scan(&b.UserID, &b.RoleID, &scope, &prim, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.UserID, &b.RoleID, &prim, &b.CreatedAt); err != nil {
 			return nil, err
-		}
-		if scope.Valid {
-			s := scope.String
-			b.ScopeID = &s
 		}
 		b.IsPrimary = prim == 1
 		out = append(out, b)
@@ -113,9 +108,9 @@ func (r *Roles) ListBindings(ctx context.Context, userID string) ([]model.UserRo
 	return out, rows.Err()
 }
 
-// AddBinding inserts a (user, role, scope) binding. If isPrimary is true,
-// demotes any other primary first and mirrors the role into users.role.
-func (r *Roles) AddBinding(ctx context.Context, userID, roleID string, scopeID *string, isPrimary bool) error {
+// AddBinding inserts a (user, role) binding. If isPrimary is true,
+// demotes any existing primary first and mirrors the role into users.role.
+func (r *Roles) AddBinding(ctx context.Context, userID, roleID string, isPrimary bool) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -133,10 +128,10 @@ func (r *Roles) AddBinding(ctx context.Context, userID, roleID string, scopeID *
 		flag = 1
 	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO user_roles (user_id, role_id, scope_id, is_primary, created_at)
-		 VALUES (?, ?, ?, ?, ?)
-		 ON CONFLICT(user_id, role_id, scope_id) DO UPDATE SET is_primary = excluded.is_primary`,
-		userID, roleID, scopeID, flag, time.Now().UTC()); err != nil {
+		`INSERT INTO user_roles (user_id, role_id, is_primary, created_at)
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT(user_id, role_id) DO UPDATE SET is_primary = excluded.is_primary`,
+		userID, roleID, flag, time.Now().UTC()); err != nil {
 		return err
 	}
 	if isPrimary {
@@ -149,20 +144,10 @@ func (r *Roles) AddBinding(ctx context.Context, userID, roleID string, scopeID *
 	return tx.Commit()
 }
 
-func (r *Roles) RemoveBinding(ctx context.Context, userID, roleID string, scopeID *string) error {
-	var (
-		res sql.Result
-		err error
-	)
-	if scopeID == nil {
-		res, err = r.db.ExecContext(ctx,
-			`DELETE FROM user_roles WHERE user_id = ? AND role_id = ? AND scope_id IS NULL`,
-			userID, roleID)
-	} else {
-		res, err = r.db.ExecContext(ctx,
-			`DELETE FROM user_roles WHERE user_id = ? AND role_id = ? AND scope_id = ?`,
-			userID, roleID, *scopeID)
-	}
+func (r *Roles) RemoveBinding(ctx context.Context, userID, roleID string) error {
+	res, err := r.db.ExecContext(ctx,
+		`DELETE FROM user_roles WHERE user_id = ? AND role_id = ?`,
+		userID, roleID)
 	if err != nil {
 		return err
 	}
@@ -173,8 +158,8 @@ func (r *Roles) RemoveBinding(ctx context.Context, userID, roleID string, scopeI
 	return nil
 }
 
-func (r *Roles) SetPrimary(ctx context.Context, userID, roleID string, scopeID *string) error {
-	return r.AddBinding(ctx, userID, roleID, scopeID, true)
+func (r *Roles) SetPrimary(ctx context.Context, userID, roleID string) error {
+	return r.AddBinding(ctx, userID, roleID, true)
 }
 
 func scanRole(s scanner) (*model.RoleRecord, error) {

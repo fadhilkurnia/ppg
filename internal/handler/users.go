@@ -18,22 +18,20 @@ import (
 
 type Users struct {
 	users     *store.Users
-	scopes    *store.Scopes
 	roles     *store.Roles
 	validator *validator.Validate
 }
 
-func NewUsers(users *store.Users, scopes *store.Scopes, roles *store.Roles) *Users {
-	return &Users{users: users, scopes: scopes, roles: roles, validator: validator.New()}
+func NewUsers(users *store.Users, roles *store.Roles) *Users {
+	return &Users{users: users, roles: roles, validator: validator.New()}
 }
 
 type userCreateBody struct {
-	Email          string  `json:"email"          validate:"required,email,max=200"`
-	Username       *string `json:"username,omitempty" validate:"omitempty,max=64"`
-	Password       string  `json:"password"       validate:"required,min=8,max=200"`
-	Name           string  `json:"name"           validate:"required,max=200"`
-	RoleID         string  `json:"roleId"         validate:"required,max=64"`
-	PrimaryScopeID *string `json:"primaryScopeId,omitempty" validate:"omitempty,max=64"`
+	Email    string  `json:"email"          validate:"required,email,max=200"`
+	Username *string `json:"username,omitempty" validate:"omitempty,max=64"`
+	Password string  `json:"password"       validate:"required,min=8,max=200"`
+	Name     string  `json:"name"           validate:"required,max=200"`
+	RoleID   string  `json:"roleId"         validate:"required,max=64"`
 }
 
 type userUpdateBody struct {
@@ -48,8 +46,7 @@ type passwordBody struct {
 }
 
 type roleBindingBody struct {
-	RoleID  string  `json:"roleId"            validate:"required,max=64"`
-	ScopeID *string `json:"scopeId,omitempty" validate:"omitempty,max=64"`
+	RoleID string `json:"roleId" validate:"required,max=64"`
 }
 
 func (h *Users) List(w http.ResponseWriter, r *http.Request) {
@@ -57,23 +54,12 @@ func (h *Users) List(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
-	scopeID := q.Get("scopeId")
-	if !requireAdmin(r) {
-		if claims, ok := auth.ClaimsFrom(r.Context()); ok && scopeID != "" {
-			if !auth.ScopeAllowed(claims, scopeID) {
-				httpx.Error(w, http.StatusForbidden, "out_of_scope", "Scope di luar wewenang Anda")
-				return
-			}
-		}
-	}
-
 	res, err := h.users.List(r.Context(), store.ListUsersFilter{
-		Role:    q.Get("role"),
-		ScopeID: scopeID,
-		Query:   q.Get("q"),
-		Status:  q.Get("status"),
-		Limit:   limit,
-		Offset:  offset,
+		Role:   q.Get("role"),
+		Query:  q.Get("q"),
+		Status: q.Get("status"),
+		Limit:  limit,
+		Offset: offset,
 	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil daftar pengguna")
@@ -111,19 +97,12 @@ func (h *Users) Create(w http.ResponseWriter, r *http.Request) {
 		writeForbidden(w, err)
 		return
 	}
-	if !requireAdmin(r) && b.PrimaryScopeID != nil {
-		if c, ok := auth.ClaimsFrom(r.Context()); ok && !auth.ScopeAllowed(c, *b.PrimaryScopeID) {
-			httpx.Error(w, http.StatusForbidden, "out_of_scope", "Scope di luar wewenang Anda")
-			return
-		}
-	}
 	user, err := h.users.CreateWithBinding(r.Context(), store.CreateUserInput{
-		Email:          b.Email,
-		Username:       trimPtr(b.Username),
-		Password:       b.Password,
-		Name:           strings.TrimSpace(b.Name),
-		Role:           model.Role(b.RoleID),
-		PrimaryScopeID: trimPtr(b.PrimaryScopeID),
+		Email:    b.Email,
+		Username: trimPtr(b.Username),
+		Password: b.Password,
+		Name:     strings.TrimSpace(b.Name),
+		Role:     model.Role(b.RoleID),
 	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menyimpan pengguna: "+err.Error())
@@ -229,7 +208,7 @@ func (h *Users) AddRole(w http.ResponseWriter, r *http.Request) {
 		writeForbidden(w, err)
 		return
 	}
-	if err := h.roles.AddBinding(r.Context(), id, b.RoleID, b.ScopeID, false); err != nil {
+	if err := h.roles.AddBinding(r.Context(), id, b.RoleID, false); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menambah role")
 		return
 	}
@@ -243,12 +222,7 @@ func (h *Users) RemoveRole(w http.ResponseWriter, r *http.Request) {
 		writeForbidden(w, err)
 		return
 	}
-	scopeQ := r.URL.Query().Get("scopeId")
-	var scope *string
-	if scopeQ != "" {
-		scope = &scopeQ
-	}
-	if err := h.roles.RemoveBinding(r.Context(), id, roleID, scope); err != nil {
+	if err := h.roles.RemoveBinding(r.Context(), id, roleID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			httpx.Error(w, http.StatusNotFound, "not_found", "Binding tidak ditemukan")
 			return
@@ -296,25 +270,16 @@ func (h *Users) ensureCanReachUser(r *http.Request, targetUserID string) error {
 	if err != nil {
 		return err
 	}
-	if err := h.ensureCanManage(r, string(tgt.Role)); err != nil {
-		return err
+	return h.ensureCanManage(r, string(tgt.Role))
+}
+
+// requireAdmin reports whether the request's claims grant global admin.
+func requireAdmin(r *http.Request) bool {
+	c, ok := auth.ClaimsFrom(r.Context())
+	if !ok {
+		return false
 	}
-	if h.scopes != nil {
-		tgtScopes, _, err := h.scopes.EffectiveIDs(r.Context(), tgt.ID)
-		if err != nil {
-			return err
-		}
-		for sid := range tgtScopes {
-			if auth.ScopeAllowed(c, sid) {
-				return nil
-			}
-		}
-		if len(tgtScopes) == 0 {
-			return errors.New("out_of_scope")
-		}
-		return errors.New("out_of_scope")
-	}
-	return nil
+	return auth.IsAdmin(c)
 }
 
 func writeForbidden(w http.ResponseWriter, err error) {
@@ -323,8 +288,6 @@ func writeForbidden(w http.ResponseWriter, err error) {
 		switch err.Error() {
 		case "role_not_manageable":
 			code = "role_not_manageable"
-		case "out_of_scope":
-			code = "out_of_scope"
 		case "unauthorized":
 			httpx.Error(w, http.StatusUnauthorized, "unauthorized", "Sesi tidak valid")
 			return

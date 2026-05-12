@@ -110,6 +110,7 @@ func run() error {
 	students := store.NewStudents(db)
 	teachers := store.NewTeachers(db)
 	attendances := store.NewAttendances(db)
+	roles := store.NewRoles(db)
 
 	if cfg.SeedAdminEmail != "" && cfg.SeedAdminPass != "" {
 		if err := store.SeedAdmin(context.Background(), users, cfg.SeedAdminEmail, cfg.SeedAdminUsername, cfg.SeedAdminPass); err != nil {
@@ -130,7 +131,7 @@ func run() error {
 	})
 
 	r.Route("/api", func(api chi.Router) {
-		authH := handler.NewAuth(users, jwtSvc, cfg.CookieSecure)
+		authH := handler.NewAuth(users, roles, jwtSvc, cfg.CookieSecure)
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
 

@@ -28,7 +28,7 @@ func TestRolesSeed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
-	want := map[string]bool{"admin": false, "pengurus": false, "guru": false, "ortu": false, "murid": false, "staff": false}
+	want := map[string]bool{"admin": false, "coordinator": false, "teacher": false, "parent": false, "student": false, "staff": false}
 	for _, it := range items {
 		want[it.ID] = true
 	}
@@ -47,16 +47,16 @@ func TestRolesManageable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get admin: %v", err)
 	}
-	if !CanManage(admin, "murid") || !CanManage(admin, "admin") {
+	if !CanManage(admin, "student") || !CanManage(admin, "admin") {
 		t.Errorf("admin should manage everyone")
 	}
 
-	pengurus, _ := r.Get(ctx, "pengurus")
-	if CanManage(pengurus, "admin") {
-		t.Errorf("pengurus must not manage admin")
+	coordinator, _ := r.Get(ctx, "coordinator")
+	if CanManage(coordinator, "admin") {
+		t.Errorf("coordinator must not manage admin")
 	}
-	if !CanManage(pengurus, "guru") {
-		t.Errorf("pengurus should manage guru")
+	if !CanManage(coordinator, "teacher") {
+		t.Errorf("coordinator should manage teacher")
 	}
 }
 
@@ -68,15 +68,15 @@ func TestRolesBindingPrimaryMirror(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	if err := r.AddBinding(ctx, user.ID, "guru", nil, true); err != nil {
+	if err := r.AddBinding(ctx, user.ID, "teacher", true); err != nil {
 		t.Fatalf("add primary binding: %v", err)
 	}
 	got, err := u.FindByID(ctx, user.ID)
 	if err != nil {
 		t.Fatalf("find user: %v", err)
 	}
-	if string(got.Role) != "guru" {
-		t.Errorf("primary mirror: users.role = %q, want guru", got.Role)
+	if string(got.Role) != "teacher" {
+		t.Errorf("primary mirror: users.role = %q, want teacher", got.Role)
 	}
 	bindings, err := r.ListBindings(ctx, user.ID)
 	if err != nil {

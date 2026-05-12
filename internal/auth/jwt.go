@@ -11,11 +11,9 @@ import (
 )
 
 type Claims struct {
-	UserID         string     `json:"sub"`
-	Role           model.Role `json:"role"`
-	Roles          []string   `json:"roles,omitempty"`
-	PrimaryScopeID string     `json:"primaryScopeId,omitempty"`
-	ScopeIDs       []string   `json:"scopeIds,omitempty"`
+	UserID string     `json:"sub"`
+	Role   model.Role `json:"role"`
+	Roles  []string   `json:"roles,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -45,19 +43,17 @@ func (j *JWT) TTL() time.Duration        { return j.ttl }
 func (j *JWT) RefreshTTL() time.Duration { return j.refreshTTL }
 
 func (j *JWT) Issue(userID string, role model.Role) (string, error) {
-	return j.IssueScoped(userID, role, nil, "", nil)
+	return j.IssueWithRoles(userID, role, nil)
 }
 
-// IssueScoped mints an access token that also carries the user's role and
-// scope arrays (capped to keep tokens small).
-func (j *JWT) IssueScoped(userID string, role model.Role, roles []string, primaryScopeID string, scopeIDs []string) (string, error) {
+// IssueWithRoles mints an access token that also carries the user's full
+// role list (capped to keep tokens small).
+func (j *JWT) IssueWithRoles(userID string, role model.Role, roles []string) (string, error) {
 	now := j.now()
 	claims := Claims{
-		UserID:         userID,
-		Role:           role,
-		Roles:          capStrings(roles, 10),
-		PrimaryScopeID: primaryScopeID,
-		ScopeIDs:       capStrings(scopeIDs, 10),
+		UserID: userID,
+		Role:   role,
+		Roles:  capStrings(roles, 10),
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.ttl)),

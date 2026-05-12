@@ -3,13 +3,13 @@ package model
 import "time"
 
 // Canonical role IDs that extend the legacy RoleAdmin/RoleStaff pair in
-// model.go. The full catalogue lives in the roles table (migration 012);
+// model.go. The full catalogue lives in the roles table (migration 011);
 // these constants exist for compile-time references in handler code.
 const (
-	RolePengurus Role = "pengurus"
-	RoleGuru     Role = "guru"
-	RoleOrtu     Role = "ortu"
-	RoleMurid    Role = "murid"
+	RoleCoordinator Role = "coordinator"
+	RoleTeacher     Role = "teacher"
+	RoleParent      Role = "parent"
+	RoleStudent     Role = "student"
 )
 
 // RoleRecord is one row from the roles table — the catalogue entry that
@@ -24,12 +24,10 @@ type RoleRecord struct {
 	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
-// UserRoleBinding ties a user to a role, optionally inside a scope.
-// A nil ScopeID means the binding is global.
+// UserRoleBinding ties a user to a role.
 type UserRoleBinding struct {
 	UserID    string    `json:"userId"`
 	RoleID    string    `json:"roleId"`
-	ScopeID   *string   `json:"scopeId,omitempty"`
 	IsPrimary bool      `json:"isPrimary"`
 	CreatedAt time.Time `json:"createdAt"`
 }

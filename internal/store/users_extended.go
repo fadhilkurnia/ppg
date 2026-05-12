@@ -22,12 +22,11 @@ const (
 )
 
 type CreateUserInput struct {
-	Email          string
-	Username       *string
-	Password       string
-	Name           string
-	Role           model.Role
-	PrimaryScopeID *string
+	Email    string
+	Username *string
+	Password string
+	Name     string
+	Role     model.Role
 }
 
 type UpdateUserInput struct {
@@ -37,12 +36,11 @@ type UpdateUserInput struct {
 }
 
 type ListUsersFilter struct {
-	Role    string
-	ScopeID string
-	Query   string
-	Status  string // default "active"
-	Limit   int
-	Offset  int
+	Role   string
+	Query  string
+	Status string // default "active"
+	Limit  int
+	Offset int
 }
 
 type UserListResult struct {
@@ -51,8 +49,7 @@ type UserListResult struct {
 }
 
 // CreateWithBinding inserts a user and the matching primary user_roles
-// binding inside a single transaction. If PrimaryScopeID is non-nil it also
-// records the user_scopes primary binding.
+// binding inside a single transaction.
 func (u *Users) CreateWithBinding(ctx context.Context, in CreateUserInput) (*model.User, error) {
 	if in.Email == "" || in.Password == "" || in.Name == "" || in.Role == "" {
 		return nil, errors.New("email, password, name and role are required")
@@ -78,18 +75,10 @@ func (u *Users) CreateWithBinding(ctx context.Context, in CreateUserInput) (*mod
 		return nil, err
 	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO user_roles (user_id, role_id, scope_id, is_primary, created_at)
-		 VALUES (?, ?, NULL, 1, ?)`,
+		`INSERT INTO user_roles (user_id, role_id, is_primary, created_at)
+		 VALUES (?, ?, 1, ?)`,
 		id, string(in.Role), now); err != nil {
 		return nil, err
-	}
-	if in.PrimaryScopeID != nil {
-		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO user_scopes (user_id, scope_id, is_primary, created_at)
-			 VALUES (?, ?, 1, ?)`,
-			id, *in.PrimaryScopeID, now); err != nil {
-			return nil, err
-		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -125,24 +114,18 @@ func (u *Users) List(ctx context.Context, f ListUsersFilter) (*UserListResult, e
 		args = append(args, like, like, like)
 	}
 
-	join := ""
-	if f.ScopeID != "" {
-		join = " INNER JOIN user_scopes us ON us.user_id = u.id AND us.scope_id = ?"
-		args = append([]any{f.ScopeID}, args...)
-	}
-
 	where := " WHERE " + strings.Join(clauses, " AND ")
 
 	var total int
 	if err := u.db.QueryRowContext(ctx,
-		`SELECT COUNT(DISTINCT u.id) FROM users u`+join+where, args...).Scan(&total); err != nil {
+		`SELECT COUNT(u.id) FROM users u`+where, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("count users: %w", err)
 	}
 
 	listArgs := append(append([]any{}, args...), f.Limit, f.Offset)
 	rows, err := u.db.QueryContext(ctx,
-		`SELECT DISTINCT u.id, u.email, u.username, u.password, u.name, u.role, u.created_at, u.updated_at
-		   FROM users u`+join+where+
+		`SELECT u.id, u.email, u.username, u.password, u.name, u.role, u.created_at, u.updated_at
+		   FROM users u`+where+
 			` ORDER BY u.name ASC LIMIT ? OFFSET ?`,
 		listArgs...)
 	if err != nil {
