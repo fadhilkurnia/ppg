@@ -28,6 +28,7 @@ func NewTeachers(teachers *store.Teachers) *Teachers {
 type teacherBody struct {
 	Name      string  `json:"name"      validate:"required,max=200"`
 	Nickname  *string `json:"nickname,omitempty"     validate:"omitempty,max=200"`
+	Gender    *string `json:"gender,omitempty"       validate:"omitempty,oneof=male female"`
 	Kelompok  string  `json:"kelompok"  validate:"required,max=200"`
 	Desa      string  `json:"desa"      validate:"required,max=200"`
 	Daerah    string  `json:"daerah"    validate:"required,max=200"`
@@ -49,6 +50,7 @@ func (h *Teachers) parse(r *http.Request) (store.TeacherInput, error) {
 	in := store.TeacherInput{
 		Name:     strings.TrimSpace(b.Name),
 		Nickname: trimPtr(b.Nickname),
+		Gender:   trimPtr(b.Gender),
 		Kelompok: strings.TrimSpace(b.Kelompok),
 		Desa:     strings.TrimSpace(b.Desa),
 		Daerah:   strings.TrimSpace(b.Daerah),

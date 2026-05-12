@@ -31,6 +31,7 @@ type Teacher struct {
 	ID         string        `json:"id"`
 	Name       string        `json:"name"`
 	Nickname   *string       `json:"nickname,omitempty"`
+	Gender     *string       `json:"gender,omitempty"`
 	Kelompok   string        `json:"kelompok"`
 	Desa       string        `json:"desa"`
 	Daerah     string        `json:"daerah"`

@@ -24,6 +24,7 @@ func NewTeachers(db *sql.DB) *Teachers {
 type TeacherInput struct {
 	Name      string
 	Nickname  *string
+	Gender    *string // 'male' | 'female' | nil
 	Kelompok  string
 	Desa      string
 	Daerah    string
@@ -46,7 +47,7 @@ type TeacherListResult struct {
 	Total int             `json:"total"`
 }
 
-const selectTeacher = `SELECT id, name, nickname, kelompok, desa, daerah, joined_at, retired_at,
+const selectTeacher = `SELECT id, name, nickname, gender, kelompok, desa, daerah, joined_at, retired_at,
 	status, notes, created_at, updated_at FROM teachers`
 
 func (t *Teachers) Create(ctx context.Context, in TeacherInput) (*model.Teacher, error) {
@@ -57,10 +58,10 @@ func (t *Teachers) Create(ctx context.Context, in TeacherInput) (*model.Teacher,
 	}
 	_, err := t.db.ExecContext(ctx,
 		`INSERT INTO teachers
-		   (id, name, nickname, kelompok, desa, daerah, joined_at, retired_at,
+		   (id, name, nickname, gender, kelompok, desa, daerah, joined_at, retired_at,
 		    status, notes, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, in.Name, in.Nickname, in.Kelompok, in.Desa, in.Daerah,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, in.Name, in.Nickname, in.Gender, in.Kelompok, in.Desa, in.Daerah,
 		nullableDate(in.JoinedAt), nullableDate(in.RetiredAt),
 		string(in.Status), in.Notes, now, now)
 	if err != nil {
@@ -81,10 +82,10 @@ func (t *Teachers) Update(ctx context.Context, id string, in TeacherInput) (*mod
 	}
 	res, err := t.db.ExecContext(ctx,
 		`UPDATE teachers
-		    SET name = ?, nickname = ?, kelompok = ?, desa = ?, daerah = ?,
+		    SET name = ?, nickname = ?, gender = ?, kelompok = ?, desa = ?, daerah = ?,
 		        joined_at = ?, retired_at = ?, status = ?, notes = ?, updated_at = ?
 		  WHERE id = ?`,
-		in.Name, in.Nickname, in.Kelompok, in.Desa, in.Daerah,
+		in.Name, in.Nickname, in.Gender, in.Kelompok, in.Desa, in.Daerah,
 		nullableDate(in.JoinedAt), nullableDate(in.RetiredAt),
 		string(in.Status), in.Notes, now, id)
 	if err != nil {
@@ -256,7 +257,7 @@ func readTeacher(s scanner) (*model.Teacher, error) {
 	var status string
 	var joinedAt, retiredAt sql.NullTime
 	if err := s.Scan(
-		&t.ID, &t.Name, &t.Nickname, &t.Kelompok, &t.Desa, &t.Daerah,
+		&t.ID, &t.Name, &t.Nickname, &t.Gender, &t.Kelompok, &t.Desa, &t.Daerah,
 		&joinedAt, &retiredAt, &status, &t.Notes, &t.CreatedAt, &t.UpdatedAt,
 	); err != nil {
 		return nil, err
