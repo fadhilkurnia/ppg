@@ -66,7 +66,10 @@ function AuthedLayout() {
 
   return (
     <div className="min-h-screen md:flex">
-      <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+      <header
+        className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 md:hidden"
+        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+      >
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}

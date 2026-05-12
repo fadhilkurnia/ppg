@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Use the dynamic viewport unit so iOS Safari's collapsing URL bar doesn't
+     leave the layout short by ~60px. Fallback to 100vh on browsers without
+     dvh support (Safari < 15.4). */
+  html,
+  body,
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
