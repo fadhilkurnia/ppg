@@ -8,11 +8,30 @@ import (
 	"github.com/fadhilkurnia/ppg-dashboard/internal/model"
 )
 
-const CookieName = "auth"
+const (
+	CookieName        = "auth"
+	RefreshCookieName = "auth_refresh"
+)
 
 type ctxKey int
 
 const claimsKey ctxKey = 1
+
+// IsAdmin reports whether the claims grant global admin authority.
+func IsAdmin(c *Claims) bool {
+	if c == nil {
+		return false
+	}
+	if c.Role == model.RoleAdmin {
+		return true
+	}
+	for _, r := range c.Roles {
+		if r == string(model.RoleAdmin) {
+			return true
+		}
+	}
+	return false
+}
 
 func Middleware(j *JWT) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

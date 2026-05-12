@@ -22,12 +22,13 @@ func NewAttendances(db *sql.DB) *Attendances {
 }
 
 type AttendanceInput struct {
-	Date        time.Time
-	DurationMin *int
-	TeacherID   string
-	StudentID   string
-	Status      model.AttendanceStatus
-	Materi      *string
+	Date           time.Time
+	DurationMin    *int
+	TeacherID      string
+	StudentID      string
+	Status         model.AttendanceStatus
+	Materi         *string
+	SubmittedPhone *string // set only on Create from the public /absen form; ignored by Update
 }
 
 type AttendanceListParams struct {
@@ -49,7 +50,7 @@ const selectAttendance = `
 SELECT a.id, a.date, a.duration_min,
        a.teacher_id, t.name,
        a.student_id, s.name,
-       a.status, a.materi, a.created_at, a.updated_at
+       a.status, a.materi, a.submitted_phone, a.created_at, a.updated_at
   FROM attendances a
   JOIN teachers t ON t.id = a.teacher_id
   JOIN students s ON s.id = a.student_id`
@@ -60,11 +61,11 @@ func (a *Attendances) Create(ctx context.Context, in AttendanceInput) (*model.At
 	_, err := a.db.ExecContext(ctx,
 		`INSERT INTO attendances
 		   (id, date, duration_min, teacher_id, student_id, status, materi,
-		    created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		    submitted_phone, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, in.Date.UTC(), nullableInt(in.DurationMin),
 		in.TeacherID, in.StudentID, string(in.Status), in.Materi,
-		now, now)
+		in.SubmittedPhone, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +444,7 @@ func readAttendance(s scanner) (*model.Attendance, error) {
 		&a.ID, &a.Date, &durationMin,
 		&a.TeacherID, &a.TeacherName,
 		&a.StudentID, &a.StudentName,
-		&status, &a.Materi, &a.CreatedAt, &a.UpdatedAt,
+		&status, &a.Materi, &a.SubmittedPhone, &a.CreatedAt, &a.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}

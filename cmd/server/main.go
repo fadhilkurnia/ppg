@@ -15,10 +15,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/fadhilkurnia/ppg-dashboard/internal/auth"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/bulk"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/handler"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
-	"github.com/fadhilkurnia/ppg-dashboard/internal/importer"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/messaging"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 	"github.com/fadhilkurnia/ppg-dashboard/web"
 )
@@ -71,13 +72,18 @@ func runImportTeachers(args []string) error {
 	}
 	defer f.Close()
 
-	res, err := importer.Teachers(context.Background(), f, store.NewTeachers(db))
+	adapter := store.NewTeachersBulk(store.NewTeachers(db))
+	report, err := bulk.Process[store.TeacherInput](context.Background(), f, adapter, bulk.ModeUpsert)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("inserted: %d\nskipped:  %d\n", res.Inserted, res.Skipped)
-	for _, e := range res.Errors {
-		fmt.Printf("  line %d: %v\n", e.Line, e.Err)
+	s := report.Summary
+	fmt.Printf("created: %d\nupdated: %d\nskipped: %d\nfailed:  %d\ntotal:   %d\n",
+		s.Created, s.Updated, s.Skipped, s.Failed, s.Total)
+	for _, r := range report.Results {
+		if r.Outcome == bulk.OutcomeFailed {
+			fmt.Printf("  row %d: %s\n", r.Row, r.Error)
+		}
 	}
 	return nil
 }
@@ -105,6 +111,7 @@ func run() error {
 	students := store.NewStudents(db)
 	teachers := store.NewTeachers(db)
 	attendances := store.NewAttendances(db)
+	roles := store.NewRoles(db)
 
 	if cfg.SeedAdminEmail != "" && cfg.SeedAdminPass != "" {
 		if err := store.SeedAdmin(context.Background(), users, cfg.SeedAdminEmail, cfg.SeedAdminUsername, cfg.SeedAdminPass); err != nil {
@@ -114,20 +121,35 @@ func run() error {
 
 	jwtSvc := auth.NewJWT(cfg.JWTSecret, cfg.JWTTTL)
 
+	var waSender messaging.Sender = messaging.Noop{}
+	if cfg.WhatsAppProvider == "fonnte" && cfg.WhatsAppToken != "" {
+		waSender = &messaging.Fonnte{Token: cfg.WhatsAppToken}
+	}
+	publicAttRL := httpx.NewIPRateLimiter(10, time.Minute)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(requestLogger)
+	r.Use(auth.DynamicAPIPath(cfg.DynamicAPIPath))
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	r.Route("/api", func(api chi.Router) {
-		authH := handler.NewAuth(users, jwtSvc, cfg.CookieSecure)
+		authH := handler.NewAuth(users, roles, jwtSvc, cfg.CookieSecure, cfg.DynamicAPIPath)
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
+
+		pubAttH := handler.NewPublicAttendance(
+			attendances, students, teachers,
+			waSender, cfg.WhatsAppAdminNumber, cfg.WhatsAppSendToSubmitter,
+		)
+		api.Get("/public/teachers", pubAttH.ListTeachers)
+		api.Get("/public/students", pubAttH.ListStudents)
+		api.With(publicAttRL.Middleware).Post("/public/attendances", pubAttH.Create)
 
 		authMw := auth.Middleware(jwtSvc)
 		api.Group(func(p chi.Router) {
@@ -150,6 +172,16 @@ func run() error {
 			p.Get("/attendances", attendancesH.List)
 			p.Get("/attendances/{id}", attendancesH.Get)
 
+			bulkH := handler.NewBulk(handler.BulkOptions{
+				MaxBytes:    handler.ParseMaxBytesEnv(os.Getenv("BULK_MAX_BYTES")),
+				Teachers:    store.NewTeachersBulk(teachers),
+				Students:    store.NewStudentsBulk(students),
+				Attendances: store.NewAttendancesBulk(attendances),
+				Users:       store.NewUsersBulk(users),
+			})
+			p.Get("/{entity}/export.csv", bulkH.Export)
+			p.Get("/{entity}/bulk/schema", bulkH.Schema)
+
 			p.Group(func(adm chi.Router) {
 				adm.Use(auth.RequireRole("admin"))
 				adm.Post("/students", studentsH.Create)
@@ -163,6 +195,9 @@ func run() error {
 				adm.Post("/attendances", attendancesH.Create)
 				adm.Patch("/attendances/{id}", attendancesH.Update)
 				adm.Delete("/attendances/{id}", attendancesH.Delete)
+
+				adm.Post("/{entity}/bulk", bulkH.Import)
+				adm.Delete("/{entity}/bulk", bulkH.Delete)
 			})
 		})
 
@@ -172,7 +207,9 @@ func run() error {
 	})
 
 	if !cfg.Dev {
-		spa, err := web.Handler()
+		spa, err := web.Handler(web.Config{
+			APIBaseFor: apiBaseResolver(cfg.DynamicAPIPath),
+		})
 		if err != nil {
 			return fmt.Errorf("spa handler: %w", err)
 		}
@@ -202,6 +239,21 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// apiBaseResolver returns the function the SPA handler uses to compute the
+// per-request API base for index.html substitution. When the dynamic-path
+// feature is disabled it always reports the canonical /api prefix.
+func apiBaseResolver(enabled bool) func(r *http.Request) string {
+	if !enabled {
+		return func(*http.Request) string { return "/api" }
+	}
+	return func(r *http.Request) string {
+		if p, ok := auth.ReadAPIPathCookie(r); ok {
+			return "/" + p
+		}
+		return "/api"
+	}
 }
 
 func requestLogger(next http.Handler) http.Handler {

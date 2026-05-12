@@ -1,3 +1,5 @@
+import { resolveApiPath } from './base'
+
 export class ApiError extends Error {
   status: number
   code: string
@@ -24,7 +26,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     body: body !== undefined ? JSON.stringify(body) : undefined,
   }
 
-  const res = await fetch(path, init)
+  const res = await fetch(resolveApiPath(path), init)
 
   if (res.status === 204) {
     return undefined as T

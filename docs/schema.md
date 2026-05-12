@@ -230,6 +230,7 @@ CREATE TABLE attendances (
   status       TEXT NOT NULL
                  CHECK (status IN ('hadir','izin_murid','izin_guru','by_vn')),
   materi       TEXT,                                     -- multi-paragraph lesson notes
+  submitted_phone TEXT,                                   -- "62…" form; set only by the public /absen form
   created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -249,6 +250,7 @@ CREATE INDEX idx_attendances_status       ON attendances(status);
 | `student_id` | TEXT, NOT NULL, FK | Strict — every row resolves to a `students` row |
 | `status` | TEXT, NOT NULL, CHECK | Four values (see enum below); `hadir` is ~92% of rows |
 | `materi` | TEXT, nullable | Free-form lesson notes; can be multi-paragraph with newlines and emojis. UI renders with `whitespace-pre-wrap` |
+| `submitted_phone` | TEXT, nullable | WhatsApp number of the person who submitted via the public `/absen` form (canonical `62…` form). Always `NULL` for rows created via the admin dashboard |
 
 **No composite uniqueness.** A teacher can legitimately have multiple sessions
 with the same student on the same date (e.g., morning + afternoon), so
@@ -298,6 +300,8 @@ In `internal/store/migrations/`, applied in numeric order on every server boot.
 | 007 | `kelompok_required` | `students.kelompok` NOT NULL |
 | 008 | `add_city_to_students` | Add nullable `students.city` |
 | 009 | `create_attendances` | Create `attendances` |
+| 010 | `level_required` | `students.level` becomes NOT NULL |
+| 011 | `attendance_submitted_phone` | Add `attendances.submitted_phone` (nullable, used by the public `/absen` form) |
 
 Each migration has a paired `*.down.sql` for `migrate down`. Down migrations
 are best-effort — some destructive rebuilds (notably 004) cannot perfectly
