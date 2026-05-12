@@ -1,11 +1,16 @@
 import { apiFetch } from './client'
 import type { Teacher, TeacherInput, TeacherList, TeacherStatus } from './types'
 
+export type TeacherSortBy = 'name' | 'daerah' | 'joined_at'
+export type SortDir = 'asc' | 'desc'
+
 export type TeacherListQuery = {
   q?: string
   status?: TeacherStatus
   daerah?: string
   gender?: 'male' | 'female'
+  sortBy?: TeacherSortBy
+  sortDir?: SortDir
   limit?: number
   offset?: number
 }
@@ -16,6 +21,8 @@ export function listTeachers(params: TeacherListQuery = {}) {
   if (params.status) q.set('status', params.status)
   if (params.daerah) q.set('daerah', params.daerah)
   if (params.gender) q.set('gender', params.gender)
+  if (params.sortBy) q.set('sortBy', params.sortBy)
+  if (params.sortDir) q.set('sortDir', params.sortDir)
   if (params.limit !== undefined) q.set('limit', String(params.limit))
   if (params.offset !== undefined) q.set('offset', String(params.offset))
   const qs = q.toString()

@@ -25,6 +25,8 @@ const searchSchema = z.object({
   q: z.string().optional().catch(''),
   status: z.enum(['active', 'retired']).optional().catch(undefined),
   gender: z.enum(['male', 'female']).optional().catch(undefined),
+  sortBy: z.enum(['name', 'daerah', 'joined_at']).optional().catch(undefined),
+  sortDir: z.enum(['asc', 'desc']).optional().catch(undefined),
   page: z.number().int().min(1).optional().catch(1),
   view: z.string().optional().catch(undefined),
   edit: z.string().optional().catch(undefined),
@@ -41,19 +43,47 @@ export const Route = createFileRoute('/_authed/teachers/')({
 function TeachersPage() {
   const navigate = useNavigate({ from: '/teachers/' })
   const search = Route.useSearch()
-  const { q = '', status, gender, page = 1, view, edit, new: isNew } = search
+  const {
+    q = '',
+    status,
+    gender,
+    sortBy,
+    sortDir,
+    page = 1,
+    view,
+    edit,
+    new: isNew,
+  } = search
   const { data: user } = useMe()
   const isAdmin = user?.role === 'admin'
 
-  const filterSearch: SearchState = { q, status, gender, page }
+  const filterSearch: SearchState = { q, status, gender, sortBy, sortDir, page }
   const goTo = (next: Partial<SearchState>) =>
     void navigate({ search: { ...filterSearch, ...next } })
   const close = () => goTo({ view: undefined, edit: undefined, new: undefined })
 
+  // Toggle sort on a column: clicking the same column flips asc/desc;
+  // clicking a different column starts at asc. Page resets to 1.
+  const onSort = (col: NonNullable<SearchState['sortBy']>) => {
+    if (sortBy === col) {
+      goTo({ sortDir: sortDir === 'asc' ? 'desc' : 'asc', page: 1 })
+    } else {
+      goTo({ sortBy: col, sortDir: 'asc', page: 1 })
+    }
+  }
+
   const { data, isPending } = useQuery({
-    queryKey: ['teachers', { q, status, gender, page }],
+    queryKey: ['teachers', { q, status, gender, sortBy, sortDir, page }],
     queryFn: () =>
-      listTeachers({ q, status, gender, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+      listTeachers({
+        q,
+        status,
+        gender,
+        sortBy,
+        sortDir,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      }),
   })
 
   const qc = useQueryClient()
@@ -137,10 +167,23 @@ function TeachersPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-2">Nama</th>
+              <SortableTh
+                label="Nama"
+                col="name"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="hidden px-4 py-2 sm:table-cell">Panggilan</th>
               <th className="hidden px-4 py-2 md:table-cell">Kelompok</th>
-              <th className="hidden px-4 py-2 md:table-cell">Daerah</th>
+              <SortableTh
+                label="Daerah"
+                col="daerah"
+                className="hidden md:table-cell"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-4 py-2">Status</th>
               {isAdmin ? <th className="px-4 py-2 text-right">Aksi</th> : null}
             </tr>
@@ -231,6 +274,40 @@ function TeachersPage() {
       />
       <NewModal open={!!isNew && isAdmin} onClose={close} />
     </div>
+  )
+}
+
+function SortableTh({
+  label,
+  col,
+  sortBy,
+  sortDir,
+  onSort,
+  className,
+}: {
+  label: string
+  col: NonNullable<SearchState['sortBy']>
+  sortBy: SearchState['sortBy']
+  sortDir: SearchState['sortDir']
+  onSort: (c: NonNullable<SearchState['sortBy']>) => void
+  className?: string
+}) {
+  const active = sortBy === col
+  const indicator = active ? (sortDir === 'desc' ? ' ▼' : ' ▲') : ''
+  return (
+    <th className={'px-4 py-2 ' + (className ?? '')}>
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className={
+          'inline-flex items-center gap-1 text-left uppercase tracking-wide ' +
+          (active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700')
+        }
+      >
+        {label}
+        {indicator ? <span aria-hidden>{indicator}</span> : null}
+      </button>
+    </th>
   )
 }
 
