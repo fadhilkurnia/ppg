@@ -15,10 +15,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/fadhilkurnia/ppg-dashboard/internal/auth"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/bulk"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/handler"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
-	"github.com/fadhilkurnia/ppg-dashboard/internal/importer"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 	"github.com/fadhilkurnia/ppg-dashboard/web"
 )
@@ -71,13 +71,18 @@ func runImportTeachers(args []string) error {
 	}
 	defer f.Close()
 
-	res, err := importer.Teachers(context.Background(), f, store.NewTeachers(db))
+	adapter := store.NewTeachersBulk(store.NewTeachers(db))
+	report, err := bulk.Process[store.TeacherInput](context.Background(), f, adapter, bulk.ModeUpsert)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("inserted: %d\nskipped:  %d\n", res.Inserted, res.Skipped)
-	for _, e := range res.Errors {
-		fmt.Printf("  line %d: %v\n", e.Line, e.Err)
+	s := report.Summary
+	fmt.Printf("created: %d\nupdated: %d\nskipped: %d\nfailed:  %d\ntotal:   %d\n",
+		s.Created, s.Updated, s.Skipped, s.Failed, s.Total)
+	for _, r := range report.Results {
+		if r.Outcome == bulk.OutcomeFailed {
+			fmt.Printf("  row %d: %s\n", r.Row, r.Error)
+		}
 	}
 	return nil
 }
@@ -105,6 +110,7 @@ func run() error {
 	students := store.NewStudents(db)
 	teachers := store.NewTeachers(db)
 	attendances := store.NewAttendances(db)
+	roles := store.NewRoles(db)
 
 	if cfg.SeedAdminEmail != "" && cfg.SeedAdminPass != "" {
 		if err := store.SeedAdmin(context.Background(), users, cfg.SeedAdminEmail, cfg.SeedAdminUsername, cfg.SeedAdminPass); err != nil {
@@ -125,7 +131,7 @@ func run() error {
 	})
 
 	r.Route("/api", func(api chi.Router) {
-		authH := handler.NewAuth(users, jwtSvc, cfg.CookieSecure)
+		authH := handler.NewAuth(users, roles, jwtSvc, cfg.CookieSecure)
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
 
@@ -150,6 +156,16 @@ func run() error {
 			p.Get("/attendances", attendancesH.List)
 			p.Get("/attendances/{id}", attendancesH.Get)
 
+			bulkH := handler.NewBulk(handler.BulkOptions{
+				MaxBytes:    handler.ParseMaxBytesEnv(os.Getenv("BULK_MAX_BYTES")),
+				Teachers:    store.NewTeachersBulk(teachers),
+				Students:    store.NewStudentsBulk(students),
+				Attendances: store.NewAttendancesBulk(attendances),
+				Users:       store.NewUsersBulk(users),
+			})
+			p.Get("/{entity}/export.csv", bulkH.Export)
+			p.Get("/{entity}/bulk/schema", bulkH.Schema)
+
 			p.Group(func(adm chi.Router) {
 				adm.Use(auth.RequireRole("admin"))
 				adm.Post("/students", studentsH.Create)
@@ -163,6 +179,9 @@ func run() error {
 				adm.Post("/attendances", attendancesH.Create)
 				adm.Patch("/attendances/{id}", attendancesH.Update)
 				adm.Delete("/attendances/{id}", attendancesH.Delete)
+
+				adm.Post("/{entity}/bulk", bulkH.Import)
+				adm.Delete("/{entity}/bulk", bulkH.Delete)
 			})
 		})
 
