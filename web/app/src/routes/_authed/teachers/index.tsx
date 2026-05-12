@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search } from 'lucide-react'
+import { FileSpreadsheet, Plus, Search } from 'lucide-react'
 import { z } from 'zod'
 
 import {
@@ -12,6 +12,7 @@ import {
 } from '@/api/teachers'
 import type { Teacher } from '@/api/types'
 import { useMe } from '@/lib/auth'
+import { BulkImportExportPanel } from '@/components/BulkImportExportPanel'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Modal } from '@/components/Modal'
@@ -28,6 +29,7 @@ const searchSchema = z.object({
   view: z.string().optional().catch(undefined),
   edit: z.string().optional().catch(undefined),
   new: z.boolean().optional().catch(undefined),
+  bulk: z.boolean().optional().catch(undefined),
 })
 
 type SearchState = z.infer<typeof searchSchema>
@@ -40,14 +42,15 @@ export const Route = createFileRoute('/_authed/teachers/')({
 function TeachersPage() {
   const navigate = useNavigate({ from: '/teachers/' })
   const search = Route.useSearch()
-  const { q = '', status, page = 1, view, edit, new: isNew } = search
+  const { q = '', status, page = 1, view, edit, new: isNew, bulk: isBulk } = search
   const { data: user } = useMe()
   const isAdmin = user?.role === 'admin'
 
   const filterSearch: SearchState = { q, status, page }
   const goTo = (next: Partial<SearchState>) =>
     void navigate({ search: { ...filterSearch, ...next } })
-  const close = () => goTo({ view: undefined, edit: undefined, new: undefined })
+  const close = () =>
+    goTo({ view: undefined, edit: undefined, new: undefined, bulk: undefined })
 
   const { data, isPending } = useQuery({
     queryKey: ['teachers', { q, status, page }],
@@ -74,12 +77,18 @@ function TeachersPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Pengajar</h1>
-        {isAdmin ? (
-          <Button onClick={() => goTo({ new: true })} className="self-start sm:self-auto">
-            <Plus size={16} className="mr-1" />
-            Tambah Pengajar
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <Button variant="secondary" onClick={() => goTo({ bulk: true })}>
+            <FileSpreadsheet size={16} className="mr-1" />
+            Impor / Ekspor
           </Button>
-        ) : null}
+          {isAdmin ? (
+            <Button onClick={() => goTo({ new: true })}>
+              <Plus size={16} className="mr-1" />
+              Tambah Pengajar
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <form
@@ -217,6 +226,14 @@ function TeachersPage() {
         onSaved={(t) => goTo({ edit: undefined, view: t.id })}
       />
       <NewModal open={!!isNew && isAdmin} onClose={close} />
+      <Modal open={!!isBulk} onClose={close} size="xl" title="Impor / Ekspor Pengajar">
+        <BulkImportExportPanel
+          entity="teachers"
+          isAdmin={isAdmin}
+          invalidateKey={['teachers']}
+          exportParams={{ q, status }}
+        />
+      </Modal>
     </div>
   )
 }
