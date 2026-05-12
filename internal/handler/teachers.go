@@ -90,10 +90,19 @@ func (h *Teachers) List(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
+	// gender accepts "male" or "female"; anything else (including empty)
+	// is ignored so the legacy two-arg query still works.
+	gender := q.Get("gender")
+	if gender != "" && gender != "male" && gender != "female" {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "gender harus 'male' atau 'female'")
+		return
+	}
+
 	res, err := h.teachers.List(r.Context(), store.TeacherListParams{
 		Query:  q.Get("q"),
 		Status: q.Get("status"),
 		Daerah: q.Get("daerah"),
+		Gender: gender,
 		Limit:  limit,
 		Offset: offset,
 	})

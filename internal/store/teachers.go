@@ -38,6 +38,7 @@ type TeacherListParams struct {
 	Query  string
 	Status string // "", "active", "retired"
 	Daerah string
+	Gender string // "", "male", "female"
 	Limit  int
 	Offset int
 }
@@ -139,6 +140,10 @@ func (t *Teachers) List(ctx context.Context, p TeacherListParams) (*TeacherListR
 	if d := strings.TrimSpace(p.Daerah); d != "" {
 		clauses = append(clauses, "daerah = ?")
 		args = append(args, d)
+	}
+	if g := strings.TrimSpace(p.Gender); g != "" {
+		clauses = append(clauses, "gender = ?")
+		args = append(args, g)
 	}
 
 	where := ""
