@@ -47,6 +47,61 @@ Before you mark the task done:
 - [ ] After merge/abandon: `git worktree remove
       .claude/worktrees/<name>`.
 
+## Dev deployment (parallel agents)
+
+The public deployment at `https://gnrs.brkh.work` (loopback-bound app
+behind the Cloudflare Tunnel; see `scripts/deploy.sh`) is the
+**integration** environment for `jalur-yasril`. It is **not** where
+in-progress feature branches get tested — multiple agents work in
+parallel and would clobber each other.
+
+For testing your own branch, deploy a **separate dev container** on
+the remote host (`laode@10.8.0.13`) and expose it directly so Chrome
+DevTools can drive it.
+
+Rules:
+
+- **Source = your worktree**, not the repo root and not
+  `jalur-yasril`. Build and rsync from
+  `.claude/worktrees/<name>/`, with the worktree checked out at the
+  feature branch you are actively committing to. Run the deploy
+  command from inside that worktree (`cd
+  .claude/worktrees/<name> && …`) so the image baked on the remote
+  contains the in-progress code, including uncommitted edits you
+  want to smoke-test. Never point a dev deploy at the prod source
+  tree or another agent's worktree.
+- **Host**: same remote as prod (`10.8.0.13`). Different container
+  name, image tag, data volume, and host port from prod and from
+  every other running dev instance.
+- **Bind externally**, not to loopback. Publish the host port on
+  `10.8.0.13:<port>` (not `127.0.0.1:<port>`) so Chrome DevTools
+  running off-host can reach it. No Cloudflare Tunnel for dev.
+- **Port**: pick something that is **not** prod's `8080` and not in
+  use by another dev instance. Check first
+  (`ssh laode@10.8.0.13 'ss -tlnp | grep -E ":(80|81|82|83|90|91|92)[0-9][0-9]"'`
+  or similar) and pick a free port in a high range (e.g.
+  `18080`–`18999`). Record the port you chose in the PR description.
+- **Namespacing**: derive the container name, image tag, project
+  name, and data volume from your worktree's branch slug so two
+  agents never collide. For branch `feat/<slug>`:
+  - container: `ppg-dev-<slug>`
+  - image: `ppg-dashboard-dev-<slug>:latest`
+  - compose project: `ppg-dev-<slug>` (pass via `-p` /
+    `COMPOSE_PROJECT_NAME`)
+  - volume: `ppg-data-dev-<slug>` (separate from prod's `ppg-data`)
+- **Cleanup**: when the PR is merged or abandoned, tear the dev
+  stack down on the remote (`podman-compose -p ppg-dev-<slug> down
+  -v` and remove the image) in the same step you remove the local
+  worktree.
+
+For the test flow itself (steps to drive through the UI, what to
+capture for the PR), follow `TEST.md` — but substitute your dev URL
+(`http://10.8.0.13:<port>`) for `https://gnrs.brkh.work`, and say so
+in the "Tested via Chrome DevTools" section of the PR. If you cannot
+reach `10.8.0.13:<port>` for the same reasons `TEST.md` calls out
+for the public domain, say so explicitly instead of falling back to
+`localhost`.
+
 ## What lives where
 
 | Concern                            | File                                |
