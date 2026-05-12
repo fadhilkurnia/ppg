@@ -100,10 +100,17 @@ func (h *Students) List(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
+	gender := q.Get("gender")
+	if gender != "" && gender != "male" && gender != "female" {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "gender harus 'male' atau 'female'")
+		return
+	}
+
 	res, err := h.students.List(r.Context(), store.ListParams{
 		Query:    q.Get("q"),
 		Status:   q.Get("status"),
 		Kelompok: q.Get("kelompok"),
+		Gender:   gender,
 		Limit:    limit,
 		Offset:   offset,
 	})
