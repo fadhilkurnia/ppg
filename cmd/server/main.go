@@ -179,13 +179,12 @@ func run() error {
 				Attendances: store.NewAttendancesBulk(attendances),
 				Users:       store.NewUsersBulk(users),
 			})
-			p.Get("/{entity}/export.csv", bulkH.Export)
-			p.Get("/{entity}/bulk/schema", bulkH.Schema)
-			// These entities also register GET /{entity}/{id}, whose static
-			// subtree shadows the generic /{entity}/export.csv pattern in
-			// chi ("export.csv" matches {id}); bind them explicitly.
-			for _, entity := range []string{"students", "teachers", "attendances"} {
+			// Per-entity literal routes: chi's radix tree prefers literal
+			// segments over params, so /students/export.csv out-ranks the
+			// /students/{id} route registered above.
+			for _, entity := range handler.BulkEntities {
 				p.Get("/"+entity+"/export.csv", bulkH.ExportFor(entity))
+				p.Get("/"+entity+"/bulk/schema", bulkH.SchemaFor(entity))
 			}
 
 			p.Group(func(adm chi.Router) {
@@ -202,8 +201,10 @@ func run() error {
 				adm.Patch("/attendances/{id}", attendancesH.Update)
 				adm.Delete("/attendances/{id}", attendancesH.Delete)
 
-				adm.Post("/{entity}/bulk", bulkH.Import)
-				adm.Delete("/{entity}/bulk", bulkH.Delete)
+				for _, entity := range handler.BulkEntities {
+					adm.Post("/"+entity+"/bulk", bulkH.ImportFor(entity))
+					adm.Delete("/"+entity+"/bulk", bulkH.DeleteFor(entity))
+				}
 			})
 		})
 

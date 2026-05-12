@@ -188,6 +188,66 @@ func TestBulkDelete_Archive(t *testing.T) {
 	}
 }
 
+// TestBulkRoutes_OutrankEntityIDRoutes reproduces the regression where
+// /{entity}/export.csv and /{entity}/bulk (wildcards) lost to a
+// /teachers/{id} literal+param route in chi's radix tree, so an export hit
+// the teachers.Get handler instead of the bulk handler. Using the *For
+// factories registered under literal entity paths fixes it.
+func TestBulkRoutes_OutrankEntityIDRoutes(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := store.Migrate(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	teachers := store.NewTeachers(db)
+	if _, err := teachers.Create(context.Background(), store.TeacherInput{
+		Name: "Alice", Kelompok: "Pabeta", Desa: "Malili", Daerah: "Luwu Timur", Status: "active",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	h := NewBulk(BulkOptions{Teachers: store.NewTeachersBulk(teachers)})
+	r := chi.NewRouter()
+	// A literal+param route at the same depth as /teachers/export.csv.
+	r.Get("/teachers/{id}", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"code":"not_found","message":"sentinel"}}`))
+	})
+	r.Delete("/teachers/{id}", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"code":"not_found","message":"sentinel"}}`))
+	})
+	r.Get("/teachers/export.csv", h.ExportFor("teachers"))
+	r.Delete("/teachers/bulk", h.DeleteFor("teachers"))
+
+	req := httptest.NewRequest(http.MethodGet, "/teachers/export.csv", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("export status %d, want 200; body=%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Alice") {
+		t.Errorf("export body missing Alice; got: %s", w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/teachers/bulk",
+		strings.NewReader(`{"ids":[],"mode":"archive"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	// Empty ids -> bulk handler returns 400 bad_request; the {id} sentinel
+	// would return 404 not_found. Either signals success of routing.
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("delete bulk status %d, want 400 (bulk handler); body=%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "bad_request") {
+		t.Errorf("delete reached the wrong handler; body: %s", w.Body.String())
+	}
+}
+
 func TestBulkSchema_ReturnsHeaders(t *testing.T) {
 	r, _ := newBulkRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/teachers/bulk/schema", nil)
