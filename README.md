@@ -47,6 +47,19 @@ docker compose up --build
 
 The compose file persists SQLite to a named volume (`ppg-data`).
 
+### Public access via Cloudflare Tunnel
+
+An optional `cloudflared` sidecar is wired up under the `tunnel` compose
+profile. Create a tunnel in the Cloudflare Zero Trust dashboard
+(_Networks → Tunnels → Create_), point its public hostname at
+`http://app:8080`, copy the token into `CLOUDFLARE_TUNNEL_TOKEN`, then:
+
+```bash
+docker compose --profile tunnel up -d
+```
+
+Set `COOKIE_SECURE=true` when serving over HTTPS through the tunnel.
+
 ## Quick start (local dev)
 
 ```bash
