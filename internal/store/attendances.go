@@ -230,7 +230,14 @@ type AttendanceStats struct {
 // AvailableYears is always computed across the full table so the UI can list
 // year options even after a filter has been applied.
 func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*AttendanceStats, error) {
-	out := &AttendanceStats{}
+	// Initialize slice fields so empty results marshal as [] (not null);
+	// the TS client treats these as plain arrays and crashes on null.
+	out := &AttendanceStats{
+		Monthly:        []MonthlyBucket{},
+		ByStudent:      []StudentAggregate{},
+		ByTeacher:      []TeacherAggregate{},
+		AvailableYears: []int{},
+	}
 
 	// Build the WHERE clause once.
 	var clauses []string
