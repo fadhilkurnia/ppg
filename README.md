@@ -89,6 +89,7 @@ All runtime config is via env vars. See [`.env.example`](./.env.example).
 | `DEV`                  | no       | `false`            | Skip serving the embedded SPA (Vite handles frontend)     |
 | `SEED_ADMIN_EMAIL`     | no       | —                  | First-boot admin (created only if `users` is empty)       |
 | `SEED_ADMIN_PASSWORD`  | no       | —                  | First-boot admin password                                 |
+| `DYNAMIC_API_PATH`     | no       | `false`            | Expose `/api/*` under a per-session 12-hex prefix (CSRF defence-in-depth) |
 
 ## API surface
 
@@ -107,6 +108,24 @@ GET    /healthz
 ```
 
 Errors follow `{"error":{"code":"...","message":"..."}}`.
+
+## Dynamic API path
+
+When `DYNAMIC_API_PATH=true`, the server issues a 12-lowercase-hex prefix
+on each successful login (cookie `auth_path`) and exposes the entire
+`/api/*` surface under `/<prefix>/*` as well. Both routes accept the same
+requests; the prefix is validated against the cookie with a constant-time
+compare, mismatches return `403 bad_api_path`.
+
+The login (`POST /api/auth/login`) and self (`GET /api/auth/me`) response
+bodies carry an additional `apiBase` field whose value is the prefix
+(`/4a69a5e08ee7`) when enabled, or `/api` otherwise. The embedded SPA's
+`index.html` is templated at serve time so the same value is mirrored in
+a `<meta name="ppgus-api-base">` tag and read at boot.
+
+Disabled by default. See
+[`docs/missing-features/50-security-hardening.md`](./docs/missing-features/50-security-hardening.md)
+§3 for the threat model.
 
 ## Roles
 

@@ -10,6 +10,13 @@ export type User = {
   updatedAt: string
 }
 
+// AuthMe is the server response shape for /api/auth/login and /api/auth/me.
+// It extends User with the API base for the current session (either the
+// canonical "/api" or a dynamic per-session prefix like "/a3f8d2e1b9c7").
+export type AuthMe = User & {
+  apiBase: string
+}
+
 export const STUDENT_LEVELS = ['Caberawit', 'Pra Remaja', 'Remaja', 'Pra Nikah'] as const
 export type StudentLevel = (typeof STUDENT_LEVELS)[number]
 
