@@ -26,6 +26,7 @@ const searchSchema = z.object({
   q: z.string().optional().catch(''),
   status: z.enum(['active', 'left']).optional().catch(undefined),
   kelompok: z.enum(STUDENT_KELOMPOKS).optional().catch(undefined),
+  gender: z.enum(['male', 'female']).optional().catch(undefined),
   page: z.number().int().min(1).optional().catch(1),
   view: z.string().optional().catch(undefined),
   edit: z.string().optional().catch(undefined),
@@ -42,11 +43,11 @@ export const Route = createFileRoute('/_authed/students/')({
 function StudentsPage() {
   const navigate = useNavigate({ from: '/students/' })
   const search = Route.useSearch()
-  const { q = '', status, kelompok, page = 1, view, edit, new: isNew } = search
+  const { q = '', status, kelompok, gender, page = 1, view, edit, new: isNew } = search
   const { data: user } = useMe()
   const isAdmin = user?.role === 'admin'
 
-  const filterSearch: SearchState = { q, status, kelompok, page }
+  const filterSearch: SearchState = { q, status, kelompok, gender, page }
 
   const goTo = (next: Partial<SearchState>) =>
     void navigate({
@@ -56,9 +57,16 @@ function StudentsPage() {
   const close = () => goTo({ view: undefined, edit: undefined, new: undefined })
 
   const { data, isPending } = useQuery({
-    queryKey: ['students', { q, status, kelompok, page }],
+    queryKey: ['students', { q, status, kelompok, gender, page }],
     queryFn: () =>
-      listStudents({ q, status, kelompok, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+      listStudents({
+        q,
+        status,
+        kelompok,
+        gender,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      }),
   })
 
   const qc = useQueryClient()
@@ -96,6 +104,7 @@ function StudentsPage() {
           const next = String(fd.get('q') ?? '')
           const nextStatus = String(fd.get('status') ?? '')
           const nextKelompok = String(fd.get('kelompok') ?? '')
+          const nextGender = String(fd.get('gender') ?? '')
           void navigate({
             search: {
               q: next || undefined,
@@ -103,6 +112,8 @@ function StudentsPage() {
               kelompok: (STUDENT_KELOMPOKS as readonly string[]).includes(nextKelompok)
                 ? (nextKelompok as (typeof STUDENT_KELOMPOKS)[number])
                 : undefined,
+              gender:
+                nextGender === 'male' || nextGender === 'female' ? nextGender : undefined,
               page: 1,
             },
           })
@@ -135,6 +146,15 @@ function StudentsPage() {
               {k}
             </option>
           ))}
+        </select>
+        <select
+          name="gender"
+          defaultValue={gender ?? ''}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        >
+          <option value="">Semua jenis kelamin</option>
+          <option value="female">Perempuan</option>
+          <option value="male">Laki-laki</option>
         </select>
         <Button type="submit" variant="secondary" size="md">
           Terapkan

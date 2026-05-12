@@ -11,6 +11,7 @@ export type ListQuery = {
   q?: string
   status?: StudentStatus
   kelompok?: StudentKelompok
+  gender?: 'male' | 'female'
   limit?: number
   offset?: number
 }
@@ -20,6 +21,7 @@ export function listStudents(params: ListQuery = {}) {
   if (params.q) q.set('q', params.q)
   if (params.status) q.set('status', params.status)
   if (params.kelompok) q.set('kelompok', params.kelompok)
+  if (params.gender) q.set('gender', params.gender)
   if (params.limit !== undefined) q.set('limit', String(params.limit))
   if (params.offset !== undefined) q.set('offset', String(params.offset))
   const qs = q.toString()
