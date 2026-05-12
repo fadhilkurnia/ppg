@@ -99,12 +99,14 @@ func (h *Teachers) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := h.teachers.List(r.Context(), store.TeacherListParams{
-		Query:  q.Get("q"),
-		Status: q.Get("status"),
-		Daerah: q.Get("daerah"),
-		Gender: gender,
-		Limit:  limit,
-		Offset: offset,
+		Query:   q.Get("q"),
+		Status:  q.Get("status"),
+		Daerah:  q.Get("daerah"),
+		Gender:  gender,
+		SortBy:  q.Get("sortBy"),
+		SortDir: q.Get("sortDir"),
+		Limit:   limit,
+		Offset:  offset,
 	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil daftar Pengajar")

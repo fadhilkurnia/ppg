@@ -35,12 +35,14 @@ type TeacherInput struct {
 }
 
 type TeacherListParams struct {
-	Query  string
-	Status string // "", "active", "retired"
-	Daerah string
-	Gender string // "", "male", "female"
-	Limit  int
-	Offset int
+	Query   string
+	Status  string // "", "active", "retired"
+	Daerah  string
+	Gender  string // "", "male", "female"
+	SortBy  string // "name" (default), "daerah", "joined_at"
+	SortDir string // "asc" (default), "desc"
+	Limit   int
+	Offset  int
 }
 
 type TeacherListResult struct {
@@ -156,9 +158,32 @@ func (t *Teachers) List(ctx context.Context, p TeacherListParams) (*TeacherListR
 		return nil, fmt.Errorf("count teachers: %w", err)
 	}
 
+	// Whitelist the sort column to avoid SQL injection via query param. The
+	// frontend currently only needs name/daerah/joined_at; anything else
+	// (or empty) falls back to name.
+	sortCol := "name"
+	switch p.SortBy {
+	case "daerah":
+		sortCol = "daerah"
+	case "joined_at", "joinedAt":
+		sortCol = "joined_at"
+	}
+	sortDir := "ASC"
+	if strings.EqualFold(p.SortDir, "desc") {
+		sortDir = "DESC"
+	}
+	// joined_at can be NULL — push NULLs to the end regardless of direction
+	// so the visible page always shows fully-populated rows first.
+	orderBy := sortCol + " " + sortDir
+	if sortCol == "joined_at" {
+		orderBy = sortCol + " IS NULL, " + orderBy
+	}
+	// Stable tiebreaker on name + id so pagination doesn't shuffle.
+	orderBy += ", name ASC, id ASC"
+
 	listArgs := append(append([]any{}, args...), p.Limit, p.Offset)
 	rows, err := t.db.QueryContext(ctx,
-		selectTeacher+where+` ORDER BY name ASC LIMIT ? OFFSET ?`,
+		selectTeacher+where+` ORDER BY `+orderBy+` LIMIT ? OFFSET ?`,
 		listArgs...)
 	if err != nil {
 		return nil, err
