@@ -214,7 +214,9 @@ type StudentStats struct {
 // California → Canada for kelompok), with a trailing zero-count entry for
 // any canonical value that has no rows.
 func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
-	out := &StudentStats{}
+	// Initialize slice fields so JSON marshals empty results as [] (not null).
+	// The TS client treats these as plain arrays and crashes on null.
+	out := &StudentStats{Matrix: []LevelKelompokCell{}}
 
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM students`).Scan(&out.Total); err != nil {
 		return nil, err
