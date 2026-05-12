@@ -181,7 +181,9 @@ type TeacherStats struct {
 }
 
 func (t *Teachers) Stats(ctx context.Context) (*TeacherStats, error) {
-	out := &TeacherStats{}
+	// Empty slices marshal as [] (not null) so the TS client doesn't crash
+	// iterating an empty daerah list.
+	out := &TeacherStats{ByDaerah: []Bucket{}}
 
 	if err := t.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM teachers`).Scan(&out.Total); err != nil {
 		return nil, err
