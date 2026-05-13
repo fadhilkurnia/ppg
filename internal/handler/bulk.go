@@ -91,7 +91,17 @@ const (
 
 // Import handles POST /api/{entity}/bulk.
 func (h *Bulk) Import(w http.ResponseWriter, r *http.Request) {
-	entity := chi.URLParam(r, "entity")
+	h.importEntity(w, r, chi.URLParam(r, "entity"))
+}
+
+// ImportFor binds the entity name at registration time so callers can wire
+// the handler under a literal path (e.g. /students/bulk) that out-ranks an
+// entity-specific {id} route in chi's radix tree.
+func (h *Bulk) ImportFor(entity string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) { h.importEntity(w, r, entity) }
+}
+
+func (h *Bulk) importEntity(w http.ResponseWriter, r *http.Request, entity string) {
 	imp, ok := h.imports[entity]
 	if !ok {
 		httpx.Error(w, http.StatusNotFound, "not_found", fmt.Sprintf("bulk import for %q is not supported", entity))
@@ -145,7 +155,15 @@ func (h *Bulk) Import(w http.ResponseWriter, r *http.Request) {
 
 // Export handles GET /api/{entity}/export.csv. Streams CSV.
 func (h *Bulk) Export(w http.ResponseWriter, r *http.Request) {
-	entity := chi.URLParam(r, "entity")
+	h.exportEntity(w, r, chi.URLParam(r, "entity"))
+}
+
+// ExportFor — see ImportFor.
+func (h *Bulk) ExportFor(entity string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) { h.exportEntity(w, r, entity) }
+}
+
+func (h *Bulk) exportEntity(w http.ResponseWriter, r *http.Request, entity string) {
 	exp, ok := h.exports[entity]
 	if !ok {
 		httpx.Error(w, http.StatusNotFound, "not_found", fmt.Sprintf("bulk export for %q is not supported", entity))
@@ -163,7 +181,15 @@ func (h *Bulk) Export(w http.ResponseWriter, r *http.Request) {
 // Delete handles DELETE /api/{entity}/bulk. Body shape:
 // `{"ids": ["..."], "mode": "archive" | "hard"}`.
 func (h *Bulk) Delete(w http.ResponseWriter, r *http.Request) {
-	entity := chi.URLParam(r, "entity")
+	h.deleteEntity(w, r, chi.URLParam(r, "entity"))
+}
+
+// DeleteFor — see ImportFor.
+func (h *Bulk) DeleteFor(entity string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) { h.deleteEntity(w, r, entity) }
+}
+
+func (h *Bulk) deleteEntity(w http.ResponseWriter, r *http.Request, entity string) {
 	del, ok := h.deletes[entity]
 	if !ok {
 		httpx.Error(w, http.StatusNotFound, "not_found", fmt.Sprintf("bulk delete for %q is not supported", entity))
@@ -200,7 +226,15 @@ func (h *Bulk) Delete(w http.ResponseWriter, r *http.Request) {
 // Schema handles GET /api/{entity}/bulk/schema. Returns the entity's
 // expected column names so the frontend can render a column-mapping UI.
 func (h *Bulk) Schema(w http.ResponseWriter, r *http.Request) {
-	entity := chi.URLParam(r, "entity")
+	h.schemaEntity(w, chi.URLParam(r, "entity"))
+}
+
+// SchemaFor — see ImportFor.
+func (h *Bulk) SchemaFor(entity string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) { h.schemaEntity(w, entity) }
+}
+
+func (h *Bulk) schemaEntity(w http.ResponseWriter, entity string) {
 	if exp, ok := h.exports[entity]; ok {
 		httpx.JSON(w, http.StatusOK, map[string]any{
 			"entity":  entity,
@@ -210,6 +244,11 @@ func (h *Bulk) Schema(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.Error(w, http.StatusNotFound, "not_found", fmt.Sprintf("bulk schema for %q is not supported", entity))
 }
+
+// BulkEntities is the canonical list of entities the bulk pipeline supports.
+// Routes are registered per entity (not via a {entity} wildcard) so the
+// literal path out-ranks any per-entity /{id} routes in chi's tree.
+var BulkEntities = []string{"students", "teachers", "attendances", "users"}
 
 // ParseMaxBytesEnv reads BULK_MAX_BYTES; falls back to the default if
 // unset, blank, or unparseable.

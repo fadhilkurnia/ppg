@@ -1,18 +1,21 @@
 import type { Teacher } from '@/api/types'
+import { useTranslation } from '@/i18n'
+import { useTeacherStatusLabel } from '@/i18n/labels'
 
-export function TeacherDetail({ teacher: t }: { teacher: Teacher }) {
-  const statusLabel = t.status === 'active' ? 'Aktif' : 'Purna'
+export function TeacherDetail({ teacher: te }: { teacher: Teacher }) {
+  const { t } = useTranslation()
+  const statusLabel = useTeacherStatusLabel()
   return (
     <dl className="grid gap-4 text-sm sm:grid-cols-2">
-      <Row label="Nama Pengajar" value={t.name} />
-      <Row label="Nama Panggilan" value={t.nickname ?? '—'} />
-      <Row label="Kelompok" value={t.kelompok} />
-      <Row label="Desa" value={t.desa} />
-      <Row label="Daerah" value={t.daerah} className="sm:col-span-2" />
-      <Row label="Tanggal Masuk" value={t.joinedAt?.slice(0, 10) ?? '—'} />
-      <Row label="Tanggal Purna" value={t.retiredAt?.slice(0, 10) ?? '—'} />
-      <Row label="Status" value={statusLabel} />
-      <Row label="Keterangan" value={t.notes ?? '—'} className="sm:col-span-2" />
+      <Row label={t('teachers.fName')} value={te.name} />
+      <Row label={t('teachers.fNickname')} value={te.nickname ?? '—'} />
+      <Row label={t('teachers.fKelompok')} value={te.kelompok} />
+      <Row label={t('teachers.fDesa')} value={te.desa} />
+      <Row label={t('teachers.fDaerah')} value={te.daerah} className="sm:col-span-2" />
+      <Row label={t('teachers.fJoinedAt')} value={te.joinedAt?.slice(0, 10) ?? '—'} />
+      <Row label={t('teachers.fRetiredAt')} value={te.retiredAt?.slice(0, 10) ?? '—'} />
+      <Row label={t('teachers.fStatus')} value={statusLabel(te.status)} />
+      <Row label={t('teachers.fNotes')} value={te.notes ?? '—'} className="sm:col-span-2" />
     </dl>
   )
 }

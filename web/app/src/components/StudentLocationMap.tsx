@@ -4,6 +4,7 @@ import type { LatLngBoundsExpression, LatLngTuple } from 'leaflet'
 
 import type { Bucket } from '@/api/stats'
 import { type StudentKelompok } from '@/api/types'
+import { useTranslation } from '@/i18n'
 
 const KELOMPOK_COORDS: Record<StudentKelompok, LatLngTuple> = {
   California: [34.0522, -118.2437],     // Los Angeles
@@ -12,7 +13,6 @@ const KELOMPOK_COORDS: Record<StudentKelompok, LatLngTuple> = {
   Canada: [43.6532, -79.3832],          // Toronto
 }
 
-// Initial frame that comfortably contains all four markers.
 const INITIAL_BOUNDS: LatLngBoundsExpression = [
   [33, -120],
   [45, -70],
@@ -24,6 +24,7 @@ const TILE_ATTRIBUTION =
 
 export function StudentLocationMap({ buckets }: { buckets: Bucket[] }) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const placed = buckets
     .filter(
       (b): b is Bucket & { label: StudentKelompok } =>
@@ -43,7 +44,6 @@ export function StudentLocationMap({ buckets }: { buckets: Bucket[] }) {
         <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL} />
         {placed.map((b) => {
           const center = KELOMPOK_COORDS[b.label]
-          // 8px floor, scale up to ~28px for the largest bucket
           const radius = 8 + (b.count / max) * 20
           return (
             <CircleMarker
@@ -74,7 +74,7 @@ export function StudentLocationMap({ buckets }: { buckets: Bucket[] }) {
         })}
       </MapContainer>
       <p className="border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-        Klik tanda lingkaran untuk membuka daftar Generus pada kelompok tersebut.
+        {t('dashboard.mapHint')}
       </p>
     </div>
   )

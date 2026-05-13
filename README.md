@@ -41,24 +41,17 @@ web/
 
 ```bash
 cp .env.example .env          # edit JWT_SECRET (≥ 32 chars), seed admin
-docker compose up --build
+make docker                   # build the image
+make docker-run               # run it with .env and a persistent volume
 # → http://localhost:8080
 ```
 
-The compose file persists SQLite to a named volume (`ppg-data`).
+`make docker-run` mounts a Docker named volume at `/app/data` so SQLite
+persists across container restarts. The volume defaults to `ppg-data`;
+override with `DATA_VOLUME=my-volume make docker-run` to use a different
+name.
 
-### Public access via Cloudflare Tunnel
-
-An optional `cloudflared` sidecar is wired up under the `tunnel` compose
-profile. Create a tunnel in the Cloudflare Zero Trust dashboard
-(_Networks → Tunnels → Create_), point its public hostname at
-`http://app:8080`, copy the token into `CLOUDFLARE_TUNNEL_TOKEN`, then:
-
-```bash
-docker compose --profile tunnel up -d
-```
-
-Set `COOKIE_SECURE=true` when serving over HTTPS through the tunnel.
+Set `COOKIE_SECURE=true` when serving over HTTPS.
 
 ## Quick start (local dev)
 
@@ -155,15 +148,10 @@ Role is stored on the user row; the seed admin is created with `admin`.
   / `vite build`. It's gitignored.
 - The container runs as a non-root user (`app`, UID 1001). If you
   bind-mount `./data` into the container, chown the host directory
-  to UID 1001 first; otherwise use the named volume in the compose
-  file.
+  to UID 1001 first; otherwise use a Docker named volume (see
+  `make docker-run`).
 
 ## Database schema
 
 See [`docs/schema.md`](./docs/schema.md) for an authoritative reference of
 every table, enum, and migration. Update it whenever you add a migration.
-
-## Project rules
-
-See [`RULES.md`](./RULES.md) — branch + PR workflow, commit message
-format.

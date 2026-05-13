@@ -6,35 +6,12 @@ import { z } from 'zod'
 import { listPublicTeachers, listPublicStudents } from '@/api/public'
 import type { PublicAttendanceInput } from '@/api/public'
 import { ApiError } from '@/api/client'
+import { useTranslation } from '@/i18n'
 import { Button } from './Button'
 import { Input } from './Input'
 import { Field } from './Field'
 
 const phoneRe = /^(\+?62|0)\d{7,14}$/
-
-const statusOptions = [
-  { value: 'hadir', label: 'HADIR' },
-  { value: 'by_vn', label: 'By VN' },
-  { value: 'izin_guru', label: 'IZIN (GURU)' },
-  { value: 'izin_murid', label: 'IZIN (MURID)' },
-] as const
-
-const schema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Gunakan format YYYY-MM-DD'),
-  durationMin: z
-    .union([z.string().length(0), z.coerce.number().int().min(0).max(1440)])
-    .optional(),
-  teacherId: z.string().min(1, 'Wajib dipilih'),
-  studentId: z.string().min(1, 'Wajib dipilih'),
-  status: z.enum(['hadir', 'by_vn', 'izin_guru', 'izin_murid']),
-  materi: z.string().max(20000).optional().or(z.literal('')),
-  submittedPhone: z
-    .string()
-    .min(1, 'Wajib diisi')
-    .regex(phoneRe, 'Gunakan format 08… atau +62…'),
-})
-
-type FormValues = z.infer<typeof schema>
 
 type Props = {
   submitLabel: string
@@ -44,6 +21,32 @@ type Props = {
 }
 
 export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: Props) {
+  const { t } = useTranslation()
+
+  const statusOptions = [
+    { value: 'hadir', label: t('publicStatus.hadir') },
+    { value: 'by_vn', label: t('publicStatus.by_vn') },
+    { value: 'izin_guru', label: t('publicStatus.izin_guru') },
+    { value: 'izin_murid', label: t('publicStatus.izin_murid') },
+  ] as const
+
+  const schema = z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, t('validation.isoDate')),
+    durationMin: z
+      .union([z.string().length(0), z.coerce.number().int().min(0).max(1440)])
+      .optional(),
+    teacherId: z.string().min(1, t('validation.requiredSelect')),
+    studentId: z.string().min(1, t('validation.requiredSelect')),
+    status: z.enum(['hadir', 'by_vn', 'izin_guru', 'izin_murid']),
+    materi: z.string().max(20000).optional().or(z.literal('')),
+    submittedPhone: z
+      .string()
+      .min(1, t('validation.required'))
+      .regex(phoneRe, t('validation.invalidPhone')),
+  })
+
+  type FormValues = z.infer<typeof schema>
+
   const teachersQ = useQuery({
     queryKey: ['public', 'teachers'],
     queryFn: listPublicTeachers,
@@ -92,46 +95,48 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
           submittedPhone: v.submittedPhone,
         }),
       )}
-      className="space-y-4"
+      className="space-y-5 sm:space-y-4"
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Tanggal" htmlFor="date" error={errors.date?.message}>
-          <Input id="date" type="date" {...register('date')} />
+      <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+        <Field label={t('absen.fDate')} htmlFor="date" error={errors.date?.message}>
+          <Input id="date" type="date" className={inputMobile} {...register('date')} />
         </Field>
-        <Field label="Durasi (menit)" htmlFor="durationMin" error={errors.durationMin?.message}>
+        <Field label={t('absen.fDuration')} htmlFor="durationMin" error={errors.durationMin?.message}>
           <Input
             id="durationMin"
             type="number"
+            inputMode="numeric"
             min={0}
             max={1440}
-            placeholder="cth. 45"
+            placeholder={t('absen.fDurationPh')}
+            className={inputMobile}
             {...register('durationMin')}
           />
         </Field>
-        <Field label="Nama Guru" htmlFor="teacherId" error={errors.teacherId?.message}>
+        <Field label={t('absen.fTeacher')} htmlFor="teacherId" error={errors.teacherId?.message}>
           <Controller
             control={control}
             name="teacherId"
             render={({ field }) => (
               <Select id="teacherId" {...field}>
-                <option value="">— Pilih guru —</option>
-                {teachersQ.data?.items.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                    {t.nickname ? ` (${t.nickname})` : ''}
+                <option value="">{t('absen.pickTeacher')}</option>
+                {teachersQ.data?.items.map((te) => (
+                  <option key={te.id} value={te.id}>
+                    {te.name}
+                    {te.nickname ? ` (${te.nickname})` : ''}
                   </option>
                 ))}
               </Select>
             )}
           />
         </Field>
-        <Field label="Nama Murid" htmlFor="studentId" error={errors.studentId?.message}>
+        <Field label={t('absen.fStudent')} htmlFor="studentId" error={errors.studentId?.message}>
           <Controller
             control={control}
             name="studentId"
             render={({ field }) => (
               <Select id="studentId" {...field}>
-                <option value="">— Pilih murid —</option>
+                <option value="">{t('absen.pickStudent')}</option>
                 {studentsQ.data?.items.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -144,7 +149,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
         </Field>
       </div>
 
-      <Field label="Kehadiran" htmlFor="status-group" error={errors.status?.message}>
+      <Field label={t('absen.fAttendance')} htmlFor="status-group" error={errors.status?.message}>
         <Controller
           control={control}
           name="status"
@@ -157,7 +162,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
               {statusOptions.map((opt) => (
                 <label
                   key={opt.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 has-[:checked]:border-slate-900 has-[:checked]:bg-slate-900 has-[:checked]:text-white"
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-slate-300 bg-white px-3 py-3 text-base hover:bg-slate-50 has-[:checked]:border-slate-900 has-[:checked]:bg-slate-900 has-[:checked]:text-white sm:min-h-0 sm:py-2 sm:text-sm"
                 >
                   <input
                     type="radio"
@@ -175,20 +180,20 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
         />
       </Field>
 
-      <Field label="Materi" htmlFor="materi" error={errors.materi?.message}>
+      <Field label={t('absen.fMateri')} htmlFor="materi" error={errors.materi?.message}>
         <textarea
           id="materi"
           rows={6}
-          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          className="block w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:text-sm"
           {...register('materi')}
         />
       </Field>
 
       <Field
-        label="No. WhatsApp"
+        label={t('absen.fPhone')}
         htmlFor="submittedPhone"
         error={errors.submittedPhone?.message}
-        hint="Contoh: 081234567890 atau +6281234567890"
+        hint={t('absen.phoneHint')}
       >
         <Input
           id="submittedPhone"
@@ -196,27 +201,37 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
           inputMode="tel"
           autoComplete="tel"
           placeholder="081234567890"
+          className={inputMobile}
           {...register('submittedPhone')}
         />
       </Field>
 
       {loading ? (
-        <p className="text-sm text-slate-500">Memuat daftar guru dan murid…</p>
+        <p className="text-sm text-slate-500">{t('absen.loadingLists')}</p>
       ) : null}
       {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
 
-      <Button type="submit" className="w-full" disabled={pending || loading}>
-        {pending ? 'Mengirim…' : submitLabel}
+      <Button
+        type="submit"
+        className="h-12 w-full text-base sm:h-10 sm:text-sm"
+        disabled={pending || loading}
+      >
+        {pending ? t('absen.sending') : submitLabel}
       </Button>
     </form>
   )
 }
 
+// 16px font-size on mobile prevents iOS Safari from zooming when the field
+// gets focused; 44px tap targets match WCAG/Apple touch guidance. The
+// admin dashboard keeps its denser sm: defaults from the breakpoint up.
+const inputMobile = 'h-11 text-base sm:h-10 sm:text-sm'
+
 function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+      className="h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:h-10 sm:text-sm"
     />
   )
 }

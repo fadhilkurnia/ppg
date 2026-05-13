@@ -16,6 +16,7 @@ import {
 import { getDashboardStats, type Bucket, type LevelKelompokCell } from '@/api/stats'
 import { STUDENT_KELOMPOKS, STUDENT_LEVELS } from '@/api/types'
 import { StudentLocationMap } from '@/components/StudentLocationMap'
+import { useTranslation } from '@/i18n'
 
 export const Route = createFileRoute('/_authed/dashboard')({
   component: DashboardPage,
@@ -31,6 +32,7 @@ const BAR_MUTED = '#cbd5e1' // slate-300
 const TOP_DAERAH_LIMIT = 10
 
 function DashboardPage() {
+  const { t } = useTranslation()
   const { data, isPending, isError } = useQuery({
     queryKey: ['stats', 'dashboard'],
     queryFn: getDashboardStats,
@@ -38,55 +40,53 @@ function DashboardPage() {
   })
 
   if (isError) {
-    return <p className="text-red-600">Gagal memuat data dasbor.</p>
+    return <p className="text-red-600">{t('dashboard.loadError')}</p>
   }
   if (isPending || !data) {
-    return <p className="text-slate-500">Memuat…</p>
+    return <p className="text-slate-500">{t('common.loading')}</p>
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Dasbor</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Angka utama menampilkan Generus dan Pengajar yang masih aktif.
-        </p>
+        <h1 className="text-2xl font-semibold">{t('dashboard.heading')}</h1>
+        <p className="mt-1 text-sm text-slate-500">{t('dashboard.intro')}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <KPICard
           icon={<Users size={20} />}
-          label="Generus aktif"
+          label={t('dashboard.activeStudents')}
           value={data.students.activeTotal}
-          subtitle={`dari ${data.students.total} total`}
+          subtitle={t('dashboard.fromOfTotal', { n: data.students.total })}
         />
         <KPICard
           icon={<GraduationCap size={20} />}
-          label="Pengajar aktif"
+          label={t('dashboard.activeTeachers')}
           value={data.teachers.activeTotal}
-          subtitle={`dari ${data.teachers.total} total`}
+          subtitle={t('dashboard.fromOfTotal', { n: data.teachers.total })}
         />
         <GenderCard buckets={data.students.byGender} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <ChartCard title="Generus aktif per Jenjang">
+        <ChartCard title={t('dashboard.byLevel')}>
           <LevelBarChart buckets={data.students.byLevel} />
         </ChartCard>
-        <ChartCard title="Generus aktif per Kelompok">
+        <ChartCard title={t('dashboard.byKelompok')}>
           <KelompokBarChart buckets={data.students.byKelompok} />
         </ChartCard>
       </div>
 
-      <ChartCard title="Sebaran Generus aktif per Kelompok">
+      <ChartCard title={t('dashboard.studentLocationTitle')}>
         <StudentLocationMap buckets={data.students.byKelompok} />
       </ChartCard>
 
-      <ChartCard title="Pengajar aktif per Daerah (top 10)">
+      <ChartCard title={t('dashboard.teacherByDaerah')}>
         <DaerahBarChart buckets={data.teachers.byDaerah} />
       </ChartCard>
 
-      <ChartCard title="Matriks Jenjang × Kelompok (Generus aktif)">
+      <ChartCard title={t('dashboard.matrixTitle')}>
         <LevelKelompokMatrix matrix={data.students.matrix} />
       </ChartCard>
     </div>
@@ -119,18 +119,21 @@ function KPICard({
 }
 
 function GenderCard({ buckets }: { buckets: Bucket[] }) {
+  const { t } = useTranslation()
   const total = buckets.reduce((acc, b) => acc + b.count, 0)
+  const labelFor = (k: string) =>
+    k === 'male' ? t('dashboard.male') : k === 'female' ? t('dashboard.female') : k
   const data = buckets
     .filter((b) => b.count > 0)
     .map((b) => ({
-      name: b.label === 'male' ? 'Laki-laki' : 'Perempuan',
+      name: labelFor(b.label),
       key: b.label,
       value: b.count,
     }))
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-sm text-slate-600">Generus aktif per Jenis Kelamin</div>
+      <div className="text-sm text-slate-600">{t('dashboard.byGender')}</div>
       <div className="mt-2 flex items-center gap-4">
         <div className="h-24 w-24 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
@@ -159,9 +162,7 @@ function GenderCard({ buckets }: { buckets: Bucket[] }) {
                 className="inline-block h-2.5 w-2.5 rounded-full"
                 style={{ backgroundColor: GENDER_COLORS[b.label] }}
               />
-              <span className="font-medium">
-                {b.label === 'male' ? 'Laki-laki' : 'Perempuan'}
-              </span>
+              <span className="font-medium">{labelFor(b.label)}</span>
               <span className="text-slate-500">{b.count}</span>
             </li>
           ))}
@@ -225,18 +226,18 @@ function HorizontalBarChart({
 }
 
 function LevelBarChart({ buckets }: { buckets: Bucket[] }) {
+  const { t } = useTranslation()
   const rows = buckets.map((b) => ({
-    label: b.label === '' ? '(belum diisi)' : b.label,
+    label: b.label === '' ? t('common.notFilled') : b.label,
     count: b.count,
     muted: b.label === '',
   }))
-  // Force canonical level order (already enforced by backend, but keep predictable):
   rows.sort((a, b) => {
     const orderA = canonicalLevelIndex(a.label)
     const orderB = canonicalLevelIndex(b.label)
     return orderA - orderB
   })
-  return <HorizontalBarChart rows={rows} emptyMessage="Belum ada data jenjang." />
+  return <HorizontalBarChart rows={rows} emptyMessage={t('dashboard.emptyLevel')} />
 }
 
 function canonicalLevelIndex(label: string) {
@@ -245,9 +246,10 @@ function canonicalLevelIndex(label: string) {
 }
 
 function KelompokBarChart({ buckets }: { buckets: Bucket[] }) {
+  const { t } = useTranslation()
   const rows = buckets.map((b) => ({ label: b.label, count: b.count }))
   rows.sort((a, b) => canonicalKelompokIndex(a.label) - canonicalKelompokIndex(b.label))
-  return <HorizontalBarChart rows={rows} emptyMessage="Belum ada data kelompok." />
+  return <HorizontalBarChart rows={rows} emptyMessage={t('dashboard.emptyKelompok')} />
 }
 
 function canonicalKelompokIndex(label: string) {
@@ -256,11 +258,12 @@ function canonicalKelompokIndex(label: string) {
 }
 
 function DaerahBarChart({ buckets }: { buckets: Bucket[] }) {
+  const { t } = useTranslation()
   if (buckets.length <= TOP_DAERAH_LIMIT) {
     return (
       <HorizontalBarChart
         rows={buckets.map((b) => ({ label: b.label, count: b.count }))}
-        emptyMessage="Belum ada data daerah."
+        emptyMessage={t('dashboard.emptyDaerah')}
       />
     )
   }
@@ -269,14 +272,15 @@ function DaerahBarChart({ buckets }: { buckets: Bucket[] }) {
   const restCount = rest.reduce((acc, b) => acc + b.count, 0)
   const rows = [
     ...top.map((b) => ({ label: b.label, count: b.count })),
-    { label: `Lainnya (${rest.length})`, count: restCount, muted: true },
+    { label: t('dashboard.other', { n: rest.length }), count: restCount, muted: true },
   ]
-  return <HorizontalBarChart rows={rows} emptyMessage="Belum ada data daerah." />
+  return <HorizontalBarChart rows={rows} emptyMessage={t('dashboard.emptyDaerah')} />
 }
 
 /* --- matrix --- */
 
 function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
+  const { t } = useTranslation()
   const levels = [...STUDENT_LEVELS]
   const kelompoks = [...STUDENT_KELOMPOKS]
 
@@ -306,13 +310,13 @@ function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
       <table className="min-w-full text-sm">
         <thead>
           <tr className="text-xs uppercase tracking-wide text-slate-500">
-            <th className="px-3 py-2 text-left">Jenjang \\ Kelompok</th>
+            <th className="px-3 py-2 text-left">{t('dashboard.matrixRowHeader')}</th>
             {kelompoks.map((k) => (
               <th key={k} className="px-3 py-2 text-right">
                 {k}
               </th>
             ))}
-            <th className="px-3 py-2 text-right text-slate-700">Total</th>
+            <th className="px-3 py-2 text-right text-slate-700">{t('dashboard.total')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -336,7 +340,9 @@ function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
             )
           })}
           <tr className="border-t-2 border-slate-200">
-            <th className="px-3 py-2 text-left font-semibold text-slate-700">Total</th>
+            <th className="px-3 py-2 text-left font-semibold text-slate-700">
+              {t('dashboard.total')}
+            </th>
             {kelompoks.map((k) => (
               <td key={k} className="px-3 py-2 text-right font-semibold text-slate-700">
                 {colTotals[k] || '—'}

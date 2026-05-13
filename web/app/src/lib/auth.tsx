@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { me } from '@/api/auth'
-import { ApiError } from '@/api/client'
+import { isAuthError } from '@/api/client'
 import type { User } from '@/api/types'
 
 export const ME_QUERY_KEY = ['auth', 'me'] as const
@@ -12,7 +12,7 @@ export function useMe() {
       try {
         return await me()
       } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
+        if (isAuthError(err)) {
           return null
         }
         throw err

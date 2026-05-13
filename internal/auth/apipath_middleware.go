@@ -9,19 +9,41 @@ import (
 
 // canonicalAPIPrefix is the path under which the API is always mounted on
 // the chi router. The dynamic-prefix middleware rewrites any matching
-// /{12hex}/* URL to /api/* before the request reaches chi routing.
+// /{6 alphanumeric}/* URL to /api/* before the request reaches chi routing.
 const canonicalAPIPrefix = "/api"
 
-// DynamicAPIPath returns a middleware that lets clients address the API
-// through a per-session prefix that replaces /api. The prefix must:
-//   - be the first path segment;
-//   - be APIPathHexLen lowercase hex characters;
-//   - match the auth_path cookie of the current request, byte-for-byte.
+// directAPIAllowlist is the set of /api paths that remain reachable at the
+// canonical prefix even when the dynamic-path feature is on. These are the
+// endpoints the SPA has to hit before it knows the per-session prefix
+// (login bootstrap, public attendance form). Everything else under /api
+// must come through the dynamic prefix and the matching auth_path cookie.
+var directAPIAllowlist = []string{
+	"/api/auth/login",
+	"/api/public/",
+}
+
+func isDirectAPIAllowed(p string) bool {
+	for _, a := range directAPIAllowlist {
+		if p == a || strings.HasPrefix(p, a) {
+			return true
+		}
+	}
+	return false
+}
+
+// DynamicAPIPath returns a middleware that gates /api/* behind a
+// per-session prefix. Two-part behaviour:
 //
-// When the prefix is present but the cookie is missing or mismatched the
-// middleware refuses the request with 403 bad_api_path. When the URL has
-// no dynamic prefix (i.e. starts with /api/ or anything else) the request
-// passes through untouched, so canonical /api remains the fallback.
+//  1. Direct /api/<rest> requests are refused unless <rest> matches the
+//     small allowlist (login + public endpoints), so the API can only be
+//     reached via the dynamic prefix once a session is established.
+//
+//  2. /<APIPathLen-alphanumeric>/<rest> URLs are rewritten to /api/<rest>
+//     iff the auth_path cookie matches the prefix byte-for-byte. A
+//     prefix-shaped first segment without a matching cookie is refused
+//     with 403 bad_api_path. A first segment that is not a syntactically
+//     valid prefix (no digit, wrong length, etc.) passes through so
+//     static assets and SPA routes still load.
 //
 // If enabled is false the middleware is a no-op, so deployments with the
 // feature flag off pay no cost.
@@ -32,16 +54,31 @@ func DynamicAPIPath(enabled bool) func(http.Handler) http.Handler {
 		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p := r.URL.Path
-			if len(p) < 1+APIPathHexLen || p[0] != '/' {
+
+			// 1. Block direct /api/* unless on the bootstrap allowlist.
+			if p == canonicalAPIPrefix || strings.HasPrefix(p, canonicalAPIPrefix+"/") {
+				if !isDirectAPIAllowed(p) {
+					httpx.Error(w, http.StatusForbidden, "api_path_required",
+						"Akses langsung ke /api tidak diizinkan; gunakan jalur dinamis")
+					return
+				}
 				next.ServeHTTP(w, r)
 				return
 			}
-			prefix := p[1 : 1+APIPathHexLen]
+
+			// 2. Rewrite dynamic prefix to canonical /api if it matches
+			//    the cookie; otherwise pass through (static asset, SPA
+			//    route) or 403 on prefix-shaped-but-mismatched.
+			if len(p) < 1+APIPathLen || p[0] != '/' {
+				next.ServeHTTP(w, r)
+				return
+			}
+			prefix := p[1 : 1+APIPathLen]
 			if !IsValidPath(prefix) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			rest := p[1+APIPathHexLen:]
+			rest := p[1+APIPathLen:]
 			if rest != "" && !strings.HasPrefix(rest, "/") {
 				next.ServeHTTP(w, r)
 				return

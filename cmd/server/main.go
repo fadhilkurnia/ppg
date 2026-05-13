@@ -19,7 +19,6 @@ import (
 	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/handler"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
-	"github.com/fadhilkurnia/ppg-dashboard/internal/messaging"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 	"github.com/fadhilkurnia/ppg-dashboard/web"
 )
@@ -121,10 +120,6 @@ func run() error {
 
 	jwtSvc := auth.NewJWT(cfg.JWTSecret, cfg.JWTTTL)
 
-	var waSender messaging.Sender = messaging.Noop{}
-	if cfg.WhatsAppProvider == "fonnte" && cfg.WhatsAppToken != "" {
-		waSender = &messaging.Fonnte{Token: cfg.WhatsAppToken}
-	}
 	publicAttRL := httpx.NewIPRateLimiter(10, time.Minute)
 
 	r := chi.NewRouter()
@@ -143,10 +138,7 @@ func run() error {
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
 
-		pubAttH := handler.NewPublicAttendance(
-			attendances, students, teachers,
-			waSender, cfg.WhatsAppAdminNumber, cfg.WhatsAppSendToSubmitter,
-		)
+		pubAttH := handler.NewPublicAttendance(attendances, students, teachers)
 		api.Get("/public/teachers", pubAttH.ListTeachers)
 		api.Get("/public/students", pubAttH.ListStudents)
 		api.With(publicAttRL.Middleware).Post("/public/attendances", pubAttH.Create)
@@ -179,8 +171,13 @@ func run() error {
 				Attendances: store.NewAttendancesBulk(attendances),
 				Users:       store.NewUsersBulk(users),
 			})
-			p.Get("/{entity}/export.csv", bulkH.Export)
-			p.Get("/{entity}/bulk/schema", bulkH.Schema)
+			// Per-entity literal routes: chi's radix tree prefers literal
+			// segments over params, so /students/export.csv out-ranks the
+			// /students/{id} route registered above.
+			for _, entity := range handler.BulkEntities {
+				p.Get("/"+entity+"/export.csv", bulkH.ExportFor(entity))
+				p.Get("/"+entity+"/bulk/schema", bulkH.SchemaFor(entity))
+			}
 
 			p.Group(func(adm chi.Router) {
 				adm.Use(auth.RequireRole("admin"))
@@ -196,8 +193,10 @@ func run() error {
 				adm.Patch("/attendances/{id}", attendancesH.Update)
 				adm.Delete("/attendances/{id}", attendancesH.Delete)
 
-				adm.Post("/{entity}/bulk", bulkH.Import)
-				adm.Delete("/{entity}/bulk", bulkH.Delete)
+				for _, entity := range handler.BulkEntities {
+					adm.Post("/"+entity+"/bulk", bulkH.ImportFor(entity))
+					adm.Delete("/"+entity+"/bulk", bulkH.DeleteFor(entity))
+				}
 			})
 		})
 

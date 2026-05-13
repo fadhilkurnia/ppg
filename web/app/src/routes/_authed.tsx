@@ -21,9 +21,11 @@ import {
 } from 'lucide-react'
 
 import { logout, me } from '@/api/auth'
-import { ApiError } from '@/api/client'
+import { isAuthError } from '@/api/client'
 import { ME_QUERY_KEY, useMe, useSetMe } from '@/lib/auth'
 import { Button } from '@/components/Button'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { useTranslation } from '@/i18n'
 import { cn } from '@/lib/cn'
 
 export const Route = createFileRoute('/_authed')({
@@ -35,7 +37,7 @@ export const Route = createFileRoute('/_authed')({
       })
       if (!user) throw redirect({ to: '/login' })
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      if (isAuthError(err)) {
         throw redirect({ to: '/login' })
       }
       throw err
@@ -48,6 +50,7 @@ function AuthedLayout() {
   const { data: user } = useMe()
   const navigate = useNavigate()
   const setMe = useSetMe()
+  const { t } = useTranslation()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const closeDrawer = () => setDrawerOpen(false)
 
@@ -71,13 +74,16 @@ function AuthedLayout() {
           type="button"
           onClick={() => setDrawerOpen(true)}
           className="-ml-1 rounded-md p-1.5 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-          aria-label="Buka menu"
+          aria-label={t('nav.openMenu')}
         >
           <Menu size={20} />
         </button>
         <Link to="/dashboard" className="text-base font-semibold">
-          PPG Dashboard
+          {t('app.title')}
         </Link>
+        <div className="ml-auto">
+          <LanguageSwitcher variant="compact" />
+        </div>
       </header>
 
       {drawerOpen ? (
@@ -97,29 +103,35 @@ function AuthedLayout() {
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <Link to="/dashboard" className="text-base font-semibold">
-            PPG Dashboard
+            {t('app.title')}
           </Link>
           <button
             type="button"
             onClick={closeDrawer}
             className="-mr-1 rounded-md p-1.5 text-slate-700 hover:bg-slate-100 md:hidden"
-            aria-label="Tutup menu"
+            aria-label={t('nav.closeMenu')}
           >
             <X size={18} />
           </button>
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          <SideLink to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dasbor" />
-          <SideLink to="/teachers" icon={<GraduationCap size={16} />} label="Pengajar" />
-          <SideLink to="/students" icon={<Users size={16} />} label="Generus" />
-          <SideLink to="/sessions" icon={<BookOpen size={16} />} label="Pengajian" />
-          <SideLink to="/attendance" icon={<CalendarCheck size={16} />} label="Kehadiran" />
-          <SideLink to="/achievement" icon={<Trophy size={16} />} label="Pencapaian" />
+          <SideLink to="/dashboard" icon={<LayoutDashboard size={16} />} label={t('nav.dashboard')} />
+          <SideLink to="/teachers" icon={<GraduationCap size={16} />} label={t('nav.teachers')} />
+          <SideLink to="/students" icon={<Users size={16} />} label={t('nav.students')} />
+          <SideLink to="/sessions" icon={<BookOpen size={16} />} label={t('nav.sessions')} />
+          <SideLink to="/attendance" icon={<CalendarCheck size={16} />} label={t('nav.attendance')} />
+          <SideLink to="/achievement" icon={<Trophy size={16} />} label={t('nav.achievement')} />
         </nav>
         <div className="space-y-2 border-t border-slate-200 p-3">
           <div className="px-2">
             <div className="truncate text-sm font-medium text-slate-900">{user?.name}</div>
             <div className="text-xs text-slate-500">{user?.role}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2 px-2">
+            <span className="text-xs uppercase tracking-wide text-slate-500">
+              {t('language.label')}
+            </span>
+            <LanguageSwitcher />
           </div>
           <Button
             variant="ghost"
@@ -128,7 +140,7 @@ function AuthedLayout() {
             onClick={() => logoutMutation.mutate()}
             disabled={logoutMutation.isPending}
           >
-            <LogOut size={16} className="mr-2" /> Keluar
+            <LogOut size={16} className="mr-2" /> {t('nav.logout')}
           </Button>
         </div>
       </aside>
