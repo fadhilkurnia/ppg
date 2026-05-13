@@ -26,10 +26,10 @@ func newReq(t *testing.T, method, target, cookieVal string) *http.Request {
 
 func TestDynamicAPIPath_Disabled_PassesThrough(t *testing.T) {
 	h := DynamicAPIPath(false)(echoHandler())
-	r := newReq(t, http.MethodGet, "/a3f8d2e1b9c7/students", "a3f8d2e1b9c7")
+	r := newReq(t, http.MethodGet, "/a3f8d2/students", "a3f8d2")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
-	if got, want := w.Header().Get("X-Echo-Path"), "/a3f8d2e1b9c7/students"; got != want {
+	if got, want := w.Header().Get("X-Echo-Path"), "/a3f8d2/students"; got != want {
 		t.Errorf("path = %q, want %q (disabled middleware must not rewrite)", got, want)
 	}
 }
@@ -60,13 +60,13 @@ func TestDynamicAPIPath_NoPrefix_PassesThrough(t *testing.T) {
 }
 
 func TestDynamicAPIPath_NotAPrefixSegment_PassesThrough(t *testing.T) {
-	// "/a3f8d2e1b9c7continued" looks like a 12-hex prefix but is followed
+	// "/a3f8d2continued" looks like a 6-alphanumeric prefix but is followed
 	// by more characters in the same segment. Must not be rewritten.
 	h := DynamicAPIPath(true)(echoHandler())
-	r := newReq(t, http.MethodGet, "/a3f8d2e1b9c7continued", "a3f8d2e1b9c7")
+	r := newReq(t, http.MethodGet, "/a3f8d2continued", "a3f8d2")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
-	if got := w.Header().Get("X-Echo-Path"); got != "/a3f8d2e1b9c7continued" {
+	if got := w.Header().Get("X-Echo-Path"); got != "/a3f8d2continued" {
 		t.Errorf("path = %q, want passthrough", got)
 	}
 }
@@ -77,14 +77,16 @@ func TestDynamicAPIPath_ValidPrefix_RewritesToCanonical(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"/a3f8d2e1b9c7", "/api"},
-		{"/a3f8d2e1b9c7/", "/api/"},
-		{"/a3f8d2e1b9c7/auth/me", "/api/auth/me"},
-		{"/a3f8d2e1b9c7/students/abc-123", "/api/students/abc-123"},
+		{"/a3f8d2", "/api"},
+		{"/a3f8d2/", "/api/"},
+		{"/a3f8d2/auth/me", "/api/auth/me"},
+		{"/a3f8d2/students/abc-123", "/api/students/abc-123"},
+		{"/xyz789/auth/me", "/api/auth/me"}, // alphanumeric beyond hex range
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
-			r := newReq(t, http.MethodGet, tc.in, "a3f8d2e1b9c7")
+			cookie := tc.in[1:7]
+			r := newReq(t, http.MethodGet, tc.in, cookie)
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, r)
 			if got := w.Header().Get("X-Echo-Path"); got != tc.want {
@@ -96,7 +98,7 @@ func TestDynamicAPIPath_ValidPrefix_RewritesToCanonical(t *testing.T) {
 
 func TestDynamicAPIPath_MissingCookie_Forbidden(t *testing.T) {
 	h := DynamicAPIPath(true)(echoHandler())
-	r := newReq(t, http.MethodGet, "/a3f8d2e1b9c7/students", "")
+	r := newReq(t, http.MethodGet, "/a3f8d2/students", "")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Result().StatusCode != http.StatusForbidden {
@@ -109,7 +111,7 @@ func TestDynamicAPIPath_MissingCookie_Forbidden(t *testing.T) {
 
 func TestDynamicAPIPath_MismatchedCookie_Forbidden(t *testing.T) {
 	h := DynamicAPIPath(true)(echoHandler())
-	r := newReq(t, http.MethodGet, "/a3f8d2e1b9c7/students", "deadbeefcafe")
+	r := newReq(t, http.MethodGet, "/a3f8d2/students", "deadbe")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Result().StatusCode != http.StatusForbidden {
@@ -118,11 +120,11 @@ func TestDynamicAPIPath_MismatchedCookie_Forbidden(t *testing.T) {
 }
 
 func TestDynamicAPIPath_InvalidCookieValue_Forbidden(t *testing.T) {
-	// Cookie value is a 12-hex-looking string but with uppercase; the
-	// IsValidPath check inside ReadAPIPathCookie rejects it, so the
+	// Cookie value is a 6-alphanumeric-looking string but with uppercase;
+	// the IsValidPath check inside ReadAPIPathCookie rejects it, so the
 	// middleware should refuse the request.
 	h := DynamicAPIPath(true)(echoHandler())
-	r := newReq(t, http.MethodGet, "/a3f8d2e1b9c7/students", "A3F8D2E1B9C7")
+	r := newReq(t, http.MethodGet, "/a3f8d2/students", "A3F8D2")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Result().StatusCode != http.StatusForbidden {
