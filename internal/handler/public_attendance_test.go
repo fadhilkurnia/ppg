@@ -56,7 +56,7 @@ func newPublicHandlerEnv(t *testing.T) (*PublicAttendance, *model.Teacher, *mode
 		t.Fatalf("create student: %v", err)
 	}
 
-	h := NewPublicAttendance(attendances, students, teachers, "6281111111111")
+	h := NewPublicAttendance(attendances, students, teachers)
 	return h, teacher, student
 }
 
@@ -106,8 +106,10 @@ func TestPublicAttendanceCreate_HappyPath(t *testing.T) {
 	if got.SubmittedPhone == nil || *got.SubmittedPhone != "6281234567890" {
 		t.Errorf("submittedPhone = %v, want 6281234567890", got.SubmittedPhone)
 	}
-	if !strings.HasPrefix(got.WaMeURL, "https://wa.me/6281111111111?") {
-		t.Errorf("waMeUrl = %q, want https://wa.me/6281111111111?…", got.WaMeURL)
+	// wa.me chat target is the submitter's own (normalised) phone, so
+	// WhatsApp opens with their own chat ready and the report pre-filled.
+	if !strings.HasPrefix(got.WaMeURL, "https://wa.me/6281234567890?") {
+		t.Errorf("waMeUrl = %q, want https://wa.me/6281234567890?…", got.WaMeURL)
 	}
 
 	parsed, err := url.Parse(got.WaMeURL)
@@ -129,54 +131,6 @@ func TestPublicAttendanceCreate_HappyPath(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Errorf("waMeUrl text missing %q\nfull text:\n%s", want, text)
 		}
-	}
-}
-
-func TestPublicAttendanceCreate_NoAdminNumber(t *testing.T) {
-	dir := t.TempDir()
-	db, err := store.Open(filepath.Join(dir, "test.db"))
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.Migrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	teachers := store.NewTeachers(db)
-	students := store.NewStudents(db)
-	attendances := store.NewAttendances(db)
-	teacher, err := teachers.Create(context.Background(), store.TeacherInput{
-		Name: "T", Kelompok: "K", Desa: "D", Daerah: "DA",
-		Status: model.TeacherActive,
-	})
-	if err != nil {
-		t.Fatalf("create teacher: %v", err)
-	}
-	student, err := students.Create(context.Background(), store.StudentInput{
-		Name: "S", Gender: "male", Level: model.LevelRemaja,
-		Kelompok: "California", Status: model.StudentActive,
-	})
-	if err != nil {
-		t.Fatalf("create student: %v", err)
-	}
-	h := NewPublicAttendance(attendances, students, teachers, "")
-
-	rec := postJSON(t, h.Create, map[string]any{
-		"date":           "2025-05-01",
-		"teacherId":      teacher.ID,
-		"studentId":      student.ID,
-		"status":         "hadir",
-		"submittedPhone": "081234567890",
-	})
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body.String())
-	}
-	var got publicAttendanceResponseTest
-	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if got.WaMeURL != "" {
-		t.Errorf("waMeUrl = %q, want empty when admin number unset", got.WaMeURL)
 	}
 }
 
