@@ -21,23 +21,30 @@ release-shaped".
 
 ## 2. The transition-branch concept
 
-`main` never receives `jalur-yasril` directly. The integration branch
-has host-specific defaults baked into its source (prod SSH target,
-prod URL, prod volume names, etc.) so that day-to-day deploys to
-`gnrs.brkh.work` are zero-friction. A release snapshot on `main`
-should read as **deploy-anywhere** — someone forking the repo or
-re-hosting the app should be able to boot it without inheriting
-those defaults.
+`main` never receives `jalur-yasril` directly. The integration
+branch *is* the production environment for `gnrs.brkh.work`: it
+carries the podman-compose stack, the Cloudflare-tunnel sidecar
+wiring, and the push-to-prod helper that drives them. Those
+artefacts are tightly coupled to **our** specific deployment
+topology — they have no business on a forked snapshot.
+
+A release snapshot on `main` should instead read as
+**deploy-anywhere**: just the application source plus a generic
+container surface (Dockerfile, a `docker-run` Makefile target,
+and an `.env.example` without our tunnel knob). Someone forking
+the repo can build the image and run it under whatever
+orchestration they prefer, without inheriting our podman-compose
+layout, our `10.8.0.13` host, or our Cloudflare tunnel.
 
 To bridge that, you cut a short-lived **transition branch**
-(`release/<slug>`) off `jalur-yasril`, apply the deploy-anywhere
-cleanup checklist (§4) on the transition branch only, and PR *that*
-into `main`. `jalur-yasril` keeps its prod-host defaults; `main`
-becomes the portable snapshot.
+(`release/<slug>`) off `jalur-yasril`, apply the cleanup
+checklist (§4) on the transition branch only, and PR *that*
+into `main`. `jalur-yasril` keeps the full prod orchestration;
+`main` becomes the portable snapshot.
 
 The transition branch is single-use. After the PR merges (or is
-abandoned), the branch is deleted and the next release cuts a fresh
-one.
+abandoned), the branch is deleted and the next release cuts a
+fresh one.
 
 ## 3. Step-by-step workflow
 
@@ -60,11 +67,11 @@ one.
 3. **Commit step-by-step**, one concern per commit, per `RULES.md`.
    Example sequence:
 
-       chore(deploy): drop prod-host defaults from deploy.sh
-       chore(compose): parameterize data volume via DATA_VOLUME
-       chore(make): use DATA_VOLUME in docker-run target
+       chore(release): drop docker-compose.yml from main
+       chore(release): drop scripts/deploy.sh from main
+       chore(env): drop CLOUDFLARE_TUNNEL_TOKEN from example
+       chore(make): parameterize data volume via DATA_VOLUME
        docs: strip prod-host references for main release
-       docs(env): document SSH_HOST/REMOTE_DIR/DATA_VOLUME
 
    Conventional-commit subjects, imperative mood, ≤ 50 chars, no
    trailing punctuation.
@@ -75,14 +82,14 @@ one.
        pnpm --dir web/app typecheck
 
    A Chrome DevTools UI test pass via `TEST.md` is **not** required
-   for a release PR — the cleanup touches scripts, compose, and
-   docs only, not runtime code. State this explicitly in the PR
-   description (the template in §5 already does).
+   for a release PR — the cleanup deletes orchestration files and
+   genericizes docs, not runtime code. State this explicitly in the
+   PR description (the template in §5 already does).
 
 5. **Verification grep** — before opening the PR, from inside the
    worktree:
 
-       git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b'
+       git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b|cloudflared|CLOUDFLARE_TUNNEL|podman-compose|docker-compose'
 
    Expect zero hits **outside `RELEASE.md` itself** (this doc names
    those strings as cleanup targets, so it will match). Paste the
@@ -123,81 +130,112 @@ one.
 
 9. **No prod deploy from this merge.** Prod tracks `jalur-yasril`,
    not `main`. The `scripts/deploy.sh` step from `CLAUDE.md`
-   §"Per-session lifecycle" §6 does **not** apply here. Merging
-   the release PR ships the snapshot to `main` and nothing else.
+   §"Per-session lifecycle" §6 does **not** apply here — and
+   anyway the script no longer exists on `main` after this PR
+   lands. Merging the release PR ships the snapshot to `main`
+   and nothing else.
 
-## 4. Deploy-anywhere cleanup checklist
+## 4. Cleanup checklist
 
-Each item below names a specific hardcode that must be neutralized
-before the transition branch can land on `main`. The line numbers
-are anchors at the time this doc was written — verify them with a
-fresh grep before editing.
+Each item below names a specific prod-orchestration artefact or
+hardcode that must be neutralized before the transition branch
+can land on `main`.
 
-### 4.1 `scripts/deploy.sh`
+### 4.1 `docker-compose.yml` — **delete**
 
-- Drop the `laode@10.8.0.13` and `/home/laode/ppg` defaults. Treat
-  `SSH_HOST` and `REMOTE_DIR` as **required** env vars — fail
-  early with a clear message if either is unset.
-- Update the comment header so "Default target: laode@10.8.0.13"
-  becomes "Target: $SSH_HOST ($REMOTE_DIR) — both required".
-- Keep `PORT=8080` as a default (it is generic, not host-specific).
-- Keep the `CLOUDFLARE_TUNNEL_TOKEN` conditional logic as-is — it
-  is already optional and already deploy-anywhere.
+`docker-compose.yml` defines both the podman-compose stack and
+the `cloudflared` sidecar that fronts `gnrs.brkh.work`. Both are
+specific to our prod deployment. Delete the file:
 
-### 4.2 `docker-compose.yml`
+    git rm docker-compose.yml
 
-- Parameterize the named volume:
+A fork that wants compose-style orchestration can write its own;
+the application image (from `Dockerfile`) is portable on its own.
 
-      volumes:
-        - ${DATA_VOLUME:-ppg-data}:/app/data
-      ...
-      volumes:
-        ${DATA_VOLUME:-ppg-data}:
+### 4.2 `scripts/deploy.sh` — **delete**
 
-  (compose accepts variable substitution in the top-level
-  `volumes:` keys.) Default kept as `ppg-data` so existing deploys
-  do not break.
+`scripts/deploy.sh` exists solely to rsync the source to
+`laode@10.8.0.13`, run `podman-compose build && up -d` on the
+remote, and conditionally bring up the `cloudflared` sidecar
+when `CLOUDFLARE_TUNNEL_TOKEN` is set. None of that is
+deploy-anywhere. Delete the file:
 
-### 4.3 `Makefile`
+    git rm scripts/deploy.sh
 
-- Introduce `DATA_VOLUME ?= ppg-data` at the top of the file and
-  replace the hardcoded volume name in the `docker-run` target:
+If `scripts/` is left holding only `move-changes-off-main.sh`,
+keep the directory — that helper is independent of the prod
+stack and stays on `main`.
 
-      docker volume create $(DATA_VOLUME) >/dev/null
-      docker run --rm -it --env-file .env -p 8080:8080 \
-        -v $(DATA_VOLUME):/app/data ppg-dashboard:latest
+### 4.3 `.env.example`
 
-### 4.4 `CLAUDE.md`
+Remove the `CLOUDFLARE_TUNNEL_TOKEN` block (the variable and its
+multi-line comment about `docker compose --profile tunnel up -d`).
+The token has no meaning without the sidecar, and the sidecar is
+no longer on `main`.
+
+Also re-word the `DATABASE_PATH` comment so it stops referring to
+"the compose file" — replace with a generic "In Docker, mount a
+volume at `/app/data`" note.
+
+Add a brief comment line documenting `DATA_VOLUME` (used by the
+Makefile `docker-run` target, see §4.4) so a fresh operator
+understands the override knob.
+
+### 4.4 `Makefile`
+
+Introduce `DATA_VOLUME ?= ppg-data` at the top of the file and
+replace the hardcoded volume name in the `docker-run` target:
+
+    docker volume create $(DATA_VOLUME) >/dev/null
+    docker run --rm -it --env-file .env -p 8080:8080 \
+      -v $(DATA_VOLUME):/app/data ppg-dashboard:latest
+
+Leave every other target alone — they are generic build/test
+helpers, not deployment.
+
+### 4.5 `CLAUDE.md`
 
 - Replace every occurrence of `https://gnrs.brkh.work` with
   `$PROD_URL` (or "your production URL" in prose).
 - Replace every occurrence of `10.8.0.13` and `laode@10.8.0.13`
   with `$DEPLOY_HOST` / `user@your-host`.
-- Rewrite the "Dev deployment (parallel agents)" section so the
-  remote-host examples use placeholders, not the literal prod
-  host.
-- Keep the workflow itself (worktree + jalur-yasril integration +
-  step-by-step commits) intact — that is the project's real
+- Replace every occurrence of `/home/laode/ppg` with
+  `$REMOTE_DIR`.
+- Rewrite "Per-session lifecycle" step 6 ("Deploy to prod"):
+  drop the `scripts/deploy.sh` invocation and replace with a
+  one-line note that prod deploy is downstream-specific — point
+  the reader at their own orchestration. Do the same for the
+  parallel "Deploy to prod once the merge is clean" bullet under
+  "Before you mark the task done".
+- Rewrite the "Dev deployment (parallel agents)" section so it
+  no longer assumes `podman-compose`, `cloudflared`, or any
+  specific remote host. The general shape (build from your
+  worktree, expose a non-prod port, namespace the container,
+  tear it down on cleanup) can stay; strip out the
+  `ppg-dev-<slug>` / `ppg-data-dev-<slug>` / `podman-compose -p`
+  specifics.
+- Keep the worktree + `jalur-yasril` integration workflow + the
+  step-by-step commit rule intact — that is the project's real
   development model, not a deploy hardcode.
 
-### 4.5 `TEST.md`
+### 4.6 `TEST.md`
 
 - Replace `https://gnrs.brkh.work` with `$PROD_URL`.
 - Reword the "If you cannot reach `gnrs.brkh.work`" guidance to
   apply to any prod URL.
 
-### 4.6 `README.md`
+### 4.7 `README.md`
 
-- Replace bare references to the `ppg-data` named volume with
-  `$DATA_VOLUME` (or "the configured data volume") and add a
-  one-line note that `DATA_VOLUME` is the override knob.
-
-### 4.7 `.env.example`
-
-- Add `SSH_HOST`, `REMOTE_DIR`, and `DATA_VOLUME` to the example
-  with brief comments. They are deploy-time knobs, not runtime
-  env, but `.env.example` is the single bootstrap surface a fresh
-  operator reads.
+- Remove any prose describing `docker-compose`, `podman-compose`,
+  the `cloudflared` sidecar, the `--profile tunnel` invocation,
+  or `scripts/deploy.sh`. None of those exist on `main` after
+  this PR.
+- Keep (and, if needed, expand slightly) the generic Docker
+  story: `make docker` builds the image; `make docker-run` runs
+  it against `.env`; the named volume defaults to `ppg-data`
+  but can be overridden with `DATA_VOLUME`.
+- Replace any bare references to `https://gnrs.brkh.work`,
+  `10.8.0.13`, or `/home/laode/ppg` with placeholders.
 
 ### 4.8 `RULES.md` — left unchanged by default
 
@@ -205,6 +243,22 @@ The workflow `RULES.md` describes is the project's real
 development model; the `jalur-yasril` name is project history,
 not a deploy hardcode. Do **not** edit `RULES.md` on the
 transition branch.
+
+### 4.9 What stays on `main`
+
+After §4.1–§4.7 land, `main` retains exactly the deploy-anywhere
+surface a fork needs:
+
+- `Dockerfile` — generic container build, no host-specific knobs.
+- `Makefile` — `docker` (build) and `docker-run` (run) targets,
+  plus dev/test/typecheck helpers.
+- `.env.example` — runtime env vars only; no tunnel token.
+- Application source (Go + React) — unchanged.
+
+`jalur-yasril` continues to carry `docker-compose.yml`,
+`scripts/deploy.sh`, and the `CLOUDFLARE_TUNNEL_TOKEN` story on
+top of that surface, because *that* branch is where production
+to `gnrs.brkh.work` actually happens.
 
 ## 5. PR message template
 
@@ -224,21 +278,29 @@ release snapshot. After merge, `main` will contain:
   "dynamic API path", "absen mobile + WA". Cap at ~10 bullets;
   link the full log.>
 
-- **Release-only cleanups** (this branch, not on `jalur-yasril`):
-  - `scripts/deploy.sh`: dropped `laode@10.8.0.13` and
-    `/home/laode/ppg` defaults; `SSH_HOST` + `REMOTE_DIR` are now
-    required env vars.
-  - `docker-compose.yml` / `Makefile` / `README.md`: parameterized
-    the `ppg-data` volume name via `DATA_VOLUME`.
-  - `CLAUDE.md` / `TEST.md`: replaced `gnrs.brkh.work` and
-    `10.8.0.13` references with generic placeholders.
-  - `.env.example`: documented `SSH_HOST`, `REMOTE_DIR`,
-    `DATA_VOLUME` as deploy knobs.
+- **Prod-orchestration removals** (this branch, not on
+  `jalur-yasril`):
+  - Deleted `docker-compose.yml` — the podman-compose stack and
+    `cloudflared` sidecar are jalur-yasril-only.
+  - Deleted `scripts/deploy.sh` — the push-to-`gnrs.brkh.work`
+    helper is jalur-yasril-only.
+  - `.env.example`: dropped `CLOUDFLARE_TUNNEL_TOKEN` and
+    reworded the `DATABASE_PATH` comment so it no longer
+    references the compose file.
+
+- **Deploy-anywhere genericization**:
+  - `Makefile`: parameterized the `ppg-data` volume name via
+    `DATA_VOLUME`.
+  - `CLAUDE.md` / `TEST.md` / `README.md`: replaced
+    `gnrs.brkh.work`, `10.8.0.13`, `laode@10.8.0.13`, and
+    `/home/laode/ppg` with placeholders; rewrote the "Deploy
+    to prod" and "Dev deployment" sections to be
+    orchestration-agnostic.
 
 ## What is NOT changing
 
 - Runtime code (Go handlers, React components, schema) — the
-  cleanup touches scripts, compose, and docs only.
+  cleanup deletes orchestration files and edits docs only.
 - Prod deploy target — prod continues tracking `jalur-yasril`.
   Merging this PR does not deploy anything.
 - The `jalur-yasril` integration workflow described in
@@ -246,19 +308,19 @@ release snapshot. After merge, `main` will contain:
 
 ## Cleanup checklist (per `RELEASE.md` §4)
 
-- [ ] `scripts/deploy.sh` SSH defaults dropped (§4.1)
-- [ ] `docker-compose.yml` `DATA_VOLUME` parameterized (§4.2)
-- [ ] `Makefile` `DATA_VOLUME` parameterized (§4.3)
-- [ ] `CLAUDE.md` prod-host references stripped (§4.4)
-- [ ] `TEST.md` prod-URL genericized (§4.5)
-- [ ] `README.md` `ppg-data` references stripped (§4.6)
-- [ ] `.env.example` documents new knobs (§4.7)
+- [ ] `docker-compose.yml` deleted (§4.1)
+- [ ] `scripts/deploy.sh` deleted (§4.2)
+- [ ] `.env.example` `CLOUDFLARE_TUNNEL_TOKEN` dropped (§4.3)
+- [ ] `Makefile` `DATA_VOLUME` parameterized (§4.4)
+- [ ] `CLAUDE.md` prod-host references stripped (§4.5)
+- [ ] `TEST.md` prod-URL genericized (§4.6)
+- [ ] `README.md` compose/tunnel/host references stripped (§4.7)
 - [ ] `RULES.md` left unchanged (§4.8)
 
 ## Verification grep
 
 \`\`\`
-$ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b'
+$ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b|cloudflared|CLOUDFLARE_TUNNEL|podman-compose|docker-compose'
 <paste result — expect zero hits outside RELEASE.md>
 \`\`\`
 
@@ -266,10 +328,11 @@ $ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b'
 
 - [x] `go test ./...` — pass
 - [x] `pnpm --dir web/app typecheck` — pass
-- [ ] UI test pass via `TEST.md` — **N/A**, cleanup touches
-      scripts and docs only.
-- [ ] Reviewer-confirmed: `main` after merge is deployable on a
-      fresh host using only `.env.example` as a starting point.
+- [ ] UI test pass via `TEST.md` — **N/A**, cleanup deletes
+      orchestration files and edits docs only.
+- [ ] Reviewer-confirmed: `main` after merge is buildable on a
+      fresh host using `make docker && make docker-run` plus a
+      filled-in `.env`.
 ```
 
 ## 6. Quick reference
