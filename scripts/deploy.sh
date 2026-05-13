@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy ppg-dashboard to a remote host that already has podman + podman-compose.
 #
-# Default target: laode@10.8.0.13
+# Target: $SSH_HOST ($REMOTE_DIR) — both required.
 #
 # What it does:
 #   1. rsync the project source to $REMOTE_DIR on the remote (excluding
@@ -18,18 +18,18 @@
 # traffic reaches it only through the cloudflared tunnel.
 #
 # Usage:
-#   scripts/deploy.sh                  # deploy to default host
-#   SSH_HOST=user@host scripts/deploy.sh
-#   PORT=9090 scripts/deploy.sh        # change the loopback host port
-#   PUSH_ENV=1 scripts/deploy.sh       # also sync local .env to the remote (overwrites)
+#   SSH_HOST=user@host REMOTE_DIR=/srv/ppg scripts/deploy.sh
+#   PORT=9090 SSH_HOST=... REMOTE_DIR=... scripts/deploy.sh   # change loopback port
+#   PUSH_ENV=1 SSH_HOST=... REMOTE_DIR=... scripts/deploy.sh  # also sync local .env (overwrites)
 #
+# Required env: SSH_HOST, REMOTE_DIR.
 # Requirements on local: ssh, rsync.
 # Requirements on remote: podman, podman-compose, rsync.
 
 set -euo pipefail
 
-SSH_HOST="${SSH_HOST:-laode@10.8.0.13}"
-REMOTE_DIR="${REMOTE_DIR:-/home/laode/ppg}"
+: "${SSH_HOST:?SSH_HOST is required (e.g. user@host)}"
+: "${REMOTE_DIR:?REMOTE_DIR is required (e.g. /srv/ppg)}"
 PORT="${PORT:-8080}"
 PUSH_ENV="${PUSH_ENV:-0}"
 
