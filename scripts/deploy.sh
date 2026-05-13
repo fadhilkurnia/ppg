@@ -150,24 +150,28 @@ if ! podman volume exists "$VOLUME_NAME"; then
   podman volume create "$VOLUME_NAME" >/dev/null
 fi
 
-# Tear down legacy standalone containers from the pre-pod deploy path.
+# Recreate the pod from scratch so we pick up new images / port changes.
+if podman pod exists "$POD_NAME"; then
+  podman pod rm -f "$POD_NAME" >/dev/null
+fi
+
+# Tear down the legacy podman-compose pod (pod_<project>) and its containers
+# atomically. Must come before the standalone-container sweep because
+# ppg-dashboard and ppg-cloudflared are siblings inside that pod and refuse
+# to be removed individually.
+if podman pod exists pod_ppg && [[ "$POD_NAME" != "pod_ppg" ]]; then
+  echo "Removing legacy podman-compose pod pod_ppg."
+  podman pod rm -f pod_ppg >/dev/null
+fi
+
+# Catch standalone leftovers from the very earliest, pre-podman-compose
+# deploy path (raw `podman run` containers with no pod).
 for legacy in ppg-dashboard ppg-cloudflared; do
   if podman container exists "$legacy"; then
     echo "Removing legacy standalone $legacy container."
     podman rm -f "$legacy" >/dev/null
   fi
 done
-
-# Tear down the legacy podman-compose pod (pod_<project>) if it lingers.
-if podman pod exists pod_ppg && [[ "$POD_NAME" != "pod_ppg" ]]; then
-  echo "Removing legacy podman-compose pod pod_ppg."
-  podman pod rm -f pod_ppg >/dev/null
-fi
-
-# Recreate the pod from scratch so we pick up new images / port changes.
-if podman pod exists "$POD_NAME"; then
-  podman pod rm -f "$POD_NAME" >/dev/null
-fi
 
 podman pod create \
   --name "$POD_NAME" \
