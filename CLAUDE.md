@@ -1,7 +1,7 @@
 # Instructions for Claude (and other LLM agents)
 
 If you are an AI working in this repository, you **must** read and
-follow both of these documents before doing anything else:
+follow the documents below before doing anything else:
 
 1. [`RULES.md`](./RULES.md) — branch + worktree workflow, PR target,
    commit message format. The non-negotiable parts:
@@ -27,6 +27,17 @@ follow both of these documents before doing anything else:
    against the public deployment at `https://gnrs.brkh.work` for
    every new or changed feature. Type-checks and `go test` are not
    a substitute for actually driving the UI.
+
+3. [`CHROME_DEVTOOLS.md`](./CHROME_DEVTOOLS.md) — **read before
+   driving Chrome DevTools.** Triggers: you are about to call
+   any `mcp__chrome-devtools__*` tool, you are running the
+   `TEST.md` flow, or the user has asked you to "use Chrome
+   DevTools". Multiple agents share one long-lived headless
+   Chrome on `127.0.0.1:9222` so they don't clobber each other;
+   this file covers the mandatory pre-flight (is the shared
+   Chrome already up?) and the parallel-agent etiquette
+   (one-tab-per-task, never restart Chrome, etc.). Do not issue
+   the first MCP call without running the pre-flight there.
 
 ## Per-session lifecycle (mandatory loop)
 
@@ -271,6 +282,7 @@ for the public domain, say so explicitly instead of falling back to
 | ---------------------------------- | ----------------------------------- |
 | Branch / PR / commit-message rules | [`RULES.md`](./RULES.md)            |
 | Feature test procedure             | [`TEST.md`](./TEST.md)              |
+| Chrome DevTools (parallel agents)  | [`CHROME_DEVTOOLS.md`](./CHROME_DEVTOOLS.md) |
 | Promotion / PR to `main` workflow  | [`RELEASE.md`](./RELEASE.md)        |
 | Stack, layout, env vars, API       | [`README.md`](./README.md)          |
 | Database schema                    | [`docs/schema.md`](./docs/schema.md) |
