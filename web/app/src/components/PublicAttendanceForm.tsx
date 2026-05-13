@@ -184,7 +184,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
         <textarea
           id="materi"
           rows={6}
-          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:text-sm"
+          className="block w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:text-sm"
           {...register('materi')}
         />
       </Field>
