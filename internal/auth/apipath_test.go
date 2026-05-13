@@ -36,14 +36,17 @@ func TestIsValidPath(t *testing.T) {
 	}{
 		{"empty", "", false},
 		{"too short", "abc", false},
-		{"too long", "0123456789abc", false},
-		{"uppercase", "A3F8D2E1B9C7", false},
-		{"mixed case", "a3F8d2e1b9c7", false},
-		{"non hex letter", "a3f8d2e1b9cg", false},
-		{"trailing space", "a3f8d2e1b9c ", false},
-		{"valid", "a3f8d2e1b9c7", true},
-		{"valid zeros", "000000000000", true},
-		{"valid all-f", "ffffffffffff", true},
+		{"too long", "0123456", false},
+		{"uppercase", "A3F8D2", false},
+		{"mixed case", "a3F8d2", false},
+		{"symbol", "a3f8d!", false},
+		{"trailing space", "a3f8d ", false},
+		{"valid hex-style", "a3f8d2", true},
+		{"valid letters past f", "xyz789", true},
+		{"all letters rejected", "abcxyz", false},
+		{"natural word rejected", "assets", false},
+		{"valid zeros", "000000", true},
+		{"valid mixed", "g1h2i3", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -59,10 +62,10 @@ func TestEqualPath(t *testing.T) {
 		a, b string
 		want bool
 	}{
-		{"a3f8d2e1b9c7", "a3f8d2e1b9c7", true},
-		{"a3f8d2e1b9c7", "b3f8d2e1b9c7", false},
-		{"a3f8d2e1b9c7", "a3f8d2e1b9c", false}, // length mismatch
-		{"", "", true},                          // documented behaviour: identical empties match
+		{"a3f8d2", "a3f8d2", true},
+		{"a3f8d2", "b3f8d2", false},
+		{"a3f8d2", "a3f8d", false}, // length mismatch
+		{"", "", true},              // documented behaviour: identical empties match
 	}
 	for _, tc := range cases {
 		t.Run(tc.a+"_vs_"+tc.b, func(t *testing.T) {
