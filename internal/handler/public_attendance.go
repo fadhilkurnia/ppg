@@ -23,29 +23,28 @@ import (
 // shared attendances table.
 //
 // Submissions are not auto-pushed to a WhatsApp gateway. Instead the
-// Create response carries a pre-formatted wa.me click-to-chat URL that
-// the SPA opens on the submitter's device, so the user sends the report
-// to the admin from their own WhatsApp account.
+// Create response carries a pre-formatted wa.me click-to-chat URL
+// targeted at the number the submitter entered in the form; the SPA
+// navigates to it so WhatsApp opens with the report pre-filled and the
+// submitter taps Send. The chat target is the form's `submittedPhone`
+// — no server-side admin number is involved.
 type PublicAttendance struct {
 	attendances *store.Attendances
 	students    *store.Students
 	teachers    *store.Teachers
 	validator   *validator.Validate
-	adminTo     string // "62…" form, may be "" if not configured
 }
 
 func NewPublicAttendance(
 	a *store.Attendances,
 	s *store.Students,
 	t *store.Teachers,
-	adminNumber string,
 ) *PublicAttendance {
 	return &PublicAttendance{
 		attendances: a,
 		students:    s,
 		teachers:    t,
 		validator:   validator.New(),
-		adminTo:     messaging.Normalize(adminNumber),
 	}
 }
 
@@ -120,9 +119,9 @@ type publicAttendanceResponse struct {
 }
 
 // Create handles `POST /api/public/attendances`. It persists the row,
-// formats the WhatsApp report body, and returns a wa.me URL the SPA
-// opens so the submitter can forward the report from their own
-// WhatsApp account.
+// formats the WhatsApp report body, and returns a wa.me URL pointing
+// at the submitter's own number that the SPA navigates to so WhatsApp
+// opens with the report pre-filled and ready to send.
 func (h *PublicAttendance) Create(w http.ResponseWriter, r *http.Request) {
 	var b publicAttendanceBody
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
@@ -174,7 +173,7 @@ func (h *PublicAttendance) Create(w http.ResponseWriter, r *http.Request) {
 	body := formatAttendanceMessage(att, studentNick, teacherNick)
 	httpx.JSON(w, http.StatusCreated, publicAttendanceResponse{
 		Attendance: att,
-		WaMeURL:    buildWaMeURL(h.adminTo, body),
+		WaMeURL:    buildWaMeURL(normalizedPhone, body),
 	})
 }
 
@@ -182,8 +181,8 @@ func (h *PublicAttendance) Create(w http.ResponseWriter, r *http.Request) {
 // https://faq.whatsapp.com/5913398998672934. Phone must be digits-only
 // in international form (no "+", no spaces, no dashes); the message is
 // passed verbatim via the `text` query parameter and percent-encoded by
-// url.Values. Returns "" if no phone is configured so the SPA can hide
-// the send button.
+// url.Values. Returns "" if no phone is given so the SPA can fall back
+// to the "saved to DB" message instead of a broken redirect.
 func buildWaMeURL(phone, body string) string {
 	if phone == "" {
 		return ""
