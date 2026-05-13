@@ -26,6 +26,49 @@ follow both of these documents before doing anything else:
    every new or changed feature. Type-checks and `go test` are not
    a substitute for actually driving the UI.
 
+## Per-session lifecycle (mandatory loop)
+
+Every LLM session that touches the code **must** run the full loop
+below, in this order, end-to-end — no skipping steps, no parking a
+feature half-done for a future session:
+
+1. **Worktree** — create `.claude/worktrees/<name>` off
+   `jalur-yasril` on a fresh `feat/<name>` branch, and `cd` into it.
+   All editing happens inside that worktree.
+2. **Step-by-step commits** — split the work into the smallest
+   meaningful logical units and commit each one separately with a
+   conventional-commit subject. Do not batch unrelated changes
+   into one mega-commit.
+3. **Test** — run `go test ./...` and
+   `pnpm --dir web/app typecheck`, then the full Chrome DevTools
+   flow from `TEST.md` against your dev deployment (or
+   `https://gnrs.brkh.work` if it's appropriate for the change).
+   If the UI test pass is impossible, say so explicitly in the PR
+   — do not silently skip it.
+4. **PR** — push the branch and open a PR targeting `jalur-yasril`
+   (never `main`) with the "Tested via Chrome DevTools" section
+   filled in.
+5. **Merge** — once CI is green and the test pass has no errors,
+   auto-merge with `gh pr merge <num> --squash --delete-branch`
+   (or `--merge --delete-branch`, matching repo history). **If
+   the PR has merge conflicts with `jalur-yasril`, resolve them
+   in the worktree** (`git fetch origin && git merge
+   origin/jalur-yasril`, fix the conflicts, re-run tests, push
+   the resolution, wait for CI to go green again, then merge).
+   Do not leave a conflicting PR sitting open for another session
+   to deal with.
+6. **Clean up** — immediately after the merge (or after deciding
+   to abandon the PR), remove the worktree, delete the local and
+   remote feature branches, prune stale tracking refs, and tear
+   down the dev deployment. See the cleanup checklist below for
+   the exact commands. A session is **not finished** until the
+   worktree directory is gone and the branch refs are gone.
+
+If the session ends before the loop completes (context limit,
+user interrupts, etc.), state in plain text which step you're on
+and what's left, so the next session can pick up from there
+without re-deriving the state.
+
 ## Quick checklist for a new task
 
 Before you write code:
@@ -57,19 +100,31 @@ Before you mark the task done:
       --delete-branch` or `--merge --delete-branch`, whichever
       matches the existing history) without waiting for the user
       to ask. Always pass `--delete-branch` so the remote feature
-      branch is removed as part of the merge. Do **not** auto-merge
-      if any check is red, the test pass was skipped, or a reviewer
-      has requested changes — in that case, fix the issue and
-      re-test before merging.
+      branch is removed as part of the merge. **If GitHub reports
+      merge conflicts**, resolve them in your worktree
+      (`git fetch origin && git merge origin/jalur-yasril`, fix
+      the conflicts commit-by-commit, re-run `go test ./...`,
+      `pnpm --dir web/app typecheck`, and the relevant parts of
+      the Chrome DevTools flow, then push the resolution); wait
+      for CI to go green again before merging. Do **not**
+      auto-merge if any check is red, the test pass was skipped,
+      conflicts are unresolved, or a reviewer has requested
+      changes — fix the issue and re-test before merging.
 - [ ] **Clean up immediately after merge/abandon — do not let
-      merged branches linger.** As soon as the PR is merged (or
-      you decide to abandon it), run all of the following before
-      moving on to the next task:
-      1. `git worktree remove .claude/worktrees/<name>` (use
-         `--force` only if the worktree is intentionally dirty and
-         you have already saved anything worth keeping).
-      2. `git branch -D feat/<name>` from another checkout (e.g.
-         the repo root) to delete the local feature branch.
+      merged branches or worktrees linger.** As soon as the PR is
+      merged (or you decide to abandon it), run all of the
+      following before moving on to the next task or ending the
+      session:
+      1. **Remove the worktree.** `cd` out of
+         `.claude/worktrees/<name>` first (e.g. back to the repo
+         root), then `git worktree remove
+         .claude/worktrees/<name>`. Use `--force` only if the
+         worktree is intentionally dirty and you have already
+         saved anything worth keeping. Confirm with `git worktree
+         list` that the entry is gone and that the directory
+         under `.claude/worktrees/` no longer exists.
+      2. `git branch -D feat/<name>` from the main checkout to
+         delete the local feature branch.
       3. If the remote branch still exists (it usually won't after
          `gh pr merge --delete-branch`, but verify with
          `git ls-remote --heads origin feat/<name>`), delete it
@@ -78,9 +133,13 @@ Before you mark the task done:
          (`origin/feat/<name>`) are dropped locally too.
       5. Tear down this branch's dev deployment on the remote (see
          the "Cleanup" bullet under *Dev deployment* below).
-      A merged branch that still has a worktree, a local ref, a
-      remote ref, or a running dev container counts as **not
-      cleaned up** — finish all five before starting new work.
+      A merged branch that still has a worktree directory, a
+      worktree-list entry, a local ref, a remote ref, or a
+      running dev container counts as **not cleaned up** — finish
+      all five before starting new work or closing the session.
+      Before opening a new feature, run `git worktree list` and
+      confirm there are no leftover entries from already-merged
+      branches; if there are, clean them up first.
 
 ## Dev deployment (parallel agents)
 
