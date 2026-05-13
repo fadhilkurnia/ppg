@@ -95,19 +95,21 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
           submittedPhone: v.submittedPhone,
         }),
       )}
-      className="space-y-4"
+      className="space-y-5 sm:space-y-4"
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
         <Field label={t('absen.fDate')} htmlFor="date" error={errors.date?.message}>
-          <Input id="date" type="date" {...register('date')} />
+          <Input id="date" type="date" className={inputMobile} {...register('date')} />
         </Field>
         <Field label={t('absen.fDuration')} htmlFor="durationMin" error={errors.durationMin?.message}>
           <Input
             id="durationMin"
             type="number"
+            inputMode="numeric"
             min={0}
             max={1440}
             placeholder={t('absen.fDurationPh')}
+            className={inputMobile}
             {...register('durationMin')}
           />
         </Field>
@@ -160,7 +162,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
               {statusOptions.map((opt) => (
                 <label
                   key={opt.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 has-[:checked]:border-slate-900 has-[:checked]:bg-slate-900 has-[:checked]:text-white"
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-slate-300 bg-white px-3 py-3 text-base hover:bg-slate-50 has-[:checked]:border-slate-900 has-[:checked]:bg-slate-900 has-[:checked]:text-white sm:min-h-0 sm:py-2 sm:text-sm"
                 >
                   <input
                     type="radio"
@@ -182,7 +184,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
         <textarea
           id="materi"
           rows={6}
-          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:text-sm"
           {...register('materi')}
         />
       </Field>
@@ -199,6 +201,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
           inputMode="tel"
           autoComplete="tel"
           placeholder="081234567890"
+          className={inputMobile}
           {...register('submittedPhone')}
         />
       </Field>
@@ -208,18 +211,27 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
       ) : null}
       {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
 
-      <Button type="submit" className="w-full" disabled={pending || loading}>
+      <Button
+        type="submit"
+        className="h-12 w-full text-base sm:h-10 sm:text-sm"
+        disabled={pending || loading}
+      >
         {pending ? t('absen.sending') : submitLabel}
       </Button>
     </form>
   )
 }
 
+// 16px font-size on mobile prevents iOS Safari from zooming when the field
+// gets focused; 44px tap targets match WCAG/Apple touch guidance. The
+// admin dashboard keeps its denser sm: defaults from the breakpoint up.
+const inputMobile = 'h-11 text-base sm:h-10 sm:text-sm'
+
 function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+      className="h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:h-10 sm:text-sm"
     />
   )
 }
