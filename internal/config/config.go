@@ -35,7 +35,7 @@ func Load() (Config, error) {
 		SeedAdminUsername: os.Getenv("SEED_ADMIN_USERNAME"),
 		SeedAdminPass:     os.Getenv("SEED_ADMIN_PASSWORD"),
 		Dev:            getBool("DEV", false),
-		DynamicAPIPath: getBool("DYNAMIC_API_PATH", false),
+		DynamicAPIPath: getBool("DYNAMIC_API_PATH", true),
 
 		WhatsAppAdminNumber: os.Getenv("WHATSAPP_ADMIN_NUMBER"),
 	}
