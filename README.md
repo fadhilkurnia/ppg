@@ -45,7 +45,9 @@ docker compose up --build
 # → http://localhost:8080
 ```
 
-The compose file persists SQLite to a named volume (`ppg-data`).
+The compose file persists SQLite to a named volume (default
+`ppg-data`; override with the `DATA_VOLUME` env var to use a
+different name).
 
 ### Public access via Cloudflare Tunnel
 
