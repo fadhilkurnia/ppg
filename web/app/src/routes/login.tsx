@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
 
 import { login } from '@/api/auth'
-import { ApiError } from '@/api/client'
+import { ApiError, isAuthError } from '@/api/client'
 import { ME_QUERY_KEY, useSetMe } from '@/lib/auth'
 import { me } from '@/api/auth'
 import { Button } from '@/components/Button'
@@ -23,7 +23,7 @@ export const Route = createFileRoute('/login')({
       })
       if (user) throw redirect({ to: '/dashboard' })
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) return
+      if (isAuthError(err)) return
       throw err
     }
   },
