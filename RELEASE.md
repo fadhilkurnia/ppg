@@ -98,14 +98,20 @@ fresh one.
 6. **Open the PR against `main`**:
 
        gh pr create --base main \
-         --title 'release: promote jalur-yasril to main (<slug>)' \
+         --title 'release: deploy-anywhere snapshot (<slug>)' \
          --body "$(cat <<'EOF'
        <fill in the template from §5>
        EOF
        )"
 
+   The PR title and body should describe *the changes themselves*
+   — what's added, removed, or genericized — not the
+   integration-branch plumbing that produced them. Keep
+   `jalur-yasril` out of the user-facing PR text; the template in
+   §5 is already worded that way.
+
    This is the only sanctioned `--base main` PR in the repo's
-   workflow. Every other PR still targets `jalur-yasril`.
+   workflow. Every other PR still targets the integration branch.
 
 7. **Do NOT auto-merge.** A PR to `main` is a release-readiness
    moment that the user owns. Wait for them to approve and merge
@@ -264,26 +270,40 @@ to `gnrs.brkh.work` actually happens.
 
 Use this template verbatim for the release PR body. Fill the
 placeholders from the actual diff before calling `gh pr create`.
+The template is deliberately framed around *what is changing in
+this PR* — it does **not** name the integration branch in the
+title, summary, or body. Keep it that way.
 
 ```markdown
-## What's changing in `main`
+## Summary
 
-This PR promotes `jalur-yasril` to `main` as a deploy-anywhere
-release snapshot. After merge, `main` will contain:
+- Cut a deploy-anywhere release snapshot of the project onto
+  `main`.
+- Bring in the feature work that accumulated since the last
+  release point on `main`.
+- Drop our specific production-orchestration artefacts
+  (`docker-compose.yml`, `scripts/deploy.sh`, the
+  `CLOUDFLARE_TUNNEL_TOKEN` story) so a fork on `main` boots
+  with just `Dockerfile` + `Makefile` + `.env.example`.
+- Genericize remaining prod-host references in the docs.
 
-- **Feature commits from `jalur-yasril`** (since `main`'s last
-  release point):
+## What's changing
+
+This PR refreshes `main` so it reads as a deploy-anywhere
+snapshot. After merge, `main` will contain:
+
+- **Feature commits since `main`'s last release point**:
   <bulleted summary derived from `git log --oneline main..HEAD`,
   grouped by area — e.g. "i18n", "bulk import/export",
   "dynamic API path", "absen mobile + WA". Cap at ~10 bullets;
   link the full log.>
 
-- **Prod-orchestration removals** (this branch, not on
-  `jalur-yasril`):
+- **Production-orchestration removals** (transition-branch only):
   - Deleted `docker-compose.yml` — the podman-compose stack and
-    `cloudflared` sidecar are jalur-yasril-only.
+    the `cloudflared` sidecar are tied to a specific prod
+    deployment and do not belong on a portable snapshot.
   - Deleted `scripts/deploy.sh` — the push-to-`gnrs.brkh.work`
-    helper is jalur-yasril-only.
+    helper is similarly deployment-specific.
   - `.env.example`: dropped `CLOUDFLARE_TUNNEL_TOKEN` and
     reworded the `DATABASE_PATH` comment so it no longer
     references the compose file.
@@ -301,10 +321,11 @@ release snapshot. After merge, `main` will contain:
 
 - Runtime code (Go handlers, React components, schema) — the
   cleanup deletes orchestration files and edits docs only.
-- Prod deploy target — prod continues tracking `jalur-yasril`.
-  Merging this PR does not deploy anything.
-- The `jalur-yasril` integration workflow described in
-  `CLAUDE.md` / `RULES.md` — unchanged on `jalur-yasril`.
+- Production deploy target — production continues to track the
+  project's integration branch, not `main`. Merging this PR
+  does not deploy anything.
+- The development workflow described in `CLAUDE.md` /
+  `RULES.md` — unchanged on the integration branch.
 
 ## Cleanup checklist (per `RELEASE.md` §4)
 
