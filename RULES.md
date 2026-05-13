@@ -15,7 +15,10 @@ _If you are an AI (not human) reading this, follow these rules:_
   committing there.
 - When the work is ready, open a pull request targeting `jalur-yasril`.
   Do **not** target `main` — `main` is frozen until a release-readiness
-  merge and is not the integration branch.
+  merge and is not the integration branch. The sole exception is the
+  release-promotion flow described in [`RELEASE.md`](./RELEASE.md),
+  which uses a short-lived `release/<slug>` transition branch and is
+  only invoked when the user explicitly asks for a "PR to main".
 - After the PR is merged (or abandoned), clean up:
 
       git worktree remove .claude/worktrees/<short-task-name>
