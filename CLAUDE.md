@@ -53,14 +53,34 @@ Before you mark the task done:
 - [ ] **Auto-merge once green.** If the PR is fully tested via the
       Chrome DevTools flow with no errors, and CI (type-check,
       `go test`, any other required checks) is passing, merge it
-      into `jalur-yasril` yourself (`gh pr merge <num> --squash` or
-      `--merge`, whichever matches the existing history) without
-      waiting for the user to ask. Do **not** auto-merge if any
-      check is red, the test pass was skipped, or a reviewer has
-      requested changes — in that case, fix the issue and re-test
-      before merging.
-- [ ] After merge/abandon: `git worktree remove
-      .claude/worktrees/<name>`.
+      into `jalur-yasril` yourself (`gh pr merge <num> --squash
+      --delete-branch` or `--merge --delete-branch`, whichever
+      matches the existing history) without waiting for the user
+      to ask. Always pass `--delete-branch` so the remote feature
+      branch is removed as part of the merge. Do **not** auto-merge
+      if any check is red, the test pass was skipped, or a reviewer
+      has requested changes — in that case, fix the issue and
+      re-test before merging.
+- [ ] **Clean up immediately after merge/abandon — do not let
+      merged branches linger.** As soon as the PR is merged (or
+      you decide to abandon it), run all of the following before
+      moving on to the next task:
+      1. `git worktree remove .claude/worktrees/<name>` (use
+         `--force` only if the worktree is intentionally dirty and
+         you have already saved anything worth keeping).
+      2. `git branch -D feat/<name>` from another checkout (e.g.
+         the repo root) to delete the local feature branch.
+      3. If the remote branch still exists (it usually won't after
+         `gh pr merge --delete-branch`, but verify with
+         `git ls-remote --heads origin feat/<name>`), delete it
+         with `git push origin --delete feat/<name>`.
+      4. `git fetch --prune origin` so stale remote-tracking refs
+         (`origin/feat/<name>`) are dropped locally too.
+      5. Tear down this branch's dev deployment on the remote (see
+         the "Cleanup" bullet under *Dev deployment* below).
+      A merged branch that still has a worktree, a local ref, a
+      remote ref, or a running dev container counts as **not
+      cleaned up** — finish all five before starting new work.
 
 ## Dev deployment (parallel agents)
 
