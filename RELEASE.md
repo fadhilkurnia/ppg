@@ -121,11 +121,14 @@ fresh one.
        EOF
        )"
 
-   The PR title and body should describe *the changes themselves*
-   — what's added, removed, or genericized — not the
-   integration-branch plumbing that produced them. Keep
-   `jalur-yasril` out of the user-facing PR text; the template in
-   §5 is already worded that way.
+   The PR's **Summary** block must be a feature list — what
+   `main` *gains* if this PR merges, derived from
+   `git log --oneline main..HEAD` and grouped by user-facing
+   area. The cleanup mechanics (which files got deleted, what
+   was genericized) live in a separate "Release-only cleanups"
+   section lower down, not in the Summary. Keep `jalur-yasril`
+   out of the title, Summary, and body. The template in §5 is
+   already worded that way; follow it.
 
    This is the only sanctioned `--base main` PR in the repo's
    workflow. Every other PR still targets the integration branch.
@@ -297,39 +300,56 @@ production to `gnrs.brkh.work` actually happens.
 
 Use this template verbatim for the release PR body. Fill the
 placeholders from the actual diff before calling `gh pr create`.
-The template is deliberately framed around *what is changing in
-this PR* — it does **not** name the integration branch in the
-title, summary, or body. Keep it that way.
+The template is deliberately framed around *what users gain by
+merging this PR*. Two non-negotiables:
+
+1. **The Summary block lists the features being added** —
+   nothing else. No "we cut a snapshot" / "we dropped the compose
+   stack" / "we genericized docs" meta-bullets. A reviewer reading
+   only the Summary should come away knowing which capabilities
+   `main` is gaining.
+2. **No mention of the integration branch by name** anywhere in
+   the title, Summary, or body.
+
+The cleanup mechanics still need to be documented — they live in
+the "Release-only cleanups" section further down, where reviewers
+who care about the build/orchestration side can find them.
 
 ```markdown
 ## Summary
 
-- Cut a deploy-anywhere release snapshot of the project onto
-  `main`.
-- Bring in the feature work that accumulated since the last
-  release point on `main`.
-- Drop the production-orchestration artefacts
-  (`docker-compose.yml`, `scripts/deploy.sh`, the
-  `CLOUDFLARE_TUNNEL_TOKEN` story) so a fork on `main` boots
-  with just `Dockerfile` + `Makefile` + `.env.example`.
-- Drop the LLM-agent rule / guide docs (`CLAUDE.md`, `RULES.md`,
-  `TEST.md`, `RELEASE.md`) — those describe how *we* develop the
-  project, not how a fork should consume it.
-- Genericize remaining prod-host references in the surviving
-  docs.
+<Bulleted list of features being added to `main` by this PR,
+derived from `git log --oneline main..HEAD` and grouped by
+user-facing area. The reader should finish this section knowing
+what new capabilities `main` will have after merge — *not* what
+files this PR deleted or genericized (those go in "Release-only
+cleanups" below).
 
-## What's changing
+Example shape (for a release that includes i18n, bulk
+import/export, the dynamic API path, and the absen flow):
 
-This PR refreshes `main` so it reads as a deploy-anywhere
-snapshot. After merge, `main` will contain:
+- **Internationalization** — multi-language UI with runtime
+  language switching across <list of major screens>.
+- **Bulk import/export** — admins can import students/teachers
+  from CSV and export current rosters from the dashboard.
+- **Dynamic API path** — defence-in-depth against CSRF by issuing
+  a per-session API prefix at login and routing the SPA through
+  it.
+- **Mobile attendance (`absen`)** — students mark their own
+  attendance from a phone; WhatsApp follow-up for missing
+  check-ins.
 
-- **Feature commits since `main`'s last release point**:
-  <bulleted summary derived from `git log --oneline main..HEAD`,
-  grouped by area — e.g. "i18n", "bulk import/export",
-  "dynamic API path", "absen mobile + WA". Cap at ~10 bullets;
-  link the full log.>
+Aim for ~5–10 bullets. Lead with the largest user-visible change;
+group related commits under one bullet. Link the full log
+(`main..HEAD`) at the end of the section if there is overflow.>
 
-- **Production-orchestration removals** (transition-branch only):
+## Release-only cleanups
+
+In addition to the features above, this transition branch applies
+the deploy-anywhere cleanup so `main` reads as a portable
+snapshot. None of these changes touch runtime code.
+
+- **Production-orchestration removals**:
   - Deleted `docker-compose.yml` — the podman-compose stack and
     the `cloudflared` sidecar are tied to a specific prod
     deployment and do not belong on a portable snapshot.
@@ -339,7 +359,7 @@ snapshot. After merge, `main` will contain:
     reworded the `DATABASE_PATH` comment so it no longer
     references the compose file.
 
-- **LLM-agent docs removals** (transition-branch only):
+- **LLM-agent docs removals**:
   - Deleted `CLAUDE.md` — agent instructions, integration-only.
   - Deleted `RULES.md` — branch / PR / commit-message rules,
     integration-only.
@@ -358,9 +378,11 @@ snapshot. After merge, `main` will contain:
 
 ## What is NOT changing
 
-- Runtime code (Go handlers, React components, schema) — the
-  cleanup deletes orchestration + agent-doc files and edits
-  `README.md` / `Makefile` / `.env.example` only.
+- Runtime code authored on this transition branch — none. The
+  feature commits in the Summary above came from the integration
+  branch unchanged; this branch only deletes orchestration +
+  agent-doc files and edits `README.md` / `Makefile` /
+  `.env.example`.
 - Production deploy target — production continues to track the
   project's integration branch, not `main`. Merging this PR
   does not deploy anything.
