@@ -18,11 +18,6 @@ type Config struct {
 	SeedAdminPass     string
 	Dev             bool
 	DynamicAPIPath  bool
-
-	// WhatsAppAdminNumber receives /absen reports via a wa.me click-to-chat
-	// URL baked into the Create response. Accepts "62…", "+62…", or "0…";
-	// the handler normalises it via messaging.Normalize.
-	WhatsAppAdminNumber string
 }
 
 func Load() (Config, error) {
@@ -36,8 +31,6 @@ func Load() (Config, error) {
 		SeedAdminPass:     os.Getenv("SEED_ADMIN_PASSWORD"),
 		Dev:            getBool("DEV", false),
 		DynamicAPIPath: getBool("DYNAMIC_API_PATH", true),
-
-		WhatsAppAdminNumber: os.Getenv("WHATSAPP_ADMIN_NUMBER"),
 	}
 
 	secret := os.Getenv("JWT_SECRET")

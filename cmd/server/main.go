@@ -138,9 +138,7 @@ func run() error {
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
 
-		pubAttH := handler.NewPublicAttendance(
-			attendances, students, teachers, cfg.WhatsAppAdminNumber,
-		)
+		pubAttH := handler.NewPublicAttendance(attendances, students, teachers)
 		api.Get("/public/teachers", pubAttH.ListTeachers)
 		api.Get("/public/students", pubAttH.ListStudents)
 		api.With(publicAttRL.Middleware).Post("/public/attendances", pubAttH.Create)
