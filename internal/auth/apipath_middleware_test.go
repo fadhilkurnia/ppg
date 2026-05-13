@@ -39,7 +39,6 @@ func TestDynamicAPIPath_NoPrefix_PassesThrough(t *testing.T) {
 	cases := []string{
 		"/",
 		"/healthz",
-		"/api/students",
 		"/login",
 		"/assets/main.js",
 		"/a3f8", // too short
@@ -54,6 +53,65 @@ func TestDynamicAPIPath_NoPrefix_PassesThrough(t *testing.T) {
 			}
 			if w.Result().StatusCode != http.StatusOK {
 				t.Errorf("status = %d, want 200", w.Result().StatusCode)
+			}
+		})
+	}
+}
+
+func TestDynamicAPIPath_DirectAPI_Allowlist(t *testing.T) {
+	// Endpoints the SPA must hit before it has a per-session prefix
+	// (login bootstrap, public attendance form) stay reachable at the
+	// canonical /api prefix.
+	h := DynamicAPIPath(true)(echoHandler())
+	cases := []string{
+		"/api/auth/login",
+		"/api/public/teachers",
+		"/api/public/students",
+		"/api/public/attendances",
+	}
+	for _, p := range cases {
+		t.Run(p, func(t *testing.T) {
+			r := newReq(t, http.MethodGet, p, "")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if got := w.Header().Get("X-Echo-Path"); got != p {
+				t.Errorf("path = %q, want %q (allowlisted /api must pass through)", got, p)
+			}
+			if w.Result().StatusCode != http.StatusOK {
+				t.Errorf("status = %d, want 200", w.Result().StatusCode)
+			}
+		})
+	}
+}
+
+func TestDynamicAPIPath_DirectAPI_Forbidden(t *testing.T) {
+	// Direct /api/<protected> calls must be refused regardless of
+	// whether the caller has an auth_path cookie, so external tools
+	// cannot bypass the per-session prefix.
+	h := DynamicAPIPath(true)(echoHandler())
+	cases := []string{
+		"/api",
+		"/api/",
+		"/api/auth/me",
+		"/api/auth/logout",
+		"/api/students",
+		"/api/students/abc-123",
+		"/api/teachers",
+		"/api/attendances",
+		"/api/stats/dashboard",
+		"/api/students/bulk",
+		"/api/students/export.csv",
+	}
+	for _, p := range cases {
+		t.Run(p, func(t *testing.T) {
+			r := newReq(t, http.MethodGet, p, "a3f8d2")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Result().StatusCode != http.StatusForbidden {
+				t.Errorf("status = %d, want 403 (direct /api must be blocked)", w.Result().StatusCode)
+			}
+			if w.Header().Get("X-Echo-Path") != "" {
+				t.Error("downstream handler should not have run")
 			}
 		})
 	}
