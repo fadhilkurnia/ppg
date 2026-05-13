@@ -16,7 +16,7 @@ services:
       SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
     volumes:
-      - ppg-data:/app/data
+      - ${DATA_VOLUME:-ppg-data}:/app/data
     restart: unless-stopped
 
   cloudflared:
@@ -34,4 +34,4 @@ services:
     profiles: ["tunnel"]
 
 volumes:
-  ppg-data:
+  ${DATA_VOLUME:-ppg-data}:
