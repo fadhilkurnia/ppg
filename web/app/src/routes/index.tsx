@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { me } from '@/api/auth'
-import { ApiError } from '@/api/client'
+import { isAuthError } from '@/api/client'
 import { ME_QUERY_KEY } from '@/lib/auth'
 
 export const Route = createFileRoute('/')({
@@ -14,7 +14,7 @@ export const Route = createFileRoute('/')({
         throw redirect({ to: '/dashboard' })
       }
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      if (isAuthError(err)) {
         throw redirect({ to: '/login' })
       }
       throw err

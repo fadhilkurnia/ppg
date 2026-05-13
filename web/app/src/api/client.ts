@@ -11,6 +11,23 @@ export class ApiError extends Error {
   }
 }
 
+// isAuthError reports whether err means "the SPA can't trust the current
+// session and should bounce the user to /login." Covers:
+//   - 401: missing/invalid JWT.
+//   - 403 api_path_required: caller hit /api/* without a dynamic prefix,
+//     i.e. no session has been established yet.
+//   - 403 bad_api_path: caller's auth_path cookie no longer matches the
+//     prefix in the URL, i.e. the session is stale.
+// Other 403s (e.g. role-gated routes) keep their normal error semantics.
+export function isAuthError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  if (err.status === 401) return true
+  if (err.status === 403 && (err.code === 'api_path_required' || err.code === 'bad_api_path')) {
+    return true
+  }
+  return false
+}
+
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {

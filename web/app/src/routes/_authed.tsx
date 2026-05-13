@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 
 import { logout, me } from '@/api/auth'
-import { ApiError } from '@/api/client'
+import { isAuthError } from '@/api/client'
 import { ME_QUERY_KEY, useMe, useSetMe } from '@/lib/auth'
 import { Button } from '@/components/Button'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
@@ -37,7 +37,7 @@ export const Route = createFileRoute('/_authed')({
       })
       if (!user) throw redirect({ to: '/login' })
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      if (isAuthError(err)) {
         throw redirect({ to: '/login' })
       }
       throw err
