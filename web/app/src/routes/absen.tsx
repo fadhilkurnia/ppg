@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { CheckCircle2 } from 'lucide-react'
@@ -20,19 +20,19 @@ function AbsenPage() {
 
   const mutation = useMutation({
     mutationFn: (input: PublicAttendanceInput) => submitPublicAttendance(input),
-    onSuccess: () => setSubmitted(true),
+    onSuccess: (data) => {
+      setSubmitted(true)
+      // Same-tab navigation to wa.me hands off to the WhatsApp app on mobile
+      // (via the OS intent) or to WhatsApp Web on desktop, with the report
+      // pre-filled. window.open from an async onSuccess gets swallowed by
+      // popup blockers — a same-tab navigation does not.
+      if (data.waMeUrl) {
+        window.location.href = data.waMeUrl
+      }
+    },
   })
 
   const waMeUrl = mutation.data?.waMeUrl ?? ''
-
-  // Auto-open the wa.me URL right after a successful submit so WhatsApp pops up
-  // with the formatted report pre-filled. The send-button below is the fallback
-  // for users whose pop-up blocker swallows the window.open call.
-  useEffect(() => {
-    if (submitted && waMeUrl) {
-      window.open(waMeUrl, '_blank', 'noopener,noreferrer')
-    }
-  }, [submitted, waMeUrl])
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
