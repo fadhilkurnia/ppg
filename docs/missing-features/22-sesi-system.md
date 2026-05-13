@@ -272,7 +272,7 @@ Default tick interval: **30 seconds**. Configurable via env `SCHEDULER_INTERVAL`
 The scheduler runs in-process. If ppgus ever scales to multiple replicas:
 
 1. **Leader election** via a tiny `scheduler_leader` table with a heartbeat row.
-2. **External cron** (`docker-compose` cron container) calls `/api/internal/scheduler/tick` with a shared-secret header.
+2. **External cron** (a sidecar cron container) calls `/api/internal/scheduler/tick` with a shared-secret header.
 
 Document both; ship option 1's hook (no-op when only one instance) so multi-instance is a config flip later.
 
