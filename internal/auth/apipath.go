@@ -3,41 +3,65 @@ package auth
 import (
 	"crypto/rand"
 	"crypto/subtle"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 )
 
 // APIPathCookieName holds the per-session dynamic API prefix. It is a
-// 12-character lowercase hex string. See docs/missing-features/50-security-hardening.md §3.
+// 6-character lowercase alphanumeric (base36) string. See
+// docs/missing-features/50-security-hardening.md §3.
 const APIPathCookieName = "auth_path"
 
-// apiPathByteLen is the raw entropy in bytes (12 hex chars = 6 bytes).
-const apiPathByteLen = 6
+// APIPathLen is the length of a dynamic API prefix in characters.
+const APIPathLen = 6
 
-// APIPathHexLen is the expected hex-encoded length of a dynamic API prefix.
-const APIPathHexLen = apiPathByteLen * 2
+// apiPathAlphabet is the base36 alphabet (0-9, a-z) used to encode a
+// dynamic API prefix. Lowercase keeps URLs case-stable and avoids the
+// reader confusion that mixed-case identifiers cause.
+const apiPathAlphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
 
-// GeneratePath returns a 12-lowercase-hex random API prefix.
+// GeneratePath returns a random APIPathLen-character lowercase
+// alphanumeric API prefix. Uses rejection sampling so each character is
+// uniformly distributed over the 36-letter alphabet despite 36 not
+// dividing 256.
 func GeneratePath() (string, error) {
-	b := make([]byte, apiPathByteLen)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("read random api path: %w", err)
+	const n = len(apiPathAlphabet) // 36
+	// 252 is the largest multiple of 36 ≤ 255; bytes ≥ 252 are rejected
+	// to keep the distribution unbiased.
+	const maxAccept = 252
+
+	out := make([]byte, APIPathLen)
+	buf := make([]byte, APIPathLen)
+	filled := 0
+	for filled < APIPathLen {
+		if _, err := rand.Read(buf); err != nil {
+			return "", fmt.Errorf("read random api path: %w", err)
+		}
+		for _, b := range buf {
+			if b >= maxAccept {
+				continue
+			}
+			out[filled] = apiPathAlphabet[int(b)%n]
+			filled++
+			if filled == APIPathLen {
+				break
+			}
+		}
 	}
-	return hex.EncodeToString(b), nil
+	return string(out), nil
 }
 
-// IsValidPath reports whether s is a syntactically valid dynamic API path
-// (exactly APIPathHexLen lowercase hex characters).
+// IsValidPath reports whether s is a syntactically valid dynamic API
+// path (exactly APIPathLen lowercase alphanumeric characters).
 func IsValidPath(s string) bool {
-	if len(s) != APIPathHexLen {
+	if len(s) != APIPathLen {
 		return false
 	}
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		switch {
 		case c >= '0' && c <= '9':
-		case c >= 'a' && c <= 'f':
+		case c >= 'a' && c <= 'z':
 		default:
 			return false
 		}
