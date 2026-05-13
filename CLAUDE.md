@@ -24,9 +24,9 @@ follow both of these documents before doing anything else:
      into a single commit just because you finished them together.
 
 2. [`TEST.md`](./TEST.md) — required Chrome DevTools test pass
-   against the public deployment at `https://gnrs.brkh.work` for
-   every new or changed feature. Type-checks and `go test` are not
-   a substitute for actually driving the UI.
+   against the public deployment at `$PROD_URL` for every new or
+   changed feature. Type-checks and `go test` are not a substitute
+   for actually driving the UI.
 
 ## Per-session lifecycle (mandatory loop)
 
@@ -43,8 +43,8 @@ feature half-done for a future session:
    into one mega-commit.
 3. **Test** — run `go test ./...` and
    `pnpm --dir web/app typecheck`, then the full Chrome DevTools
-   flow from `TEST.md` against your dev deployment (or
-   `https://gnrs.brkh.work` if it's appropriate for the change).
+   flow from `TEST.md` against your dev deployment (or `$PROD_URL`
+   if it's appropriate for the change).
    If the UI test pass is impossible, say so explicitly in the PR
    — do not silently skip it.
 4. **PR** — push the branch and open a PR targeting `jalur-yasril`
@@ -74,13 +74,12 @@ feature half-done for a future session:
        scripts/deploy.sh
 
    Watch the container logs the script tails at the end and
-   confirm `https://gnrs.brkh.work` is serving the new build
-   (login page loads, no 5xx, the feature you just merged is
-   visible). Do **not** deploy if the merge had to be redone for
-   conflicts and tests haven't been re-run on the merged result,
-   or if another agent's merge landed on `jalur-yasril` between
-   your CI run and the deploy without you re-pulling — pull
-   again and re-verify first.
+   confirm `$PROD_URL` is serving the new build (login page loads,
+   no 5xx, the feature you just merged is visible). Do **not**
+   deploy if the merge had to be redone for conflicts and tests
+   haven't been re-run on the merged result, or if another agent's
+   merge landed on `jalur-yasril` between your CI run and the
+   deploy without you re-pulling — pull again and re-verify first.
 7. **Clean up** — immediately after the prod deploy is healthy
    (or after deciding to abandon the PR), remove the worktree,
    delete the local and remote feature branches, prune stale
@@ -113,10 +112,10 @@ While you work:
 Before you mark the task done:
 
 - [ ] Run the full Chrome DevTools flow from `TEST.md` against
-      `https://gnrs.brkh.work`. If you cannot reach the domain,
-      say so explicitly instead of falling back to `localhost`.
+      `$PROD_URL`. If you cannot reach the domain, say so
+      explicitly instead of falling back to `localhost`.
 - [ ] Open a PR targeting `jalur-yasril` whose description
-      includes the "Tested via Chrome DevTools on gnrs.brkh.work"
+      includes the "Tested via Chrome DevTools on $PROD_URL"
       section described in `TEST.md`.
 - [ ] **Auto-merge once green.** If the PR is fully tested via the
       Chrome DevTools flow with no errors, and CI (type-check,
@@ -146,9 +145,9 @@ Before you mark the task done:
           git pull --ff-only origin jalur-yasril
           scripts/deploy.sh
 
-      Then confirm `https://gnrs.brkh.work` is serving the new
-      build (login page loads, no 5xx, the feature you just
-      merged is visible in the UI). Do **not** deploy if you
+      Then confirm `$PROD_URL` is serving the new build (login
+      page loads, no 5xx, the feature you just merged is visible
+      in the UI). Do **not** deploy if you
       had to redo the merge for conflicts and haven't re-run the
       test pass on the merged result, if a parallel agent's
       merge landed between your CI run and your deploy (pull
@@ -189,15 +188,15 @@ Before you mark the task done:
 
 ## Dev deployment (parallel agents)
 
-The public deployment at `https://gnrs.brkh.work` (loopback-bound app
-behind the Cloudflare Tunnel; see `scripts/deploy.sh`) is the
-**integration** environment for `jalur-yasril`. It is **not** where
-in-progress feature branches get tested — multiple agents work in
-parallel and would clobber each other.
+The public deployment at `$PROD_URL` (loopback-bound app behind the
+Cloudflare Tunnel; see `scripts/deploy.sh`) is the **integration**
+environment for `jalur-yasril`. It is **not** where in-progress
+feature branches get tested — multiple agents work in parallel and
+would clobber each other.
 
 For testing your own branch, deploy a **separate dev container** on
-the remote host (`laode@10.8.0.13`) and expose it directly so Chrome
-DevTools can drive it.
+the remote host (`user@$DEPLOY_HOST`) and expose it directly so
+Chrome DevTools can drive it.
 
 Rules:
 
@@ -210,15 +209,15 @@ Rules:
   contains the in-progress code, including uncommitted edits you
   want to smoke-test. Never point a dev deploy at the prod source
   tree or another agent's worktree.
-- **Host**: same remote as prod (`10.8.0.13`). Different container
-  name, image tag, data volume, and host port from prod and from
-  every other running dev instance.
+- **Host**: same remote as prod (`$DEPLOY_HOST`). Different
+  container name, image tag, data volume, and host port from prod
+  and from every other running dev instance.
 - **Bind externally**, not to loopback. Publish the host port on
-  `10.8.0.13:<port>` (not `127.0.0.1:<port>`) so Chrome DevTools
+  `$DEPLOY_HOST:<port>` (not `127.0.0.1:<port>`) so Chrome DevTools
   running off-host can reach it. No Cloudflare Tunnel for dev.
 - **Port**: pick something that is **not** prod's `8080` and not in
   use by another dev instance. Check first
-  (`ssh laode@10.8.0.13 'ss -tlnp | grep -E ":(80|81|82|83|90|91|92)[0-9][0-9]"'`
+  (`ssh user@$DEPLOY_HOST 'ss -tlnp | grep -E ":(80|81|82|83|90|91|92)[0-9][0-9]"'`
   or similar) and pick a free port in a high range (e.g.
   `18080`–`18999`). Record the port you chose in the PR description.
 - **Namespacing**: derive the container name, image tag, project
@@ -228,7 +227,8 @@ Rules:
   - image: `ppg-dashboard-dev-<slug>:latest`
   - compose project: `ppg-dev-<slug>` (pass via `-p` /
     `COMPOSE_PROJECT_NAME`)
-  - volume: `ppg-data-dev-<slug>` (separate from prod's `ppg-data`)
+  - volume: `${DATA_VOLUME}-dev-<slug>` (separate from prod's
+    `$DATA_VOLUME`)
 - **Cleanup**: when the PR is merged or abandoned, tear the dev
   stack down on the remote (`podman-compose -p ppg-dev-<slug> down
   -v` and remove the image) in the same step you remove the local
@@ -236,10 +236,10 @@ Rules:
 
 For the test flow itself (steps to drive through the UI, what to
 capture for the PR), follow `TEST.md` — but substitute your dev URL
-(`http://10.8.0.13:<port>`) for `https://gnrs.brkh.work`, and say so
-in the "Tested via Chrome DevTools" section of the PR. If you cannot
-reach `10.8.0.13:<port>` for the same reasons `TEST.md` calls out
-for the public domain, say so explicitly instead of falling back to
+(`http://$DEPLOY_HOST:<port>`) for `$PROD_URL`, and say so in the
+"Tested via Chrome DevTools" section of the PR. If you cannot reach
+`$DEPLOY_HOST:<port>` for the same reasons `TEST.md` calls out for
+the public domain, say so explicitly instead of falling back to
 `localhost`.
 
 ## What lives where
