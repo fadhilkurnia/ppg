@@ -1,5 +1,7 @@
 .PHONY: help dev api web build test typecheck docker docker-run clean
 
+DATA_VOLUME ?= ppg-data
+
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 
@@ -27,9 +29,9 @@ typecheck: ## Type-check the frontend
 docker: ## Build the Docker image
 	docker build -t ppg-dashboard:latest .
 
-docker-run: ## Run the latest image with .env (uses named volume ppg-data)
-	docker volume create ppg-data >/dev/null
-	docker run --rm -it --env-file .env -p 8080:8080 -v ppg-data:/app/data ppg-dashboard:latest
+docker-run: ## Run the latest image with .env (uses named volume $(DATA_VOLUME))
+	docker volume create $(DATA_VOLUME) >/dev/null
+	docker run --rm -it --env-file .env -p 8080:8080 -v $(DATA_VOLUME):/app/data ppg-dashboard:latest
 
 clean: ## Remove build artifacts
 	rm -rf ./server web/dist/* web/app/node_modules web/app/dist
