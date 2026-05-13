@@ -57,12 +57,33 @@ feature half-done for a future session:
    the resolution, wait for CI to go green again, then merge).
    Do not leave a conflicting PR sitting open for another session
    to deal with.
-6. **Clean up** — immediately after the merge (or after deciding
-   to abandon the PR), remove the worktree, delete the local and
-   remote feature branches, prune stale tracking refs, and tear
-   down the dev deployment. See the cleanup checklist below for
-   the exact commands. A session is **not finished** until the
-   worktree directory is gone and the branch refs are gone.
+6. **Deploy to prod** — once the PR is merged into
+   `jalur-yasril` with no problems (CI green on the integration
+   branch, no follow-up conflicts pending), deploy the
+   freshly-merged `jalur-yasril` to production. From the **main
+   checkout** (not your now-stale worktree), fast-forward to the
+   merged tip and run `scripts/deploy.sh`:
+
+       cd <repo root>            # not .claude/worktrees/<name>
+       git checkout jalur-yasril
+       git pull --ff-only origin jalur-yasril
+       scripts/deploy.sh
+
+   Watch the container logs the script tails at the end and
+   confirm `https://gnrs.brkh.work` is serving the new build
+   (login page loads, no 5xx, the feature you just merged is
+   visible). Do **not** deploy if the merge had to be redone for
+   conflicts and tests haven't been re-run on the merged result,
+   or if another agent's merge landed on `jalur-yasril` between
+   your CI run and the deploy without you re-pulling — pull
+   again and re-verify first.
+7. **Clean up** — immediately after the prod deploy is healthy
+   (or after deciding to abandon the PR), remove the worktree,
+   delete the local and remote feature branches, prune stale
+   tracking refs, and tear down the dev deployment. See the
+   cleanup checklist below for the exact commands. A session is
+   **not finished** until the worktree directory is gone and the
+   branch refs are gone.
 
 If the session ends before the loop completes (context limit,
 user interrupts, etc.), state in plain text which step you're on
@@ -110,11 +131,32 @@ Before you mark the task done:
       auto-merge if any check is red, the test pass was skipped,
       conflicts are unresolved, or a reviewer has requested
       changes — fix the issue and re-test before merging.
-- [ ] **Clean up immediately after merge/abandon — do not let
-      merged branches or worktrees linger.** As soon as the PR is
-      merged (or you decide to abandon it), run all of the
-      following before moving on to the next task or ending the
-      session:
+- [ ] **Deploy to prod once the merge is clean.** As soon as the
+      PR is merged into `jalur-yasril` with no problems (CI green
+      on the integration branch, no unresolved conflicts), ship
+      the merged `jalur-yasril` to production from the **main
+      checkout**:
+
+          cd <repo root>            # not .claude/worktrees/<name>
+          git checkout jalur-yasril
+          git pull --ff-only origin jalur-yasril
+          scripts/deploy.sh
+
+      Then confirm `https://gnrs.brkh.work` is serving the new
+      build (login page loads, no 5xx, the feature you just
+      merged is visible in the UI). Do **not** deploy if you
+      had to redo the merge for conflicts and haven't re-run the
+      test pass on the merged result, if a parallel agent's
+      merge landed between your CI run and your deploy (pull
+      again and re-verify first), or if the prod deploy's
+      container logs show errors — in that case roll back to the
+      previous `jalur-yasril` tip (`git reset --hard <prev sha> &&
+      scripts/deploy.sh`) and investigate before continuing.
+- [ ] **Clean up immediately after deploy/abandon — do not let
+      merged branches or worktrees linger.** As soon as the prod
+      deploy is healthy (or you decide to abandon the PR), run
+      all of the following before moving on to the next task or
+      ending the session:
       1. **Remove the worktree.** `cd` out of
          `.claude/worktrees/<name>` first (e.g. back to the repo
          root), then `git worktree remove
