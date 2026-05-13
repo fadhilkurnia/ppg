@@ -9,7 +9,9 @@ follow both of these documents before doing anything else:
      feature branch.
    - Branch from `jalur-yasril` into your own worktree under
      `.claude/worktrees/<short-task-name>` and do all editing there.
-   - Open PRs against `jalur-yasril`, not `main`.
+   - Open PRs against `jalur-yasril`, not `main` (see
+     [`RELEASE.md`](./RELEASE.md) for the one sanctioned exception:
+     promoting a release snapshot to `main`).
    - Clean up the worktree after the PR is merged or abandoned.
    - Use conventional-commit subjects (`type(scope): …`), imperative
      mood, ≤ 50 chars, no trailing punctuation; body only when it
@@ -46,8 +48,10 @@ feature half-done for a future session:
    If the UI test pass is impossible, say so explicitly in the PR
    — do not silently skip it.
 4. **PR** — push the branch and open a PR targeting `jalur-yasril`
-   (never `main`) with the "Tested via Chrome DevTools" section
-   filled in.
+   (never `main` — unless you are explicitly running the release
+   promotion in [`RELEASE.md`](./RELEASE.md), which is the only
+   sanctioned `--base main` flow) with the "Tested via Chrome
+   DevTools" section filled in.
 5. **Merge** — once CI is green and the test pass has no errors,
    auto-merge with `gh pr merge <num> --squash --delete-branch`
    (or `--merge --delete-branch`, matching repo history). **If
@@ -244,6 +248,7 @@ for the public domain, say so explicitly instead of falling back to
 | ---------------------------------- | ----------------------------------- |
 | Branch / PR / commit-message rules | [`RULES.md`](./RULES.md)            |
 | Feature test procedure             | [`TEST.md`](./TEST.md)              |
+| Promotion / PR to `main` workflow  | [`RELEASE.md`](./RELEASE.md)        |
 | Stack, layout, env vars, API       | [`README.md`](./README.md)          |
 | Database schema                    | [`docs/schema.md`](./docs/schema.md) |
 
