@@ -21,10 +21,25 @@ const APIPathLen = 6
 const apiPathAlphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 // GeneratePath returns a random APIPathLen-character lowercase
-// alphanumeric API prefix. Uses rejection sampling so each character is
+// alphanumeric API prefix containing at least one digit. The digit
+// requirement makes the prefix visually distinct from natural English
+// paths (e.g. "assets", "robots"), eliminating accidental collision
+// with static-asset URLs. Uses rejection sampling so each character is
 // uniformly distributed over the 36-letter alphabet despite 36 not
 // dividing 256.
 func GeneratePath() (string, error) {
+	for {
+		s, err := generateRaw()
+		if err != nil {
+			return "", err
+		}
+		if hasDigit(s) {
+			return s, nil
+		}
+	}
+}
+
+func generateRaw() (string, error) {
 	const n = len(apiPathAlphabet) // 36
 	// 252 is the largest multiple of 36 ≤ 255; bytes ≥ 252 are rejected
 	// to keep the distribution unbiased.
@@ -51,22 +66,37 @@ func GeneratePath() (string, error) {
 	return string(out), nil
 }
 
+func hasDigit(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= '0' && s[i] <= '9' {
+			return true
+		}
+	}
+	return false
+}
+
 // IsValidPath reports whether s is a syntactically valid dynamic API
-// path (exactly APIPathLen lowercase alphanumeric characters).
+// path: exactly APIPathLen lowercase alphanumeric characters with at
+// least one digit. The digit constraint keeps the prefix syntactically
+// disjoint from English-word static paths like /assets/, /robots, etc.,
+// so the middleware can refuse mismatched prefixes without breaking
+// static-asset URLs.
 func IsValidPath(s string) bool {
 	if len(s) != APIPathLen {
 		return false
 	}
+	seenDigit := false
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		switch {
 		case c >= '0' && c <= '9':
+			seenDigit = true
 		case c >= 'a' && c <= 'z':
 		default:
 			return false
 		}
 	}
-	return true
+	return seenDigit
 }
 
 // EqualPath compares two API-path strings in constant time. The caller is
