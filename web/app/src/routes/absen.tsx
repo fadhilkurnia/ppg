@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { CheckCircle2 } from 'lucide-react'
@@ -23,6 +23,17 @@ function AbsenPage() {
     onSuccess: () => setSubmitted(true),
   })
 
+  const waMeUrl = mutation.data?.waMeUrl ?? ''
+
+  // Auto-open the wa.me URL right after a successful submit so WhatsApp pops up
+  // with the formatted report pre-filled. The send-button below is the fallback
+  // for users whose pop-up blocker swallows the window.open call.
+  useEffect(() => {
+    if (submitted && waMeUrl) {
+      window.open(waMeUrl, '_blank', 'noopener,noreferrer')
+    }
+  }, [submitted, waMeUrl])
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
       <div className="mx-auto w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -42,11 +53,21 @@ function AbsenPage() {
             <h2 className="text-lg font-semibold text-slate-900">
               {t('absen.successHeading')}
             </h2>
-            <p className="text-sm text-slate-600">
-              {t('absen.successMsg', {
-                phone: mutation.data?.submittedPhone ? t('absen.successWithPhone') : '',
-              })}
-            </p>
+            {waMeUrl ? (
+              <>
+                <p className="text-sm text-slate-600">{t('absen.successWaHint')}</p>
+                <a
+                  href={waMeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                >
+                  {t('absen.sendWa')}
+                </a>
+              </>
+            ) : (
+              <p className="text-sm text-slate-600">{t('absen.savedToDb')}</p>
+            )}
             <Button
               type="button"
               variant="secondary"

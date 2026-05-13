@@ -14,6 +14,12 @@ follow both of these documents before doing anything else:
    - Use conventional-commit subjects (`type(scope): …`), imperative
      mood, ≤ 50 chars, no trailing punctuation; body only when it
      adds information not in the subject.
+   - **Commit step by step, not as one giant commit.** Split the
+     work into the smallest meaningful logical units (one concern
+     per commit: schema change, then handler, then UI wiring, then
+     tests, etc.) and commit each separately so the history is
+     bisectable and reviewable. Do not squash unrelated changes
+     into a single commit just because you finished them together.
 
 2. [`TEST.md`](./TEST.md) — required Chrome DevTools test pass
    against the public deployment at `https://gnrs.brkh.work` for
@@ -44,6 +50,15 @@ Before you mark the task done:
 - [ ] Open a PR targeting `jalur-yasril` whose description
       includes the "Tested via Chrome DevTools on gnrs.brkh.work"
       section described in `TEST.md`.
+- [ ] **Auto-merge once green.** If the PR is fully tested via the
+      Chrome DevTools flow with no errors, and CI (type-check,
+      `go test`, any other required checks) is passing, merge it
+      into `jalur-yasril` yourself (`gh pr merge <num> --squash` or
+      `--merge`, whichever matches the existing history) without
+      waiting for the user to ask. Do **not** auto-merge if any
+      check is red, the test pass was skipped, or a reviewer has
+      requested changes — in that case, fix the issue and re-test
+      before merging.
 - [ ] After merge/abandon: `git worktree remove
       .claude/worktrees/<name>`.
 
