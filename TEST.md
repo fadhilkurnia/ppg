@@ -6,8 +6,8 @@ time you build, change, or fix a feature in this repository._
 ## TL;DR
 
 After implementing a feature, **you must exercise it through Chrome
-DevTools against the public deployment at `https://gnrs.brkh.work`**
-before you mark the work done, open a PR, or hand back to the user.
+DevTools against the public deployment at `$PROD_URL`** before you
+mark the work done, open a PR, or hand back to the user.
 Type-checking and `go test` confirm code correctness, not feature
 correctness.
 
@@ -21,10 +21,10 @@ SPA), not a local dev server.
 
 | Field        | Value                                  |
 | ------------ | -------------------------------------- |
-| Base URL     | `https://gnrs.brkh.work`               |
-| Login page   | `https://gnrs.brkh.work/login`         |
-| API base     | `https://gnrs.brkh.work/api` (or the dynamic 12-hex prefix when `DYNAMIC_API_PATH=true`) |
-| Health probe | `https://gnrs.brkh.work/healthz`       |
+| Base URL     | `$PROD_URL`                            |
+| Login page   | `$PROD_URL/login`                      |
+| API base     | `$PROD_URL/api` (or the dynamic 12-hex prefix when `DYNAMIC_API_PATH=true`) |
+| Health probe | `$PROD_URL/healthz`                    |
 
 The deployment is fronted by a Cloudflare Tunnel and serves the same
 single-binary image documented in `README.md`. Treat it as the
@@ -37,8 +37,7 @@ Run these steps with the Chrome DevTools MCP tools. Do **not** skip
 steps — a green typecheck is not a substitute for actually clicking
 through the feature.
 
-1. **Open a page** at `https://gnrs.brkh.work` (`new_page` or
-   `navigate_page`).
+1. **Open a page** at `$PROD_URL` (`new_page` or `navigate_page`).
 2. **Confirm the page rendered** with `take_snapshot` (DOM) or
    `take_screenshot` (visual). Note the title and that the SPA bundle
    loaded.
@@ -70,13 +69,13 @@ Do not paper over errors with retries or `wait_for` loops.
 
 ## When you cannot reach the public domain
 
-If `https://gnrs.brkh.work` is unreachable (DNS failure, 5xx,
-tunnel down, MCP tool unavailable):
+If `$PROD_URL` is unreachable (DNS failure, 5xx, tunnel down, MCP
+tool unavailable):
 
 - **Do not silently fall back to `localhost`** and claim the feature
   is verified.
 - Say so explicitly in your end-of-turn summary: "couldn't reach
-  gnrs.brkh.work, feature is not browser-tested."
+  $PROD_URL, feature is not browser-tested."
 - Still run `go test ./...` and `pnpm --dir web/app typecheck`, and
   report those results separately.
 - The user decides whether to proceed without a browser test.
@@ -86,7 +85,7 @@ tunnel down, MCP tool unavailable):
 For every PR that changes user-visible behaviour, the description
 must include:
 
-- A short "Tested via Chrome DevTools on gnrs.brkh.work" section.
+- A short "Tested via Chrome DevTools on $PROD_URL" section.
 - The user flow you exercised (bullet list of clicks/inputs).
 - Any screenshots or network/console excerpts that prove the
   feature works — `take_screenshot` output and copy-paste from
