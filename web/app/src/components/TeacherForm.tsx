@@ -4,29 +4,10 @@ import { z } from 'zod'
 
 import type { Teacher, TeacherInput } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { useTranslation } from '@/i18n'
 import { Button } from './Button'
 import { Input } from './Input'
 import { Field } from './Field'
-
-const isoDateOrEmpty = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Gunakan format YYYY-MM-DD')
-  .optional()
-  .or(z.literal(''))
-
-const schema = z.object({
-  name: z.string().min(1, 'Wajib diisi').max(200),
-  nickname: z.string().max(200).optional().or(z.literal('')),
-  kelompok: z.string().min(1, 'Wajib diisi').max(200),
-  desa: z.string().min(1, 'Wajib diisi').max(200),
-  daerah: z.string().min(1, 'Wajib diisi').max(200),
-  joinedAt: isoDateOrEmpty,
-  retiredAt: isoDateOrEmpty,
-  status: z.enum(['active', 'retired']),
-  notes: z.string().max(2000).optional().or(z.literal('')),
-})
-
-type FormValues = z.infer<typeof schema>
 
 type Props = {
   initial?: Teacher
@@ -38,6 +19,28 @@ type Props = {
 }
 
 export function TeacherForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: Props) {
+  const { t } = useTranslation()
+
+  const isoDateOrEmpty = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, t('validation.isoDate'))
+    .optional()
+    .or(z.literal(''))
+
+  const schema = z.object({
+    name: z.string().min(1, t('validation.required')).max(200),
+    nickname: z.string().max(200).optional().or(z.literal('')),
+    kelompok: z.string().min(1, t('validation.required')).max(200),
+    desa: z.string().min(1, t('validation.required')).max(200),
+    daerah: z.string().min(1, t('validation.required')).max(200),
+    joinedAt: isoDateOrEmpty,
+    retiredAt: isoDateOrEmpty,
+    status: z.enum(['active', 'retired']),
+    notes: z.string().max(2000).optional().or(z.literal('')),
+  })
+
+  type FormValues = z.infer<typeof schema>
+
   const {
     register,
     control,
@@ -78,33 +81,33 @@ export function TeacherForm({ initial, submitLabel, pending, error, onSubmit, on
       className="space-y-4"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nama Pengajar" htmlFor="name" error={errors.name?.message}>
+        <Field label={t('teachers.fName')} htmlFor="name" error={errors.name?.message}>
           <Input id="name" {...register('name')} />
         </Field>
-        <Field label="Nama Panggilan" htmlFor="nickname" error={errors.nickname?.message}>
+        <Field label={t('teachers.fNickname')} htmlFor="nickname" error={errors.nickname?.message}>
           <Input id="nickname" {...register('nickname')} />
         </Field>
-        <Field label="Kelompok" htmlFor="kelompok" error={errors.kelompok?.message}>
+        <Field label={t('teachers.fKelompok')} htmlFor="kelompok" error={errors.kelompok?.message}>
           <Input id="kelompok" {...register('kelompok')} />
         </Field>
-        <Field label="Desa" htmlFor="desa" error={errors.desa?.message}>
+        <Field label={t('teachers.fDesa')} htmlFor="desa" error={errors.desa?.message}>
           <Input id="desa" {...register('desa')} />
         </Field>
         <Field
-          label="Daerah"
+          label={t('teachers.fDaerah')}
           htmlFor="daerah"
           error={errors.daerah?.message}
           className="sm:col-span-2"
         >
           <Input id="daerah" {...register('daerah')} />
         </Field>
-        <Field label="Tanggal Masuk" htmlFor="joinedAt" error={errors.joinedAt?.message}>
+        <Field label={t('teachers.fJoinedAt')} htmlFor="joinedAt" error={errors.joinedAt?.message}>
           <Input id="joinedAt" type="date" {...register('joinedAt')} />
         </Field>
-        <Field label="Tanggal Purna" htmlFor="retiredAt" error={errors.retiredAt?.message}>
+        <Field label={t('teachers.fRetiredAt')} htmlFor="retiredAt" error={errors.retiredAt?.message}>
           <Input id="retiredAt" type="date" {...register('retiredAt')} />
         </Field>
-        <Field label="Status" htmlFor="status" error={errors.status?.message}>
+        <Field label={t('teachers.fStatus')} htmlFor="status" error={errors.status?.message}>
           <Controller
             control={control}
             name="status"
@@ -114,14 +117,14 @@ export function TeacherForm({ initial, submitLabel, pending, error, onSubmit, on
                 className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                 {...field}
               >
-                <option value="active">Aktif</option>
-                <option value="retired">Purna</option>
+                <option value="active">{t('status.active')}</option>
+                <option value="retired">{t('status.retired')}</option>
               </select>
             )}
           />
         </Field>
         <Field
-          label="Keterangan"
+          label={t('teachers.fNotes')}
           htmlFor="notes"
           error={errors.notes?.message}
           className="sm:col-span-2"
@@ -137,11 +140,11 @@ export function TeacherForm({ initial, submitLabel, pending, error, onSubmit, on
       {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Menyimpan…' : submitLabel}
+          {pending ? t('common.saving') : submitLabel}
         </Button>
         {onCancel ? (
           <Button type="button" variant="secondary" onClick={onCancel}>
-            Batal
+            {t('common.cancel')}
           </Button>
         ) : null}
       </div>
