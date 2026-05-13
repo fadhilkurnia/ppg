@@ -91,16 +91,19 @@ fresh one.
    can't keep editing them, and trying to do both in one commit
    makes the diff harder to read.
 
-4. **Test**:
+4. **Test (static checks)**:
 
        go test ./...
        pnpm --dir web/app typecheck
 
-   A Chrome DevTools UI test pass via `TEST.md` is **not** required
-   for a release PR — the cleanup deletes orchestration files,
-   deletes the LLM-agent docs, and genericizes a handful of the
-   survivors. No runtime code is touched. State this explicitly
-   in the PR description (the template in §5 already does).
+   These confirm the source carries over unchanged. A Chrome
+   DevTools UI test pass against a dev deployment of the snapshot
+   is **also** required — see step 7. The cleanup does not touch
+   runtime code, but it does rewrite the `Dockerfile`-adjacent
+   surface (`Makefile`, `.env.example`, `README.md`), and a fork
+   following those instructions must end up with a working app.
+   Run the static checks here so you catch obvious regressions
+   before bothering with a remote build.
 
 5. **Verification grep** — before opening the PR, from inside the
    worktree:
@@ -133,18 +136,123 @@ fresh one.
    This is the only sanctioned `--base main` PR in the repo's
    workflow. Every other PR still targets the integration branch.
 
-7. **Do NOT auto-merge.** A PR to `main` is a release-readiness
-   moment that the user owns. Wait for them to approve and merge
-   it themselves. While you wait:
+7. **Deploy the snapshot on `laode@10.8.0.13` and verify via
+   Chrome DevTools.** This is the runtime smoke test that
+   guarantees the cleanup did not break the deploy-anywhere path
+   a fork would follow. Run it *after* `gh pr create`, not before
+   — opening the PR first means the release branch is on `origin`
+   and the remote can pull it directly.
 
-   - If CI goes red, fix and push the resolution. Stay on the same
-     transition branch — do **not** cut a new one.
+   The pattern matches the per-feature dev deployment described
+   in `CLAUDE.md` (separate container, separate volume, separate
+   port, externally bound on `10.8.0.13:<port>`), but uses the
+   snapshot's *generic* `Dockerfile` + `docker build` flow —
+   there is no `scripts/deploy.sh` and no `docker-compose.yml` on
+   this branch by design. That means a direct `docker run` on the
+   remote, not the prod helper.
+
+   From your main checkout (the remote command does not depend on
+   any local worktree state):
+
+       # Pick a free dev port (range 18080–18999). Check first:
+       ssh laode@10.8.0.13 \
+         'ss -tlnp | grep -E ":(180|181|182|183|184|185|186|187|188|189)[0-9][0-9]" || echo "no collisions in range"'
+
+       # Clone (or pull) the release branch on the remote into a
+       # per-slug directory, then build + run with dev-specific
+       # overrides for name, port, volume, and image tag:
+       ssh laode@10.8.0.13 bash <<'REMOTE'
+       set -euo pipefail
+       SLUG=<slug>
+       PORT=<chosen port>
+       REPO=/home/laode/ppg-release-$SLUG
+
+       if [ -d "$REPO/.git" ]; then
+         git -C "$REPO" fetch origin "release/$SLUG"
+         git -C "$REPO" checkout "release/$SLUG"
+         git -C "$REPO" pull --ff-only origin "release/$SLUG"
+       else
+         rm -rf "$REPO"
+         git clone --branch "release/$SLUG" --single-branch \
+           <origin URL from `git remote -v`> "$REPO"
+       fi
+       cd "$REPO"
+
+       # First time around: cp .env.example .env and fill in the
+       # values (admin seed, etc.). Do NOT reuse prod's .env —
+       # the snapshot must stand on its own.
+
+       docker build -t "ppg-dashboard-release-$SLUG:latest" .
+       docker volume create "ppg-data-release-$SLUG" >/dev/null
+       docker rm -f "ppg-release-$SLUG" 2>/dev/null || true
+       docker run -d --name "ppg-release-$SLUG" \
+         --env-file .env \
+         -p "10.8.0.13:$PORT:8080" \
+         -v "ppg-data-release-$SLUG:/app/data" \
+         "ppg-dashboard-release-$SLUG:latest"
+       docker logs --tail 50 "ppg-release-$SLUG"
+       REMOTE
+
+   Notes on the invocation:
+
+   - The host port binds explicitly to `10.8.0.13`, not loopback,
+     so Chrome DevTools can drive the dev URL from off-host.
+   - Bypass `make docker-run` deliberately: that target hardcodes
+     `-p 8080:8080`, which would collide with prod's container.
+   - Container, volume, and image tag are all suffixed with the
+     release slug so this stack cannot collide with prod's
+     `ppg-data` volume / `ppg-dashboard:latest` image, nor with
+     any parallel agent's per-feature dev stack.
+
+   Then drive the full Chrome DevTools flow from `TEST.md`
+   against `http://10.8.0.13:<port>`. `TEST.md` itself is
+   deleted on the transition branch, but it still exists on
+   `jalur-yasril` — read the procedure from your main checkout
+   and apply it against the dev URL.
+
+   **Pass criterion: feature parity with `jalur-yasril`.** Every
+   user-facing capability listed in the Summary block of the PR
+   body must work end-to-end on the snapshot, exactly as it does
+   on `jalur-yasril`. Login, navigation, each bullet-listed
+   feature, role-gated routes for `admin` vs `staff`, logout —
+   all of it. If a feature regresses, the cleanup broke
+   something (`README.md` instructions wrong, `.env.example`
+   missing a knob, `Makefile` target broken on a fresh host,
+   etc.) — fix it on the transition branch, `git push` to update
+   the PR, let the remote re-pull (the conditional in the
+   snippet above handles that), and re-test.
+
+   After the UI test passes, fill in the `Tested via Chrome
+   DevTools` section in the PR body (the template in §5 covers
+   the shape) — use `gh pr edit --body-file <path>` or the GH web
+   editor. Capture the dev URL, the port, the user flow you
+   exercised, screenshots, and the network / console excerpts.
+
+   The dev stack stays running until the post-merge cleanup in
+   step 9 — keep it up while the user reviews so they can poke
+   at it directly if they want.
+
+8. **Do NOT auto-merge.** A PR to `main` is a release-readiness
+   moment that the user owns. Wait for them to approve and merge
+   it themselves. While you wait, the dev container from step 7
+   stays up on `10.8.0.13:<port>` so the user can poke at it
+   directly; if they ask for additional spot-checks, drive them
+   through Chrome DevTools against the same dev URL.
+
+   - If CI goes red, fix and push the resolution. Stay on the
+     same transition branch — do **not** cut a new one. After
+     the push, re-pull on the remote (the loop in step 7 handles
+     that) and re-run the UI flow on the rebuilt container.
    - If `main` moves under you and the PR develops conflicts,
      resolve them in the worktree
      (`git fetch origin && git merge origin/main`), re-run the
-     tests in step 4, push the resolution.
+     static tests in step 4 and the UI test in step 7, push the
+     resolution.
 
-8. **After merge, clean up.** Same checklist as any feature branch:
+9. **After merge, clean up — local refs *and* remote dev stack.**
+   Both halves must run; a leftover dev container on
+   `10.8.0.13` blocks the next release from reusing the slug or
+   the port.
 
        cd <repo root>
        git worktree remove .claude/worktrees/release-<slug>
@@ -154,12 +262,23 @@ fresh one.
          && git push origin --delete release/<slug>
        git fetch --prune origin
 
-9. **No prod deploy from this merge.** Prod tracks `jalur-yasril`,
-   not `main`. The `scripts/deploy.sh` step from `CLAUDE.md`
-   §"Per-session lifecycle" §6 does **not** apply here — and
-   anyway the script no longer exists on `main` after this PR
-   lands. Merging the release PR ships the snapshot to `main`
-   and nothing else.
+       # Tear down the dev stack from step 7:
+       ssh laode@10.8.0.13 bash <<'REMOTE'
+       SLUG=<slug>
+       docker rm -f "ppg-release-$SLUG" 2>/dev/null || true
+       docker volume rm "ppg-data-release-$SLUG" 2>/dev/null || true
+       docker image rm "ppg-dashboard-release-$SLUG:latest" 2>/dev/null || true
+       rm -rf "/home/laode/ppg-release-$SLUG"
+       REMOTE
+
+10. **No prod deploy from this merge.** Prod tracks
+    `jalur-yasril`, not `main`. The `scripts/deploy.sh` step
+    from `CLAUDE.md` §"Per-session lifecycle" §6 does **not**
+    apply here — and anyway the script no longer exists on
+    `main` after this PR lands. The dev container in step 7
+    was a verification stack, not a prod deploy; the teardown
+    in step 9 removes it. Merging the release PR ships the
+    snapshot to `main` and nothing else.
 
 ## 4. Cleanup checklist
 
@@ -409,12 +528,37 @@ $ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b|
 <paste result — expect zero hits>
 \`\`\`
 
+## Tested via Chrome DevTools
+
+<Fill in after `RELEASE.md` §3 step 7. The shape (per `TEST.md`):
+
+- **Dev URL** — `http://10.8.0.13:<port>` (the snapshot, in its
+  own container / volume / image, all suffixed with the release
+  slug — separate from prod's `8080` / `ppg-data` /
+  `ppg-dashboard:latest`).
+- **Build path** — `docker build` against this branch's
+  `Dockerfile`, with the runtime override knobs (`DATA_VOLUME`,
+  `.env`) used the way a fork following the `README.md` would
+  use them. A green UI test here is also a green "fork can
+  build and run this snapshot" signal.
+- **User flow exercised** — login, navigation, each feature
+  listed in the Summary above, role-gated routes for `admin`
+  vs `staff`, logout. Drove both happy and at least one failure
+  path per feature, per `TEST.md`.
+- **Pass criterion met** — feature parity with the integration
+  branch; every Summary bullet behaves identically on the
+  snapshot.
+- **Network / console excerpts** — paste the relevant
+  `list_network_requests` rows; confirm `list_console_messages`
+  reports no new errors introduced by the cleanup.
+- **Screenshots** — attach `take_screenshot` output for each
+  feature.>
+
 ## Test plan
 
 - [x] `go test ./...` — pass
 - [x] `pnpm --dir web/app typecheck` — pass
-- [ ] UI test pass — **N/A**, cleanup deletes orchestration and
-      agent-doc files and edits a handful of generic docs only.
+- [x] UI test pass — see "Tested via Chrome DevTools" above.
 - [ ] Reviewer-confirmed: `main` after merge is buildable on a
       fresh host using `make docker && make docker-run` plus a
       filled-in `.env`.
@@ -426,10 +570,11 @@ $ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b|
 | ----------------------- | ------------------------------------------------------ |
 | Cut transition branch   | `git worktree add … -b release/<slug> jalur-yasril`    |
 | Cleanup checklist       | §4 of this doc                                         |
-| Tests                   | `go test ./...`, `pnpm --dir web/app typecheck`        |
+| Tests (static)          | `go test ./...`, `pnpm --dir web/app typecheck`        |
 | Verification grep       | §3 step 5                                              |
 | Open PR                 | `gh pr create --base main`                             |
-| PR body                 | Template in §5                                         |
+| Dev deploy + UI test    | §3 step 7 — `http://10.8.0.13:<port>`, `TEST.md` flow  |
+| PR body                 | Template in §5 (fill UI section after dev deploy)      |
 | Merge                   | **User-driven** — do not auto-merge                    |
 | Prod deploy?            | No — prod still tracks `jalur-yasril`                  |
-| Clean up after merge    | §3 step 8                                              |
+| Clean up after merge    | §3 step 9 — local refs + remote dev stack              |
