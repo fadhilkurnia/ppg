@@ -6,7 +6,9 @@ import { CheckCircle2 } from 'lucide-react'
 import { submitPublicAttendance } from '@/api/public'
 import type { PublicAttendanceInput } from '@/api/public'
 import { Button } from '@/components/Button'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { PublicAttendanceForm } from '@/components/PublicAttendanceForm'
+import { useTranslation } from '@/i18n'
 
 export const Route = createFileRoute('/absen')({
   component: AbsenPage,
@@ -14,6 +16,7 @@ export const Route = createFileRoute('/absen')({
 
 function AbsenPage() {
   const [submitted, setSubmitted] = useState(false)
+  const { t } = useTranslation()
 
   const mutation = useMutation({
     mutationFn: (input: PublicAttendanceInput) => submitPublicAttendance(input),
@@ -22,10 +25,9 @@ function AbsenPage() {
 
   const waMeUrl = mutation.data?.waMeUrl ?? ''
 
-  // Auto-open the wa.me URL right after a successful submit so WhatsApp
-  // pops up with the formatted report pre-filled. The "Kirim ke WhatsApp"
-  // button is the fallback for users whose pop-up blocker swallows the
-  // window.open call.
+  // Auto-open the wa.me URL right after a successful submit so WhatsApp pops up
+  // with the formatted report pre-filled. The send-button below is the fallback
+  // for users whose pop-up blocker swallows the window.open call.
   useEffect(() => {
     if (submitted && waMeUrl) {
       window.open(waMeUrl, '_blank', 'noopener,noreferrer')
@@ -36,36 +38,35 @@ function AbsenPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
       <div className="mx-auto w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <header className="mb-6 text-center">
+          <div className="mb-3 flex justify-end">
+            <LanguageSwitcher variant="compact" />
+          </div>
           <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
-            Form Kegiatan Pengajian
+            {t('absen.heading')}
           </h1>
-          <p className="mt-1 text-xs text-slate-500">*Semua data wajib diisi!</p>
+          <p className="mt-1 text-xs text-slate-500">{t('absen.note')}</p>
         </header>
 
         {submitted ? (
           <div className="space-y-4 text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" aria-hidden />
             <h2 className="text-lg font-semibold text-slate-900">
-              Laporan tersimpan, terima kasih!
+              {t('absen.successHeading')}
             </h2>
             {waMeUrl ? (
               <>
-                <p className="text-sm text-slate-600">
-                  Klik tombol di bawah untuk mengirim laporan via WhatsApp ke admin.
-                </p>
+                <p className="text-sm text-slate-600">{t('absen.successWaHint')}</p>
                 <a
                   href={waMeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                 >
-                  Kirim ke WhatsApp
+                  {t('absen.sendWa')}
                 </a>
               </>
             ) : (
-              <p className="text-sm text-slate-600">
-                Laporan sudah disimpan di database.
-              </p>
+              <p className="text-sm text-slate-600">{t('absen.savedToDb')}</p>
             )}
             <Button
               type="button"
@@ -75,12 +76,12 @@ function AbsenPage() {
                 setSubmitted(false)
               }}
             >
-              Kirim laporan lain
+              {t('absen.sendAnother')}
             </Button>
           </div>
         ) : (
           <PublicAttendanceForm
-            submitLabel="KIRIM LAPORAN"
+            submitLabel={t('absen.submitBtn')}
             pending={mutation.isPending}
             error={mutation.error}
             onSubmit={(input) => mutation.mutate(input)}
@@ -89,7 +90,7 @@ function AbsenPage() {
 
         <footer className="mt-8 flex flex-col items-center gap-2 border-t border-slate-200 pt-4 text-sm text-slate-500 sm:flex-row sm:justify-between">
           <a href="/" className="hover:underline">
-            ← Kembali
+            {t('absen.back')}
           </a>
           <a
             href="https://wa.me/628972529354"
@@ -97,7 +98,7 @@ function AbsenPage() {
             rel="noreferrer"
             className="hover:underline"
           >
-            Ada Pertanyaan!?
+            {t('absen.hasQuestion')}
           </a>
         </footer>
       </div>

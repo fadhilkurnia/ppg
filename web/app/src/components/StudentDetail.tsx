@@ -1,30 +1,36 @@
 import type { Student } from '@/api/types'
 import { ageInYears } from '@/lib/age'
+import { useTranslation } from '@/i18n'
+import { useStudentStatusLabel } from '@/i18n/labels'
 
 export function StudentDetail({ student: s }: { student: Student }) {
-  const statusLabel = s.status === 'active' ? 'Aktif' : 'Keluar'
+  const { t } = useTranslation()
+  const statusLabel = useStudentStatusLabel()
+  const age = ageInYears(s.dateOfBirth)
   const dobLabel = s.dateOfBirth
     ? `${s.dateOfBirth.slice(0, 10)}${
-        ageInYears(s.dateOfBirth) !== null ? ` (${ageInYears(s.dateOfBirth)} tahun)` : ''
+        age !== null ? ` (${t('students.detailAgeSuffix', { n: age })})` : ''
       }`
     : '—'
 
+  const genderLabel = s.gender === 'male' ? t('dashboard.male') : t('dashboard.female')
+
   return (
     <dl className="grid gap-4 text-sm sm:grid-cols-2">
-      <Row label="Nama" value={s.name} />
-      <Row label="Nama Panggilan" value={s.nickname ?? '—'} />
-      <Row label="Tanggal Lahir" value={dobLabel} />
-      <Row label="Jenis Kelamin" value={s.gender === 'male' ? 'Laki-laki' : 'Perempuan'} />
-      <Row label="Jenjang" value={s.level} />
-      <Row label="Kelompok" value={s.kelompok} />
-      <Row label="Kota" value={s.city ?? '—'} />
-      <Row label="Tanggal Masuk" value={s.joinedAt?.slice(0, 10) ?? '—'} />
-      <Row label="Status" value={statusLabel} />
-      <Row label="Tanggal Keluar" value={s.leftAt?.slice(0, 10) ?? '—'} />
-      <Row label="Keterangan Keluar" value={s.leaveReason ?? '—'} />
-      <Row label="Nama Orang Tua" value={s.parentName ?? '—'} />
-      <Row label="Telepon Orang Tua" value={s.parentPhone ?? '—'} />
-      <Row label="Email Orang Tua" value={s.parentEmail ?? '—'} className="sm:col-span-2" />
+      <Row label={t('students.fName')} value={s.name} />
+      <Row label={t('students.fNickname')} value={s.nickname ?? '—'} />
+      <Row label={t('students.fDob')} value={dobLabel} />
+      <Row label={t('students.fGender')} value={genderLabel} />
+      <Row label={t('students.fLevel')} value={s.level} />
+      <Row label={t('students.fKelompok')} value={s.kelompok} />
+      <Row label={t('students.fCity')} value={s.city ?? '—'} />
+      <Row label={t('students.fJoinedAt')} value={s.joinedAt?.slice(0, 10) ?? '—'} />
+      <Row label={t('students.fStatus')} value={statusLabel(s.status)} />
+      <Row label={t('students.fLeftAt')} value={s.leftAt?.slice(0, 10) ?? '—'} />
+      <Row label={t('students.fLeaveReason')} value={s.leaveReason ?? '—'} />
+      <Row label={t('students.fParentName')} value={s.parentName ?? '—'} />
+      <Row label={t('students.fParentPhone')} value={s.parentPhone ?? '—'} />
+      <Row label={t('students.fParentEmail')} value={s.parentEmail ?? '—'} className="sm:col-span-2" />
     </dl>
   )
 }

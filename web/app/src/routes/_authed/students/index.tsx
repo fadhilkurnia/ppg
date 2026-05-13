@@ -20,6 +20,8 @@ import { Modal } from '@/components/Modal'
 import { RowActions } from '@/components/RowActions'
 import { StudentDetail } from '@/components/StudentDetail'
 import { StudentForm } from '@/components/StudentForm'
+import { useTranslation } from '@/i18n'
+import { useStudentStatusLabel } from '@/i18n/labels'
 
 const PAGE_SIZE = 20
 
@@ -47,6 +49,7 @@ function StudentsPage() {
   const { q = '', status, kelompok, page = 1, view, edit, new: isNew, bulk: isBulk } = search
   const { data: user } = useMe()
   const isAdmin = user?.role === 'admin'
+  const { t } = useTranslation()
 
   const filterSearch: SearchState = { q, status, kelompok, page }
 
@@ -71,7 +74,7 @@ function StudentsPage() {
   })
 
   const handleDelete = (s: Student) => {
-    if (confirm(`Hapus ${s.name}? Tindakan ini tidak dapat dibatalkan.`)) {
+    if (confirm(t('students.confirmDelete', { name: s.name }))) {
       deleteMutation.mutate(s.id)
     }
   }
@@ -82,16 +85,16 @@ function StudentsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold">Generus</h1>
+        <h1 className="text-2xl font-semibold">{t('students.heading')}</h1>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
           <Button variant="secondary" onClick={() => goTo({ bulk: true })}>
             <FileSpreadsheet size={16} className="mr-1" />
-            Impor / Ekspor
+            {t('bulk.importExportBtn')}
           </Button>
           {isAdmin ? (
             <Button onClick={() => goTo({ new: true })}>
               <Plus size={16} className="mr-1" />
-              Tambah Generus
+              {t('students.addBtn')}
             </Button>
           ) : null}
         </div>
@@ -122,23 +125,28 @@ function StudentsPage() {
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           />
-          <Input name="q" defaultValue={q} placeholder="Cari nama atau panggilan" className="pl-9" />
+          <Input
+            name="q"
+            defaultValue={q}
+            placeholder={t('students.searchPlaceholder')}
+            className="pl-9"
+          />
         </div>
         <select
           name="status"
           defaultValue={status ?? ''}
           className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
-          <option value="">Semua status</option>
-          <option value="active">Aktif</option>
-          <option value="left">Keluar</option>
+          <option value="">{t('students.allStatus')}</option>
+          <option value="active">{t('status.active')}</option>
+          <option value="left">{t('status.left')}</option>
         </select>
         <select
           name="kelompok"
           defaultValue={kelompok ?? ''}
           className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
-          <option value="">Semua kelompok</option>
+          <option value="">{t('students.allKelompok')}</option>
           {STUDENT_KELOMPOKS.map((k) => (
             <option key={k} value={k}>
               {k}
@@ -146,7 +154,7 @@ function StudentsPage() {
           ))}
         </select>
         <Button type="submit" variant="secondary" size="md">
-          Terapkan
+          {t('common.apply')}
         </Button>
       </form>
 
@@ -154,21 +162,21 @@ function StudentsPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-2">Nama</th>
-              <th className="hidden px-4 py-2 sm:table-cell">Panggilan</th>
-              <th className="hidden px-4 py-2 sm:table-cell">L/P</th>
-              <th className="hidden px-4 py-2 sm:table-cell">Usia</th>
-              <th className="hidden px-4 py-2 md:table-cell">Jenjang</th>
-              <th className="hidden px-4 py-2 md:table-cell">Kelompok</th>
-              <th className="px-4 py-2">Status</th>
-              {isAdmin ? <th className="px-4 py-2 text-right">Aksi</th> : null}
+              <th className="px-4 py-2">{t('students.colName')}</th>
+              <th className="hidden px-4 py-2 sm:table-cell">{t('students.colNickname')}</th>
+              <th className="hidden px-4 py-2 sm:table-cell">{t('students.colGender')}</th>
+              <th className="hidden px-4 py-2 sm:table-cell">{t('students.colAge')}</th>
+              <th className="hidden px-4 py-2 md:table-cell">{t('students.colLevel')}</th>
+              <th className="hidden px-4 py-2 md:table-cell">{t('students.colKelompok')}</th>
+              <th className="px-4 py-2">{t('students.colStatus')}</th>
+              {isAdmin ? <th className="px-4 py-2 text-right">{t('students.colActions')}</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
                 <td colSpan={isAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
-                  Memuat…
+                  {t('common.loading')}
                 </td>
               </tr>
             ) : data && data.items.length > 0 ? (
@@ -184,7 +192,11 @@ function StudentsPage() {
                     </button>
                   </td>
                   <td className="hidden px-4 py-2 sm:table-cell">{s.nickname ?? '—'}</td>
-                  <td className="hidden px-4 py-2 sm:table-cell">{s.gender === 'male' ? 'L' : 'P'}</td>
+                  <td className="hidden px-4 py-2 sm:table-cell">
+                    {s.gender === 'male'
+                      ? t('students.genderShortMale')
+                      : t('students.genderShortFemale')}
+                  </td>
                   <td className="hidden px-4 py-2 sm:table-cell">
                     {(() => {
                       const age = ageInYears(s.dateOfBirth)
@@ -210,7 +222,7 @@ function StudentsPage() {
             ) : (
               <tr>
                 <td colSpan={isAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
-                  Belum ada data Generus.
+                  {t('students.empty')}
                 </td>
               </tr>
             )}
@@ -220,7 +232,7 @@ function StudentsPage() {
 
       <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
         <span>
-          Halaman {page} dari {totalPages} · {total} total
+          {t('common.pageStatus', { page, total: totalPages, count: total })}
         </span>
         <div className="flex gap-2">
           <Button
@@ -229,7 +241,7 @@ function StudentsPage() {
             disabled={page <= 1}
             onClick={() => goTo({ page: Math.max(1, page - 1) })}
           >
-            Sebelumnya
+            {t('common.prev')}
           </Button>
           <Button
             variant="secondary"
@@ -237,7 +249,7 @@ function StudentsPage() {
             disabled={page >= totalPages}
             onClick={() => goTo({ page: Math.min(totalPages, page + 1) })}
           >
-            Berikutnya
+            {t('common.next')}
           </Button>
         </div>
       </div>
@@ -245,7 +257,7 @@ function StudentsPage() {
       <ViewModal id={view} open={!!view && !edit} onClose={close} isAdmin={isAdmin} onEdit={(id) => goTo({ view: undefined, edit: id })} />
       <EditModal id={edit} open={!!edit && isAdmin} onClose={close} onSaved={(s) => goTo({ edit: undefined, view: s.id })} />
       <NewModal open={!!isNew && isAdmin} onClose={close} />
-      <Modal open={!!isBulk} onClose={close} size="xl" title="Impor / Ekspor Generus">
+      <Modal open={!!isBulk} onClose={close} size="xl" title={t('students.bulkTitle')}>
         <BulkImportExportPanel
           entity="students"
           isAdmin={isAdmin}
@@ -258,16 +270,17 @@ function StudentsPage() {
 }
 
 function StatusPill({ status }: { status: 'active' | 'left' }) {
+  const label = useStudentStatusLabel()
   if (status === 'active') {
     return (
       <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-        Aktif
+        {label(status)}
       </span>
     )
   }
   return (
     <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-      Keluar
+      {label(status)}
     </span>
   )
 }
@@ -287,6 +300,7 @@ function ViewModal({
   isAdmin: boolean
   onEdit: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const query = useQuery({
     queryKey: ['students', id],
     queryFn: () => getStudent(id as string),
@@ -298,21 +312,21 @@ function ViewModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title={query.data?.name ?? 'Detail Generus'}
+      title={query.data?.name ?? t('students.detailTitle')}
     >
       {query.isPending ? (
-        <p className="text-slate-500">Memuat…</p>
+        <p className="text-slate-500">{t('common.loading')}</p>
       ) : query.isError || !query.data ? (
-        <p className="text-red-600">Gagal memuat data.</p>
+        <p className="text-red-600">{t('common.loadError')}</p>
       ) : (
         <>
           <StudentDetail student={query.data} />
           {isAdmin ? (
             <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
               <Button variant="secondary" onClick={onClose}>
-                Tutup
+                {t('common.close')}
               </Button>
-              <Button onClick={() => onEdit(query.data!.id)}>Ubah</Button>
+              <Button onClick={() => onEdit(query.data!.id)}>{t('common.edit')}</Button>
             </div>
           ) : null}
         </>
@@ -332,6 +346,7 @@ function EditModal({
   onClose: () => void
   onSaved: (student: Student) => void
 }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const query = useQuery({
     queryKey: ['students', id],
@@ -349,15 +364,15 @@ function EditModal({
   })
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Ubah Generus">
+    <Modal open={open} onClose={onClose} size="xl" title={t('students.editTitle')}>
       {query.isPending ? (
-        <p className="text-slate-500">Memuat…</p>
+        <p className="text-slate-500">{t('common.loading')}</p>
       ) : query.isError || !query.data ? (
-        <p className="text-red-600">Gagal memuat data.</p>
+        <p className="text-red-600">{t('common.loadError')}</p>
       ) : (
         <StudentForm
           initial={query.data}
-          submitLabel="Simpan"
+          submitLabel={t('common.save')}
           pending={mutation.isPending}
           error={mutation.error}
           onSubmit={(input) => mutation.mutate(input)}
@@ -369,6 +384,7 @@ function EditModal({
 }
 
 function NewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const mutation = useMutation({
     mutationFn: createStudent,
@@ -379,9 +395,9 @@ function NewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   })
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Tambah Generus">
+    <Modal open={open} onClose={onClose} size="xl" title={t('students.newTitle')}>
       <StudentForm
-        submitLabel="Simpan"
+        submitLabel={t('common.save')}
         pending={mutation.isPending}
         error={mutation.error}
         onSubmit={(input) => mutation.mutate(input)}

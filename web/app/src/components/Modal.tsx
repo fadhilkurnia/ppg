@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { useTranslation } from '@/i18n'
 
 type Size = 'md' | 'lg' | 'xl'
 
@@ -19,6 +20,7 @@ type Props = {
 }
 
 export function Modal({ open, onClose, title, size = 'lg', children }: Props) {
+  const { t } = useTranslation()
   // Escape key closes the modal.
   useEffect(() => {
     if (!open) return
@@ -50,7 +52,7 @@ export function Modal({ open, onClose, title, size = 'lg', children }: Props) {
     >
       <button
         type="button"
-        aria-label="Tutup"
+        aria-label={t('common.close')}
         className="absolute inset-0 cursor-default bg-slate-900/70 backdrop-blur-sm"
         onClick={onClose}
       />
@@ -68,7 +70,7 @@ export function Modal({ open, onClose, title, size = 'lg', children }: Props) {
             type="button"
             onClick={onClose}
             className="-mr-2 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-            aria-label="Tutup"
+            aria-label={t('common.close')}
           >
             <X size={18} />
           </button>

@@ -12,6 +12,7 @@ import {
   type BulkReport,
 } from '@/api/bulk'
 import { ApiError } from '@/api/client'
+import { useTranslation } from '@/i18n'
 
 type Props = {
   entity: BulkEntity
@@ -20,18 +21,19 @@ type Props = {
   exportParams?: Record<string, string | undefined>
 }
 
-const MODE_LABEL: Record<BulkMode, string> = {
-  create: 'Create (gagal jika duplikat)',
-  upsert: 'Upsert (timpa jika duplikat)',
-  'dry-run': 'Dry-run (validasi saja)',
-}
-
 export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportParams }: Props) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState<BulkMode>('create')
   const [file, setFile] = useState<File | null>(null)
   const [report, setReport] = useState<BulkReport | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const MODE_LABEL: Record<BulkMode, string> = {
+    create: t('bulk.modeCreate'),
+    upsert: t('bulk.modeUpsert'),
+    'dry-run': t('bulk.modeDryRun'),
+  }
 
   const schemaQuery = useQuery({
     queryKey: ['bulk-schema', entity],
@@ -42,7 +44,7 @@ export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportPa
   const qc = useQueryClient()
   const importMutation = useMutation({
     mutationFn: () => {
-      if (!file) throw new Error('Pilih file CSV terlebih dahulu.')
+      if (!file) throw new Error(t('bulk.pickFileFirst'))
       return importBulk(entity, file, mode)
     },
     onSuccess: async (rep) => {
@@ -71,10 +73,8 @@ export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportPa
   return (
     <div className="space-y-6">
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-slate-900">Ekspor CSV</h3>
-        <p className="text-sm text-slate-600">
-          Unduh seluruh data {entity} sebagai CSV (mengikuti filter aktif di halaman ini).
-        </p>
+        <h3 className="text-sm font-semibold text-slate-900">{t('bulk.exportTitle')}</h3>
+        <p className="text-sm text-slate-600">{t('bulk.exportHint', { entity })}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -83,7 +83,7 @@ export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportPa
             disabled={exportMutation.isPending}
           >
             <Download size={16} className="mr-1.5" />
-            {exportMutation.isPending ? 'Mengunduh…' : 'Unduh CSV'}
+            {exportMutation.isPending ? t('bulk.downloading') : t('bulk.download')}
           </Button>
           {exportError ? <span className="text-sm text-red-600">{exportError}</span> : null}
         </div>
@@ -91,13 +91,10 @@ export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportPa
 
       {isAdmin ? (
         <section className="space-y-3 border-t border-slate-200 pt-5">
-          <h3 className="text-sm font-semibold text-slate-900">Impor CSV</h3>
-          <p className="text-sm text-slate-600">
-            File CSV harus memuat header berikut (alias bahasa Indonesia juga didukung untuk
-            beberapa kolom):
-          </p>
+          <h3 className="text-sm font-semibold text-slate-900">{t('bulk.importTitle')}</h3>
+          <p className="text-sm text-slate-600">{t('bulk.importHint')}</p>
           {schemaQuery.isPending ? (
-            <p className="text-xs text-slate-500">Memuat skema…</p>
+            <p className="text-xs text-slate-500">{t('bulk.loadingSchema')}</p>
           ) : schemaQuery.data ? (
             <ul className="flex flex-wrap gap-1.5">
               {schemaQuery.data.headers.map((h) => (
@@ -110,12 +107,12 @@ export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportPa
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-red-600">Gagal memuat skema.</p>
+            <p className="text-xs text-red-600">{t('bulk.schemaError')}</p>
           )}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="flex-1 text-sm">
-              <span className="mb-1 block text-slate-700">Berkas CSV</span>
+              <span className="mb-1 block text-slate-700">{t('bulk.fileLabel')}</span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -130,7 +127,7 @@ export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportPa
               />
             </label>
             <label className="text-sm sm:w-56">
-              <span className="mb-1 block text-slate-700">Mode</span>
+              <span className="mb-1 block text-slate-700">{t('bulk.modeLabel')}</span>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as BulkMode)}
@@ -152,11 +149,11 @@ export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportPa
               disabled={!file || importMutation.isPending}
             >
               <Upload size={16} className="mr-1.5" />
-              {importMutation.isPending ? 'Mengimpor…' : 'Impor'}
+              {importMutation.isPending ? t('bulk.importing') : t('bulk.importBtn')}
             </Button>
             {file ? (
               <Button type="button" variant="ghost" size="sm" onClick={resetForm}>
-                Reset
+                {t('bulk.reset')}
               </Button>
             ) : null}
             {importMutation.error ? (
@@ -176,6 +173,7 @@ export function BulkImportExportPanel({ entity, isAdmin, invalidateKey, exportPa
 }
 
 function ImportReportView({ report }: { report: BulkReport }) {
+  const { t } = useTranslation()
   const { summary, results } = report
   const failures = results.filter((r) => r.outcome === 'failed')
 
@@ -191,18 +189,19 @@ function ImportReportView({ report }: { report: BulkReport }) {
       {failures.length > 0 ? (
         <details className="text-sm" open={failures.length <= 5}>
           <summary className="cursor-pointer font-medium text-red-700">
-            {failures.length} baris gagal
+            {t('bulk.rowsFailed', { n: failures.length })}
           </summary>
           <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto pl-1 text-xs text-slate-700">
             {failures.map((r) => (
               <li key={r.row}>
-                <span className="font-mono">baris {r.row}:</span> {r.error ?? 'unknown error'}
+                <span className="font-mono">{t('bulk.rowPrefix', { n: r.row })}</span>{' '}
+                {r.error ?? t('bulk.unknownError')}
               </li>
             ))}
           </ul>
         </details>
       ) : (
-        <p className="text-xs text-emerald-700">Semua baris diproses tanpa kesalahan.</p>
+        <p className="text-xs text-emerald-700">{t('bulk.rowsOk')}</p>
       )}
     </div>
   )
