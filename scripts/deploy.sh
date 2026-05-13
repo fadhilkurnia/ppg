@@ -107,7 +107,7 @@ rsync -az --delete "${RSYNC_EXCLUDES[@]}" ./ "$SSH_HOST:$REMOTE_DIR/"
 say "Building image and (re)creating pod on remote"
 ssh "$SSH_HOST" \
   REMOTE_DIR="$REMOTE_DIR" \
-  PORT="$PORT" \
+  HOST_PORT="$PORT" \
   HOST_BIND_IP="$HOST_BIND_IP" \
   POD_NAME="$POD_NAME" \
   APP_CT="$APP_CT" \
@@ -132,6 +132,9 @@ fi
 
 # Load .env so we can read JWT_SECRET, the optional CLOUDFLARE_TUNNEL_TOKEN,
 # etc. into this shell. `set -a` exports every assignment automatically.
+# Note: .env carries a PORT= line for the app's *container-side* listen
+# port; we keep that out of the host-port mapping by reading HOST_PORT
+# from the deploy-time env instead of PORT.
 set -a
 # shellcheck disable=SC1091
 source .env
@@ -175,7 +178,7 @@ done
 
 podman pod create \
   --name "$POD_NAME" \
-  --publish "${HOST_BIND_IP}:${PORT}:8080" \
+  --publish "${HOST_BIND_IP}:${HOST_PORT}:8080" \
   >/dev/null
 
 # App container — runs inside the pod, listens on :8080.
@@ -228,4 +231,4 @@ if podman container exists "$TUNNEL_CT"; then
 fi
 REMOTE
 
-say "Done. App is on http://${HOST_BIND_IP}:${PORT} on the remote; if cloudflared is running, public access is via the Cloudflare Tunnel."
+say "Done. App is on http://${HOST_BIND_IP}:${PORT} on the remote; if cloudflared is running (token in .env), public access is via the Cloudflare Tunnel."
