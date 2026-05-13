@@ -9,13 +9,13 @@ import (
 
 // canonicalAPIPrefix is the path under which the API is always mounted on
 // the chi router. The dynamic-prefix middleware rewrites any matching
-// /{12hex}/* URL to /api/* before the request reaches chi routing.
+// /{6 alphanumeric}/* URL to /api/* before the request reaches chi routing.
 const canonicalAPIPrefix = "/api"
 
 // DynamicAPIPath returns a middleware that lets clients address the API
 // through a per-session prefix that replaces /api. The prefix must:
 //   - be the first path segment;
-//   - be APIPathHexLen lowercase hex characters;
+//   - be APIPathLen lowercase alphanumeric characters;
 //   - match the auth_path cookie of the current request, byte-for-byte.
 //
 // When the prefix is present but the cookie is missing or mismatched the
@@ -32,16 +32,16 @@ func DynamicAPIPath(enabled bool) func(http.Handler) http.Handler {
 		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p := r.URL.Path
-			if len(p) < 1+APIPathHexLen || p[0] != '/' {
+			if len(p) < 1+APIPathLen || p[0] != '/' {
 				next.ServeHTTP(w, r)
 				return
 			}
-			prefix := p[1 : 1+APIPathHexLen]
+			prefix := p[1 : 1+APIPathLen]
 			if !IsValidPath(prefix) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			rest := p[1+APIPathHexLen:]
+			rest := p[1+APIPathLen:]
 			if rest != "" && !strings.HasPrefix(rest, "/") {
 				next.ServeHTTP(w, r)
 				return
