@@ -1,8 +1,8 @@
-// Module-level dynamic API base. The server injects a 12-hex prefix into
-// the <meta name="ppgus-api-base"> tag of index.html when the
-// DYNAMIC_API_PATH feature is enabled; otherwise the meta content is /api.
-// The login flow may also push a fresh base via setApiBase() without a
-// page reload.
+// Module-level dynamic API base. The server injects a 6-character
+// alphanumeric prefix into the <meta name="ppgus-api-base"> tag of
+// index.html when the DYNAMIC_API_PATH feature is enabled; otherwise
+// the meta content is /api. The login flow may also push a fresh base
+// via setApiBase() without a page reload.
 //
 // See docs/missing-features/50-security-hardening.md §3.
 
@@ -38,7 +38,7 @@ export function setApiBase(base: string): void {
  * Rewrites an absolute API path so it goes through the dynamic prefix.
  *
  * - Paths beginning with `/api/...` or exactly `/api` are mapped onto the
- *   current base (`/api/foo` -> `/abc123def456/foo` when dynamic; identity
+ *   current base (`/api/foo` -> `/a3f8d2/foo` when dynamic; identity
  *   when canonical).
  * - Other paths are returned unchanged so static assets and SPA routes
  *   stay untouched.
