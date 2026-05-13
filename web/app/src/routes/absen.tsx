@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { CheckCircle2 } from 'lucide-react'
@@ -20,6 +20,18 @@ function AbsenPage() {
     onSuccess: () => setSubmitted(true),
   })
 
+  const waMeUrl = mutation.data?.waMeUrl ?? ''
+
+  // Auto-open the wa.me URL right after a successful submit so WhatsApp
+  // pops up with the formatted report pre-filled. The "Kirim ke WhatsApp"
+  // button is the fallback for users whose pop-up blocker swallows the
+  // window.open call.
+  useEffect(() => {
+    if (submitted && waMeUrl) {
+      window.open(waMeUrl, '_blank', 'noopener,noreferrer')
+    }
+  }, [submitted, waMeUrl])
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
       <div className="mx-auto w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -34,12 +46,27 @@ function AbsenPage() {
           <div className="space-y-4 text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" aria-hidden />
             <h2 className="text-lg font-semibold text-slate-900">
-              Laporan terkirim, terima kasih!
+              Laporan tersimpan, terima kasih!
             </h2>
-            <p className="text-sm text-slate-600">
-              Notifikasi WhatsApp sedang dikirim ke admin
-              {mutation.data?.submittedPhone ? ' dan nomor Anda' : ''}.
-            </p>
+            {waMeUrl ? (
+              <>
+                <p className="text-sm text-slate-600">
+                  Klik tombol di bawah untuk mengirim laporan via WhatsApp ke admin.
+                </p>
+                <a
+                  href={waMeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                >
+                  Kirim ke WhatsApp
+                </a>
+              </>
+            ) : (
+              <p className="text-sm text-slate-600">
+                Laporan sudah disimpan di database.
+              </p>
+            )}
             <Button
               type="button"
               variant="secondary"

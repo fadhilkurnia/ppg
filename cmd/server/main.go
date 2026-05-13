@@ -19,7 +19,6 @@ import (
 	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/handler"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
-	"github.com/fadhilkurnia/ppg-dashboard/internal/messaging"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 	"github.com/fadhilkurnia/ppg-dashboard/web"
 )
@@ -121,10 +120,6 @@ func run() error {
 
 	jwtSvc := auth.NewJWT(cfg.JWTSecret, cfg.JWTTTL)
 
-	var waSender messaging.Sender = messaging.Noop{}
-	if cfg.WhatsAppProvider == "fonnte" && cfg.WhatsAppToken != "" {
-		waSender = &messaging.Fonnte{Token: cfg.WhatsAppToken}
-	}
 	publicAttRL := httpx.NewIPRateLimiter(10, time.Minute)
 
 	r := chi.NewRouter()
@@ -144,8 +139,7 @@ func run() error {
 		api.Post("/auth/logout", authH.Logout)
 
 		pubAttH := handler.NewPublicAttendance(
-			attendances, students, teachers,
-			waSender, cfg.WhatsAppAdminNumber, cfg.WhatsAppSendToSubmitter,
+			attendances, students, teachers, cfg.WhatsAppAdminNumber,
 		)
 		api.Get("/public/teachers", pubAttH.ListTeachers)
 		api.Get("/public/students", pubAttH.ListStudents)
