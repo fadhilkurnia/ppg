@@ -1,12 +1,11 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
-	"log/slog"
+	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,35 +21,31 @@ import (
 // powering the `/absen` form. It exposes minimal teacher/student rosters
 // for the dropdowns and accepts submissions that go straight into the
 // shared attendances table.
+//
+// Submissions are not auto-pushed to a WhatsApp gateway. Instead the
+// Create response carries a pre-formatted wa.me click-to-chat URL that
+// the SPA opens on the submitter's device, so the user sends the report
+// to the admin from their own WhatsApp account.
 type PublicAttendance struct {
 	attendances *store.Attendances
 	students    *store.Students
 	teachers    *store.Teachers
 	validator   *validator.Validate
-	sender      messaging.Sender
-	adminTo     string // E.164 / "62…" form, may be ""
-	sendCopy    bool
+	adminTo     string // "62…" form, may be "" if not configured
 }
 
 func NewPublicAttendance(
 	a *store.Attendances,
 	s *store.Students,
 	t *store.Teachers,
-	sender messaging.Sender,
 	adminNumber string,
-	sendToSubmitter bool,
 ) *PublicAttendance {
-	if sender == nil {
-		sender = messaging.Noop{}
-	}
 	return &PublicAttendance{
 		attendances: a,
 		students:    s,
 		teachers:    t,
 		validator:   validator.New(),
-		sender:      sender,
 		adminTo:     messaging.Normalize(adminNumber),
-		sendCopy:    sendToSubmitter,
 	}
 }
 
@@ -115,10 +110,19 @@ type publicAttendanceBody struct {
 	SubmittedPhone string  `json:"submittedPhone" validate:"required"`
 }
 
-// Create handles `POST /api/public/attendances`. It persists the row
-// and fires WhatsApp sends asynchronously so a slow/failing gateway
-// can't keep the form spinning. Sends are best-effort: errors are
-// logged but the API still returns 201.
+// publicAttendanceResponse is the 201 payload returned to the SPA. The
+// embedded *Attendance flattens its fields to the top level via JSON
+// promotion; WaMeURL is the pre-built click-to-chat URL the form opens
+// after a successful submit. Empty when no admin number is configured.
+type publicAttendanceResponse struct {
+	*model.Attendance
+	WaMeURL string `json:"waMeUrl"`
+}
+
+// Create handles `POST /api/public/attendances`. It persists the row,
+// formats the WhatsApp report body, and returns a wa.me URL the SPA
+// opens so the submitter can forward the report from their own
+// WhatsApp account.
 func (h *PublicAttendance) Create(w http.ResponseWriter, r *http.Request) {
 	var b publicAttendanceBody
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
@@ -157,68 +161,103 @@ func (h *PublicAttendance) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fire-and-forget WhatsApp notification. Detach from the request
-	// context so cancelling the HTTP response (e.g. client closes the
-	// tab right after submit) doesn't abort the outbound call.
-	body := formatAttendanceMessage(att)
-	go h.dispatch(att, body, normalizedPhone)
-
-	httpx.JSON(w, http.StatusCreated, att)
-}
-
-func (h *PublicAttendance) dispatch(att *model.Attendance, body, submitterPhone string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if h.adminTo != "" {
-		if err := h.sender.Send(ctx, h.adminTo, body); err != nil {
-			slog.Warn("whatsapp send to admin failed",
-				"attendanceId", att.ID, "error", err)
-		}
+	// Look up nicknames so the WA report can render "Name-Nickname".
+	// Missing nicknames degrade to just the name — never block the response.
+	var studentNick, teacherNick *string
+	if s, err := h.students.Get(r.Context(), b.StudentID); err == nil {
+		studentNick = s.Nickname
 	}
-	if h.sendCopy && submitterPhone != "" && submitterPhone != h.adminTo {
-		if err := h.sender.Send(ctx, submitterPhone, body); err != nil {
-			slog.Warn("whatsapp send to submitter failed",
-				"attendanceId", att.ID, "error", err)
-		}
+	if t, err := h.teachers.Get(r.Context(), b.TeacherID); err == nil {
+		teacherNick = t.Nickname
 	}
+
+	body := formatAttendanceMessage(att, studentNick, teacherNick)
+	httpx.JSON(w, http.StatusCreated, publicAttendanceResponse{
+		Attendance: att,
+		WaMeURL:    buildWaMeURL(h.adminTo, body),
+	})
 }
 
-var statusLabels = map[model.AttendanceStatus]string{
-	model.AttendanceHadir:     "Hadir",
-	model.AttendanceIzinMurid: "Izin (Murid)",
-	model.AttendanceIzinGuru:  "Izin (Guru)",
-	model.AttendanceByVN:      "Via Voice Note",
+// buildWaMeURL returns a click-to-chat URL per
+// https://faq.whatsapp.com/5913398998672934. Phone must be digits-only
+// in international form (no "+", no spaces, no dashes); the message is
+// passed verbatim via the `text` query parameter and percent-encoded by
+// url.Values. Returns "" if no phone is configured so the SPA can hide
+// the send button.
+func buildWaMeURL(phone, body string) string {
+	if phone == "" {
+		return ""
+	}
+	q := url.Values{}
+	q.Set("text", body)
+	return "https://wa.me/" + phone + "?" + q.Encode()
 }
 
-func formatAttendanceMessage(a *model.Attendance) string {
+var statusLabelsUpper = map[model.AttendanceStatus]string{
+	model.AttendanceHadir:     "HADIR",
+	model.AttendanceIzinMurid: "IZIN (MURID)",
+	model.AttendanceIzinGuru:  "IZIN (GURU)",
+	model.AttendanceByVN:      "BY VN",
+}
+
+// formatAttendanceMessage renders the per-session WhatsApp report. The
+// shape (bullets, *bold* labels, "=" separators, Arabic closing) is
+// fixed by the admin team — keep the layout aligned with the PR
+// description if you must tweak it.
+func formatAttendanceMessage(a *model.Attendance, studentNick, teacherNick *string) string {
+	const sep = "====================="
+	murid := joinNickname(a.StudentName, studentNick)
+	guru := joinNickname(a.TeacherName, teacherNick)
+	status := statusLabelsUpper[a.Status]
+	if status == "" {
+		status = strings.ToUpper(string(a.Status))
+	}
+
 	var sb strings.Builder
-	sb.WriteString("[Laporan Pengajian]\n")
-	sb.WriteString("Tanggal  : ")
+	sb.WriteString(sep)
+	sb.WriteString("\n*LAPORAN PENGAJIAN PPG*\n")
+	sb.WriteString(sep)
+	sb.WriteString("\n\n")
+
+	sb.WriteString("● *Murid*      : ")
+	sb.WriteString(murid)
+	sb.WriteString("\n● *Tanggal*   : ")
 	sb.WriteString(a.Date.Format("2006-01-02"))
+	sb.WriteString("\n● *Guru*        : ")
+	sb.WriteString(guru)
+	sb.WriteString("\n● *Durasi*     : ")
+	sb.WriteString(formatDuration(a.DurationMin))
+	sb.WriteString("\n● *Kehadiran*     : ")
+	sb.WriteString(status)
 	sb.WriteString("\n")
-	if a.DurationMin != nil {
-		sb.WriteString("Durasi   : ")
-		sb.WriteString(strconv.Itoa(*a.DurationMin))
-		sb.WriteString(" menit\n")
-	}
-	sb.WriteString("Pengajar : ")
-	sb.WriteString(a.TeacherName)
-	sb.WriteString("\nGenerus  : ")
-	sb.WriteString(a.StudentName)
-	sb.WriteString("\nStatus   : ")
-	if label, ok := statusLabels[a.Status]; ok {
-		sb.WriteString(label)
-	} else {
-		sb.WriteString(string(a.Status))
-	}
-	sb.WriteString("\n")
+
 	if a.Materi != nil && strings.TrimSpace(*a.Materi) != "" {
-		sb.WriteString("Materi   :\n")
-		sb.WriteString(*a.Materi)
+		sb.WriteString("\n● *Materi:*\n")
+		sb.WriteString(strings.TrimRight(*a.Materi, "\n"))
 		sb.WriteString("\n")
 	}
-	sb.WriteString("\n(Dikirim otomatis dari journal-ppg)")
+
+	sb.WriteString("\n\nالحمدلله جزاكم الله خيرا")
 	return sb.String()
 }
 
+func joinNickname(name string, nick *string) string {
+	if nick != nil {
+		n := strings.TrimSpace(*nick)
+		if n != "" {
+			return name + "-" + n
+		}
+	}
+	return name
+}
+
+// formatDuration renders a minute count as HH:MM, matching the example
+// the admin team gave (e.g. 75 → "01:15"). Empty input renders as "-".
+func formatDuration(min *int) string {
+	if min == nil {
+		return "-"
+	}
+	h := *min / 60
+	m := *min % 60
+	return fmt.Sprintf("%02d:%02d", h, m)
+}

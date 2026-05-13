@@ -19,14 +19,10 @@ type Config struct {
 	Dev             bool
 	DynamicAPIPath  bool
 
-	// WhatsApp outbound. WhatsAppProvider="" disables sending entirely
-	// (handler uses a Noop sender). When enabled, Token must be set; the
-	// admin number receives every public /absen submission, and (if the
-	// submitter entered a number) they receive a confirmation copy.
-	WhatsAppProvider        string
-	WhatsAppToken           string
-	WhatsAppAdminNumber     string
-	WhatsAppSendToSubmitter bool
+	// WhatsAppAdminNumber receives /absen reports via a wa.me click-to-chat
+	// URL baked into the Create response. Accepts "62…", "+62…", or "0…";
+	// the handler normalises it via messaging.Normalize.
+	WhatsAppAdminNumber string
 }
 
 func Load() (Config, error) {
@@ -41,10 +37,7 @@ func Load() (Config, error) {
 		Dev:            getBool("DEV", false),
 		DynamicAPIPath: getBool("DYNAMIC_API_PATH", false),
 
-		WhatsAppProvider:        getString("WHATSAPP_PROVIDER", ""),
-		WhatsAppToken:           os.Getenv("WHATSAPP_TOKEN"),
-		WhatsAppAdminNumber:     os.Getenv("WHATSAPP_ADMIN_NUMBER"),
-		WhatsAppSendToSubmitter: getBool("WHATSAPP_SEND_TO_SUBMITTER", true),
+		WhatsAppAdminNumber: os.Getenv("WHATSAPP_ADMIN_NUMBER"),
 	}
 
 	secret := os.Getenv("JWT_SECRET")
