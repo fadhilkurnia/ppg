@@ -42,6 +42,7 @@ type ListParams struct {
 	Query    string
 	Status   string // "", "active", "left"
 	Kelompok string // "" (no filter) or one of the canonical kelompoks
+	Gender   string // "", "male", "female"
 	Limit    int
 	Offset   int
 }
@@ -150,6 +151,10 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 	if p.Kelompok != "" {
 		clauses = append(clauses, "kelompok = ?")
 		args = append(args, p.Kelompok)
+	}
+	if g := strings.TrimSpace(p.Gender); g != "" {
+		clauses = append(clauses, "gender = ?")
+		args = append(args, g)
 	}
 
 	where := ""
