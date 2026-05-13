@@ -30,9 +30,11 @@ export function listPublicStudents() {
 }
 
 export type PublicAttendanceResponse = Attendance & {
-  // Pre-built wa.me click-to-chat URL the success screen opens so the
-  // submitter forwards the formatted report from their own WhatsApp.
-  // Empty when the server has no WHATSAPP_ADMIN_NUMBER configured.
+  // Pre-built wa.me click-to-chat URL targeted at the submitted phone.
+  // The /absen page navigates to it after a successful POST so WhatsApp
+  // opens with the formatted report pre-filled and the submitter taps
+  // Send. Empty only on the unreachable path where the server couldn't
+  // build a URL (submittedPhone is required + validated).
   waMeUrl: string
 }
 

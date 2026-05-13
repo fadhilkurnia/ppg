@@ -281,8 +281,8 @@ export const id = {
     pickStudent: '— Pilih murid —',
     fAttendance: 'Kehadiran',
     fMateri: 'Materi',
-    fPhone: 'No. WhatsApp',
-    phoneHint: 'Contoh: 081234567890 atau +6281234567890',
+    fPhone: 'No. WhatsApp tujuan laporan',
+    phoneHint: 'Laporan akan dibuka di WhatsApp ke nomor ini. Contoh: 081234567890 atau +6281234567890',
     loadingLists: 'Memuat daftar guru dan murid…',
   },
   validation: {
@@ -572,8 +572,8 @@ export const en: Dict = {
     pickStudent: '— Select student —',
     fAttendance: 'Attendance',
     fMateri: 'Material',
-    fPhone: 'WhatsApp number',
-    phoneHint: 'Example: 081234567890 or +6281234567890',
+    fPhone: 'Destination WhatsApp number',
+    phoneHint: 'The report will open in WhatsApp targeted at this number. Example: 081234567890 or +6281234567890',
     loadingLists: 'Loading teachers and students…',
   },
   validation: {
