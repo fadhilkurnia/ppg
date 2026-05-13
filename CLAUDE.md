@@ -221,18 +221,41 @@ Rules:
   (`ssh laode@10.8.0.13 'ss -tlnp | grep -E ":(80|81|82|83|90|91|92)[0-9][0-9]"'`
   or similar) and pick a free port in a high range (e.g.
   `18080`–`18999`). Record the port you chose in the PR description.
-- **Namespacing**: derive the container name, image tag, project
-  name, and data volume from your worktree's branch slug so two
-  agents never collide. For branch `feat/<slug>`:
-  - container: `ppg-dev-<slug>`
-  - image: `ppg-dashboard-dev-<slug>:latest`
-  - compose project: `ppg-dev-<slug>` (pass via `-p` /
-    `COMPOSE_PROJECT_NAME`)
-  - volume: `ppg-data-dev-<slug>` (separate from prod's `ppg-data`)
+- **Namespacing**: derive the pod, container, image, and volume
+  names from your worktree's branch slug so two agents never
+  collide. For branch `feat/<slug>`, pass these to
+  `scripts/deploy.sh`:
+  - pod:       `ppg-dev-<slug>`
+  - app ct:    `ppg-dev-<slug>-app` (default `${POD_NAME}-app`)
+  - tunnel ct: `ppg-dev-<slug>-cloudflared` (only spawned if
+    `CLOUDFLARE_TUNNEL_TOKEN` is set in the remote `.env` — leave it
+    empty for dev pods)
+  - image:     `ppg-dashboard-dev-<slug>:latest`
+  - volume:    `ppg-data-dev-<slug>` (separate from prod's
+    `ppg_ppg-data`)
+  - remote dir: `/home/laode/ppg-dev-<slug>` (separate from prod's
+    `/home/laode/ppg`)
+
+  Typical invocation from inside your worktree:
+
+      POD_NAME=ppg-dev-<slug> \
+      VOLUME_NAME=ppg-data-dev-<slug> \
+      IMAGE_TAG=ppg-dashboard-dev-<slug>:latest \
+      REMOTE_DIR=/home/laode/ppg-dev-<slug> \
+      PORT=<your-port> \
+      HOST_BIND_IP=10.8.0.13 \
+      scripts/deploy.sh
+
 - **Cleanup**: when the PR is merged or abandoned, tear the dev
-  stack down on the remote (`podman-compose -p ppg-dev-<slug> down
-  -v` and remove the image) in the same step you remove the local
-  worktree.
+  pod down on the remote in the same step you remove the local
+  worktree:
+
+      ssh laode@10.8.0.13 '
+        podman pod rm -f ppg-dev-<slug> || true
+        podman volume rm ppg-data-dev-<slug> || true
+        podman rmi ppg-dashboard-dev-<slug>:latest || true
+        rm -rf /home/laode/ppg-dev-<slug>
+      '
 
 For the test flow itself (steps to drive through the UI, what to
 capture for the PR), follow `TEST.md` — but substitute your dev URL
