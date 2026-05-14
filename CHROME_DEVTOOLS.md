@@ -20,15 +20,19 @@ The canonical launch command is:
 google-chrome-stable \
   --remote-debugging-port=9222 \
   --user-data-dir=/home/loomino/.browser-debug \
-  --headless=new
+  --headless
 ```
 
 - **Port**: `9222` (DevTools Protocol on `127.0.0.1:9222`).
 - **User data dir**: `/home/loomino/.browser-debug` — a single
   shared profile so cookies/sessions persist across agents and
-  across sessions. Do not change it.
-- **Headless mode**: `--headless=new` (the modern headless
-  implementation; the old `--headless` is deprecated).
+  across sessions. Do not change it. (Chrome refuses
+  `--remote-debugging-port` against the default profile, so this
+  custom `--user-data-dir` is required, not optional.)
+- **Headless mode**: `--headless` (since Chrome 132 the old
+  headless mode is no longer in the main binary, so plain
+  `--headless` *is* the new headless. `--headless=new` still
+  works as an alias if you see it in older snippets.)
 - Runs on the **local machine** (where the agents run), not on
   the remote deploy host.
 
@@ -73,7 +77,7 @@ protocol responds:
 nohup google-chrome-stable \
   --remote-debugging-port=9222 \
   --user-data-dir=/home/loomino/.browser-debug \
-  --headless=new \
+  --headless \
   >/tmp/chrome-debug.log 2>&1 &
 disown
 
