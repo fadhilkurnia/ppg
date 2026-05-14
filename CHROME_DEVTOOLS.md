@@ -147,6 +147,42 @@ Hard rules for sharing the browser:
   Chrome log) → an older Chrome process is still alive against the
   same `--user-data-dir`. Investigate before killing anything; you
   may be looking at another agent's live session.
+- Navigation to `http://10.8.0.13:<port>` (or any non-`localhost`
+  plain-HTTP URL) fails immediately, often with
+  `ERR_BLOCKED_BY_CLIENT` / `ERR_SSL_PROTOCOL_ERROR`, and the
+  network log shows Chrome rewrote your `http://` to `https://`
+  before sending → the shared profile at `~/.browser-debug` has
+  **HTTPS-First / HTTPS-Only mode** enabled
+  (`account_values.https_only_mode_enabled` and
+  `https_first_balanced_mode_enabled` in `Default/Preferences`,
+  synced from the Google account this profile is signed into).
+  Chrome silently upgrades non-`localhost` `http://` URLs to
+  HTTPS, and the dev pod has no TLS, so the request is killed
+  before it leaves the browser. **Preferred fix**: reach your
+  dev pod via `http://localhost:<port>` after an SSH local
+  forward run on the **agent host** (the same machine the
+  shared Chrome runs on):
+
+  ```sh
+  ssh -fN -L <port>:10.8.0.13:<port> laode@10.8.0.13
+  ```
+
+  then drive `http://localhost:<port>` in your tab. The dev pod
+  binds on `10.8.0.13:<port>` per `CLAUDE.md`'s *Dev deployment*
+  section (not the remote's loopback), so the SSH destination
+  is `10.8.0.13:<port>`, not `127.0.0.1:<port>`. `localhost` and
+  `127.0.0.1` are exempt from HTTPS upgrades, no profile edits
+  are needed, and the parallel Chrome stays untouched. Tear the
+  tunnel down after your run
+  (`pkill -f "ssh -fN -L <port>:10.8.0.13"`). **Last resort**
+  (only if SSH forwarding is unavailable): flip both prefs to
+  `false` in `~/.browser-debug/Default/Preferences` **while
+  Chrome is down** (`Preferences` is only read at startup, so
+  edits to a running Chrome are ignored — and you must not
+  restart the shared Chrome while another agent is testing).
+  Back the file up first, restore it after your run, and
+  expect Google-account sync to re-enable the prefs on the
+  next launch anyway.
 - Tab list grows huge → other agents forgot to clean up. Close
   only the tabs you created; do not bulk-close.
 
