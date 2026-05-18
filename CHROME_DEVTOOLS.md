@@ -147,7 +147,7 @@ Hard rules for sharing the browser:
   Chrome log) → an older Chrome process is still alive against the
   same `--user-data-dir`. Investigate before killing anything; you
   may be looking at another agent's live session.
-- Navigation to `http://10.8.0.13:<port>` (or any non-`localhost`
+- Navigation to `http://10.8.0.1:<port>` (or any non-`localhost`
   plain-HTTP URL) fails immediately, often with
   `ERR_BLOCKED_BY_CLIENT` / `ERR_SSL_PROTOCOL_ERROR`, and the
   network log shows Chrome rewrote your `http://` to `https://`
@@ -164,17 +164,17 @@ Hard rules for sharing the browser:
   shared Chrome runs on):
 
   ```sh
-  ssh -fN -L <port>:10.8.0.13:<port> laode@10.8.0.13
+  ssh -fN -L <port>:10.8.0.1:<port> loomino@10.8.0.1
   ```
 
   then drive `http://localhost:<port>` in your tab. The dev pod
-  binds on `10.8.0.13:<port>` per `CLAUDE.md`'s *Dev deployment*
+  binds on `10.8.0.1:<port>` per `CLAUDE.md`'s *Dev deployment*
   section (not the remote's loopback), so the SSH destination
-  is `10.8.0.13:<port>`, not `127.0.0.1:<port>`. `localhost` and
+  is `10.8.0.1:<port>`, not `127.0.0.1:<port>`. `localhost` and
   `127.0.0.1` are exempt from HTTPS upgrades, no profile edits
   are needed, and the parallel Chrome stays untouched. Tear the
   tunnel down after your run
-  (`pkill -f "ssh -fN -L <port>:10.8.0.13"`). **Last resort**
+  (`pkill -f "ssh -fN -L <port>:10.8.0.1"`). **Last resort**
   (only if SSH forwarding is unavailable): flip both prefs to
   `false` in `~/.browser-debug/Default/Preferences` **while
   Chrome is down** (`Preferences` is only read at startup, so
