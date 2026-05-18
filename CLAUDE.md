@@ -207,7 +207,7 @@ in-progress feature branches get tested — multiple agents work in
 parallel and would clobber each other.
 
 For testing your own branch, deploy a **separate dev container** on
-the remote host (`laode@10.8.0.13`) and expose it directly so Chrome
+the remote host (`loomino@10.8.0.1`) and expose it directly so Chrome
 DevTools can drive it.
 
 Rules:
@@ -221,15 +221,15 @@ Rules:
   contains the in-progress code, including uncommitted edits you
   want to smoke-test. Never point a dev deploy at the prod source
   tree or another agent's worktree.
-- **Host**: same remote as prod (`10.8.0.13`). Different container
+- **Host**: same remote as prod (`10.8.0.1`). Different container
   name, image tag, data volume, and host port from prod and from
   every other running dev instance.
 - **Bind externally**, not to loopback. Publish the host port on
-  `10.8.0.13:<port>` (not `127.0.0.1:<port>`) so Chrome DevTools
+  `10.8.0.1:<port>` (not `127.0.0.1:<port>`) so Chrome DevTools
   running off-host can reach it. No Cloudflare Tunnel for dev.
 - **Port**: pick something that is **not** prod's `8080` and not in
   use by another dev instance. Check first
-  (`ssh laode@10.8.0.13 'ss -tlnp | grep -E ":(80|81|82|83|90|91|92)[0-9][0-9]"'`
+  (`ssh loomino@10.8.0.1 'ss -tlnp | grep -E ":(80|81|82|83|90|91|92)[0-9][0-9]"'`
   or similar) and pick a free port in a high range (e.g.
   `18080`–`18999`). Record the port you chose in the PR description.
 - **Namespacing**: derive the pod, container, image, and volume
@@ -244,35 +244,46 @@ Rules:
   - image:     `ppg-dashboard-dev-<slug>:latest`
   - volume:    `ppg-data-dev-<slug>` (separate from prod's
     `ppg_ppg-data`)
-  - remote dir: `/home/laode/ppg-dev-<slug>` (separate from prod's
-    `/home/laode/ppg`)
+  - remote dir: `/home/loomino/ppg-dev-<slug>` (separate from prod's
+    `/home/loomino/ppg`)
 
   Typical invocation from inside your worktree:
 
       POD_NAME=ppg-dev-<slug> \
       VOLUME_NAME=ppg-data-dev-<slug> \
       IMAGE_TAG=ppg-dashboard-dev-<slug>:latest \
-      REMOTE_DIR=/home/laode/ppg-dev-<slug> \
+      REMOTE_DIR=/home/loomino/ppg-dev-<slug> \
       PORT=<your-port> \
-      HOST_BIND_IP=10.8.0.13 \
+      HOST_BIND_IP=10.8.0.1 \
       scripts/deploy.sh
 
 - **Cleanup**: when the PR is merged or abandoned, tear the dev
   pod down on the remote in the same step you remove the local
-  worktree:
+  worktree. `scripts/deploy.sh` installs the pod as systemd-user
+  Quadlet units, so stop the units and delete the Quadlet source
+  files *before* removing the pod — otherwise the user manager
+  would just restart it:
 
-      ssh laode@10.8.0.13 '
+      ssh loomino@10.8.0.1 '
+        export XDG_RUNTIME_DIR=/run/user/$(id -u)
+        systemctl --user stop ppg-dev-<slug>-app.service || true
+        systemctl --user stop ppg-dev-<slug>-cloudflared.service || true
+        systemctl --user stop ppg-dev-<slug>-pod.service || true
+        rm -f ~/.config/containers/systemd/ppg-dev-<slug>.pod \
+              ~/.config/containers/systemd/ppg-dev-<slug>-app.container \
+              ~/.config/containers/systemd/ppg-dev-<slug>-cloudflared.container
+        systemctl --user daemon-reload
         podman pod rm -f ppg-dev-<slug> || true
         podman volume rm ppg-data-dev-<slug> || true
         podman rmi ppg-dashboard-dev-<slug>:latest || true
-        rm -rf /home/laode/ppg-dev-<slug>
+        rm -rf /home/loomino/ppg-dev-<slug>
       '
 
 For the test flow itself (steps to drive through the UI, what to
 capture for the PR), follow `TEST.md` — but substitute your dev URL
-(`http://10.8.0.13:<port>`) for `https://gnrs.brkh.work`, and say so
+(`http://10.8.0.1:<port>`) for `https://gnrs.brkh.work`, and say so
 in the "Tested via Chrome DevTools" section of the PR. If you cannot
-reach `10.8.0.13:<port>` for the same reasons `TEST.md` calls out
+reach `10.8.0.1:<port>` for the same reasons `TEST.md` calls out
 for the public domain, say so explicitly instead of falling back to
 `localhost`.
 
