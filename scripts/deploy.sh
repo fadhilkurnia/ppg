@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy ppg-dashboard to a remote host that already has podman.
 #
-# Default target: laode@10.8.0.13
+# Default target: loomino@10.8.0.1
 #
 # What it does:
 #   1. rsync the project source to $REMOTE_DIR on the remote (excluding
@@ -11,20 +11,27 @@
 #      overwrites an existing remote .env)
 #   3. `podman build` the image on the remote
 #   4. tear down any previous deployment of this pod (and any legacy
-#      podman-compose / standalone containers from the older deploy path)
-#   5. `podman pod create` + `podman run --pod` the app, and — iff a
-#      CLOUDFLARE_TUNNEL_TOKEN is set in the remote .env — the cloudflared
-#      sidecar inside the same pod (so cloudflared reaches the app via
-#      `localhost:8080` over the pod's shared network namespace)
+#      podman-compose / standalone / imperative containers from older
+#      deploy paths)
+#   5. write Quadlet units for the pod + app (+ cloudflared sidecar iff a
+#      CLOUDFLARE_TUNNEL_TOKEN is set in the remote .env) into the remote
+#      user's `~/.config/containers/systemd/`, reload the systemd user
+#      manager, and (re)start the services
 #   6. tail the new container logs for a few seconds so you can confirm
 #      boot
 #
-# All containers for one deployment live in a single podman pod. To stop,
-# start, or remove a deployment you only need to manage the pod:
+# The deployment is owned by the systemd **user** manager via Quadlet, so
+# the pod survives reboots (the remote user has lingering enabled). To
+# stop, start, or inspect a deployment, drive the generated user units:
 #
-#   podman pod stop  $POD_NAME
-#   podman pod start $POD_NAME
-#   podman pod rm -f $POD_NAME
+#   systemctl --user stop    $POD_NAME-app.service
+#   systemctl --user start   $POD_NAME-app.service
+#   systemctl --user status  $POD_NAME-app.service
+#
+# The Quadlet source files live in `~/.config/containers/systemd/` on the
+# remote; deleting them and running `systemctl --user daemon-reload`
+# removes the units. The pod itself is still a normal podman pod
+# ($POD_NAME) and can be inspected with `podman pod ps` / `podman ps`.
 #
 # Usage:
 #   scripts/deploy.sh                       # prod-style deploy to default host
@@ -36,18 +43,19 @@
 #   POD_NAME=ppg-dev-myslug \
 #   VOLUME_NAME=ppg-data-dev-myslug \
 #   IMAGE_TAG=ppg-dashboard-dev-myslug:latest \
-#   REMOTE_DIR=/home/laode/ppg-dev-myslug \
+#   REMOTE_DIR=/home/loomino/ppg-dev-myslug \
 #   PORT=18080 \
-#   HOST_BIND_IP=10.8.0.13 \
+#   HOST_BIND_IP=10.8.0.1 \
 #   scripts/deploy.sh
 #
 # Requirements on local: ssh, rsync.
-# Requirements on remote: podman, rsync.
+# Requirements on remote: podman (>= 4.4, for Quadlet), rsync, a systemd
+#   user manager with lingering enabled for the deploy user.
 
 set -euo pipefail
 
-SSH_HOST="${SSH_HOST:-laode@10.8.0.13}"
-REMOTE_DIR="${REMOTE_DIR:-/home/laode/ppg}"
+SSH_HOST="${SSH_HOST:-loomino@10.8.0.1}"
+REMOTE_DIR="${REMOTE_DIR:-/home/loomino/ppg}"
 PORT="${PORT:-8080}"
 HOST_BIND_IP="${HOST_BIND_IP:-127.0.0.1}"
 POD_NAME="${POD_NAME:-ppg-prod}"
@@ -103,8 +111,8 @@ if [[ "$PUSH_ENV" != "1" ]]; then
 fi
 rsync -az --delete "${RSYNC_EXCLUDES[@]}" ./ "$SSH_HOST:$REMOTE_DIR/"
 
-# 4. Build the image + recreate the pod on the remote.
-say "Building image and (re)creating pod on remote"
+# 4. Build the image + (re)install the Quadlet units on the remote.
+say "Building image and (re)installing Quadlet units on remote"
 ssh "$SSH_HOST" \
   REMOTE_DIR="$REMOTE_DIR" \
   HOST_PORT="$PORT" \
@@ -153,7 +161,38 @@ if ! podman volume exists "$VOLUME_NAME"; then
   podman volume create "$VOLUME_NAME" >/dev/null
 fi
 
-# Recreate the pod from scratch so we pick up new images / port changes.
+# --- systemd user manager wiring ----------------------------------------
+# A non-login ssh session has no DBus session bus by default, so point
+# systemctl --user at the lingering user manager's runtime dir explicitly.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+if ! systemctl --user show-environment >/dev/null 2>&1; then
+  echo "systemd user manager is not reachable for $(id -un)." >&2
+  echo "Ensure lingering is enabled (loginctl enable-linger $(id -un))." >&2
+  exit 1
+fi
+
+QUADLET_DIR="$HOME/.config/containers/systemd"
+mkdir -p "$QUADLET_DIR"
+
+POD_UNIT="${POD_NAME}-pod.service"
+APP_UNIT="${APP_CT}.service"
+TUNNEL_UNIT="${TUNNEL_CT}.service"
+
+# Stop any prior deployment of this pod so we can recreate it cleanly.
+for unit in "$APP_UNIT" "$TUNNEL_UNIT" "$POD_UNIT"; do
+  systemctl --user stop "$unit" >/dev/null 2>&1 || true
+done
+
+# Drop this pod's old Quadlet sources before regenerating them.
+rm -f "$QUADLET_DIR/${POD_NAME}.pod" \
+      "$QUADLET_DIR/${APP_CT}.container" \
+      "$QUADLET_DIR/${TUNNEL_CT}.container"
+systemctl --user daemon-reload
+
+# Belt-and-suspenders: remove the pod if it survived (e.g. a pre-Quadlet
+# imperative `podman pod create` deploy of the same name).
 if podman pod exists "$POD_NAME"; then
   podman pod rm -f "$POD_NAME" >/dev/null
 fi
@@ -176,44 +215,99 @@ for legacy in ppg-dashboard ppg-cloudflared; do
   fi
 done
 
-podman pod create \
-  --name "$POD_NAME" \
-  --publish "${HOST_BIND_IP}:${HOST_PORT}:8080" \
-  >/dev/null
+# --- write the Quadlet units --------------------------------------------
+# `<name>.pod`       → systemd unit `<name>-pod.service`
+# `<name>.container` → systemd unit `<name>.service`
+# `[Install] WantedBy=default.target` makes the Quadlet generator enable
+# the units on `daemon-reload`, so the pod comes back after a reboot.
 
-# App container — runs inside the pod, listens on :8080.
-podman run -d --pod "$POD_NAME" \
-  --name "$APP_CT" \
-  --restart unless-stopped \
-  -e JWT_SECRET="$JWT_SECRET" \
-  -e JWT_TTL="${JWT_TTL:-24h}" \
-  -e COOKIE_SECURE="${COOKIE_SECURE:-false}" \
-  -e DATABASE_PATH=/app/data/app.db \
-  -e SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL:-}" \
-  -e SEED_ADMIN_USERNAME="${SEED_ADMIN_USERNAME:-}" \
-  -e SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-}" \
-  -e DYNAMIC_API_PATH="${DYNAMIC_API_PATH:-false}" \
-  -v "${VOLUME_NAME}:/app/data" \
-  "$IMAGE_TAG" \
-  >/dev/null
+cat > "$QUADLET_DIR/${POD_NAME}.pod" <<EOF
+# Managed by scripts/deploy.sh — regenerated on every deploy.
+[Unit]
+Description=ppg-dashboard pod (${POD_NAME})
+
+[Pod]
+PodName=${POD_NAME}
+PublishPort=${HOST_BIND_IP}:${HOST_PORT}:8080
+# Quadlet defaults the pod to --exit-policy stop, which tears the whole
+# pod down the moment the app container exits — that stops the pod
+# cleanly, so neither the pod's nor the app's Restart= ever fires.
+# --exit-policy continue keeps the infra container alive so the app
+# unit's Restart=always can recreate just the app container in place.
+PodmanArgs=--exit-policy=continue
+
+[Install]
+WantedBy=default.target
+EOF
+
+cat > "$QUADLET_DIR/${APP_CT}.container" <<EOF
+# Managed by scripts/deploy.sh — regenerated on every deploy.
+[Unit]
+Description=ppg-dashboard app (${APP_CT})
+
+[Container]
+ContainerName=${APP_CT}
+Image=localhost/${IMAGE_TAG}
+Pod=${POD_NAME}.pod
+Volume=${VOLUME_NAME}:/app/data
+Environment="JWT_SECRET=${JWT_SECRET}"
+Environment="JWT_TTL=${JWT_TTL:-24h}"
+Environment="COOKIE_SECURE=${COOKIE_SECURE:-false}"
+Environment="DATABASE_PATH=/app/data/app.db"
+Environment="SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-}"
+Environment="SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME:-}"
+Environment="SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-}"
+Environment="DYNAMIC_API_PATH=${DYNAMIC_API_PATH:-false}"
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
+EOF
+# The app unit embeds JWT_SECRET — keep it readable only by the owner.
+chmod 600 "$QUADLET_DIR/${APP_CT}.container"
 
 # Cloudflared sidecar — joins the same pod iff a token is configured. From
 # inside the pod it reaches the app at `localhost:8080`, so the public
 # hostname in the Cloudflare dashboard should still target localhost:8080.
 if [[ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]]; then
   echo "Cloudflare tunnel token present → cloudflared sidecar will run."
-  podman run -d --pod "$POD_NAME" \
-    --name "$TUNNEL_CT" \
-    --restart unless-stopped \
-    -e TUNNEL_TOKEN="$CLOUDFLARE_TUNNEL_TOKEN" \
-    docker.io/cloudflare/cloudflared:latest \
-    tunnel --no-autoupdate run \
-    >/dev/null
+  cat > "$QUADLET_DIR/${TUNNEL_CT}.container" <<EOF
+# Managed by scripts/deploy.sh — regenerated on every deploy.
+[Unit]
+Description=cloudflared sidecar for ppg-dashboard (${TUNNEL_CT})
+
+[Container]
+ContainerName=${TUNNEL_CT}
+Image=docker.io/cloudflare/cloudflared:latest
+Pod=${POD_NAME}.pod
+Environment="TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}"
+Exec=tunnel --no-autoupdate run
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
+EOF
+  chmod 600 "$QUADLET_DIR/${TUNNEL_CT}.container"
 else
   echo "No CLOUDFLARE_TUNNEL_TOKEN set — skipping cloudflared sidecar."
 fi
 
+# --- (re)start via the systemd user manager -----------------------------
+systemctl --user daemon-reload
+
+systemctl --user restart "$APP_UNIT"
+if [[ -f "$QUADLET_DIR/${TUNNEL_CT}.container" ]]; then
+  systemctl --user restart "$TUNNEL_UNIT"
+fi
+
 sleep 3
+echo
+echo '=== systemd user units ==='
+systemctl --user --no-pager --no-legend list-units "${POD_NAME}*" || true
 echo
 echo '=== pod ==='
 podman pod ps --filter "name=^${POD_NAME}\$" --format \
@@ -232,3 +326,4 @@ fi
 REMOTE
 
 say "Done. App is on http://${HOST_BIND_IP}:${PORT} on the remote; if cloudflared is running (token in .env), public access is via the Cloudflare Tunnel."
+say "Pod is managed by the systemd user manager — it will restart on boot."
