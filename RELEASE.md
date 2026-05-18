@@ -34,7 +34,7 @@ container surface (Dockerfile, a `docker-run` Makefile target,
 and an `.env.example` without our tunnel knob). Someone forking
 the repo can build the image and run it under whatever
 orchestration they prefer, without inheriting our podman-compose
-layout, our `10.8.0.13` host, or our Cloudflare tunnel.
+layout, our `10.8.0.1` host, or our Cloudflare tunnel.
 
 The LLM-agent rule / guide files (`CLAUDE.md`, `RULES.md`,
 `TEST.md`, and this `RELEASE.md`) are also integration-only.
@@ -108,7 +108,7 @@ fresh one.
 5. **Verification grep** — before opening the PR, from inside the
    worktree:
 
-       git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b|cloudflared|CLOUDFLARE_TUNNEL|podman-compose|docker-compose'
+       git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.1|loomino@|/home/loomino/ppg|ppg-data\b|cloudflared|CLOUDFLARE_TUNNEL|podman-compose|docker-compose'
 
    Expect **zero hits** — `RELEASE.md` (which used to be the
    self-exception) is itself deleted on the transition branch by
@@ -136,7 +136,7 @@ fresh one.
    This is the only sanctioned `--base main` PR in the repo's
    workflow. Every other PR still targets the integration branch.
 
-7. **Deploy the snapshot on `laode@10.8.0.13` and verify via
+7. **Deploy the snapshot on `loomino@10.8.0.1` and verify via
    Chrome DevTools.** This is the runtime smoke test that
    guarantees the cleanup did not break the deploy-anywhere path
    a fork would follow. Run it *after* `gh pr create`, not before
@@ -145,7 +145,7 @@ fresh one.
 
    The pattern matches the per-feature dev deployment described
    in `CLAUDE.md` (separate container, separate volume, separate
-   port, externally bound on `10.8.0.13:<port>`), but uses the
+   port, externally bound on `10.8.0.1:<port>`), but uses the
    snapshot's *generic* `Dockerfile` + `docker build` flow —
    there is no `scripts/deploy.sh` and no `docker-compose.yml` on
    this branch by design. That means a direct `docker run` on the
@@ -155,17 +155,17 @@ fresh one.
    any local worktree state):
 
        # Pick a free dev port (range 18080–18999). Check first:
-       ssh laode@10.8.0.13 \
+       ssh loomino@10.8.0.1 \
          'ss -tlnp | grep -E ":(180|181|182|183|184|185|186|187|188|189)[0-9][0-9]" || echo "no collisions in range"'
 
        # Clone (or pull) the release branch on the remote into a
        # per-slug directory, then build + run with dev-specific
        # overrides for name, port, volume, and image tag:
-       ssh laode@10.8.0.13 bash <<'REMOTE'
+       ssh loomino@10.8.0.1 bash <<'REMOTE'
        set -euo pipefail
        SLUG=<slug>
        PORT=<chosen port>
-       REPO=/home/laode/ppg-release-$SLUG
+       REPO=/home/loomino/ppg-release-$SLUG
 
        if [ -d "$REPO/.git" ]; then
          git -C "$REPO" fetch origin "release/$SLUG"
@@ -187,7 +187,7 @@ fresh one.
        docker rm -f "ppg-release-$SLUG" 2>/dev/null || true
        docker run -d --name "ppg-release-$SLUG" \
          --env-file .env \
-         -p "10.8.0.13:$PORT:8080" \
+         -p "10.8.0.1:$PORT:8080" \
          -v "ppg-data-release-$SLUG:/app/data" \
          "ppg-dashboard-release-$SLUG:latest"
        docker logs --tail 50 "ppg-release-$SLUG"
@@ -195,7 +195,7 @@ fresh one.
 
    Notes on the invocation:
 
-   - The host port binds explicitly to `10.8.0.13`, not loopback,
+   - The host port binds explicitly to `10.8.0.1`, not loopback,
      so Chrome DevTools can drive the dev URL from off-host.
    - Bypass `make docker-run` deliberately: that target hardcodes
      `-p 8080:8080`, which would collide with prod's container.
@@ -205,7 +205,7 @@ fresh one.
      any parallel agent's per-feature dev stack.
 
    Then drive the full Chrome DevTools flow from `TEST.md`
-   against `http://10.8.0.13:<port>`. `TEST.md` itself is
+   against `http://10.8.0.1:<port>`. `TEST.md` itself is
    deleted on the transition branch, but it still exists on
    `jalur-yasril` — read the procedure from your main checkout
    and apply it against the dev URL.
@@ -235,7 +235,7 @@ fresh one.
 8. **Do NOT auto-merge.** A PR to `main` is a release-readiness
    moment that the user owns. Wait for them to approve and merge
    it themselves. While you wait, the dev container from step 7
-   stays up on `10.8.0.13:<port>` so the user can poke at it
+   stays up on `10.8.0.1:<port>` so the user can poke at it
    directly; if they ask for additional spot-checks, drive them
    through Chrome DevTools against the same dev URL.
 
@@ -251,7 +251,7 @@ fresh one.
 
 9. **After merge, clean up — local refs *and* remote dev stack.**
    Both halves must run; a leftover dev container on
-   `10.8.0.13` blocks the next release from reusing the slug or
+   `10.8.0.1` blocks the next release from reusing the slug or
    the port.
 
        cd <repo root>
@@ -263,12 +263,12 @@ fresh one.
        git fetch --prune origin
 
        # Tear down the dev stack from step 7:
-       ssh laode@10.8.0.13 bash <<'REMOTE'
+       ssh loomino@10.8.0.1 bash <<'REMOTE'
        SLUG=<slug>
        docker rm -f "ppg-release-$SLUG" 2>/dev/null || true
        docker volume rm "ppg-data-release-$SLUG" 2>/dev/null || true
        docker image rm "ppg-dashboard-release-$SLUG:latest" 2>/dev/null || true
-       rm -rf "/home/laode/ppg-release-$SLUG"
+       rm -rf "/home/loomino/ppg-release-$SLUG"
        REMOTE
 
 10. **No prod deploy from this merge.** Prod tracks
@@ -301,7 +301,7 @@ the application image (from `Dockerfile`) is portable on its own.
 ### 4.2 `scripts/deploy.sh` — **delete**
 
 `scripts/deploy.sh` exists solely to rsync the source to
-`laode@10.8.0.13`, run `podman-compose build && up -d` on the
+`loomino@10.8.0.1`, run `podman-compose build && up -d` on the
 remote, and conditionally bring up the `cloudflared` sidecar
 when `CLOUDFLARE_TUNNEL_TOKEN` is set. None of that is
 deploy-anywhere. Delete the file:
@@ -391,7 +391,7 @@ helpers, not deployment.
   it against `.env`; the named volume defaults to `ppg-data`
   but can be overridden with `DATA_VOLUME`.
 - Replace any bare references to `https://gnrs.brkh.work`,
-  `10.8.0.13`, or `/home/laode/ppg` with placeholders.
+  `10.8.0.1`, or `/home/loomino/ppg` with placeholders.
 
 ### 4.10 What stays on `main`
 
@@ -490,8 +490,8 @@ snapshot. None of these changes touch runtime code.
 - **Deploy-anywhere genericization** (surviving docs):
   - `Makefile`: parameterized the `ppg-data` volume name via
     `DATA_VOLUME`.
-  - `README.md`: replaced `gnrs.brkh.work`, `10.8.0.13`,
-    `laode@10.8.0.13`, and `/home/laode/ppg` with placeholders;
+  - `README.md`: replaced `gnrs.brkh.work`, `10.8.0.1`,
+    `loomino@10.8.0.1`, and `/home/loomino/ppg` with placeholders;
     stripped any prose pointing readers at the now-deleted
     agent docs or the now-deleted compose stack.
 
@@ -524,7 +524,7 @@ snapshot. None of these changes touch runtime code.
 ## Verification grep
 
 \`\`\`
-$ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b|cloudflared|CLOUDFLARE_TUNNEL|podman-compose|docker-compose'
+$ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.1|loomino@|/home/loomino/ppg|ppg-data\b|cloudflared|CLOUDFLARE_TUNNEL|podman-compose|docker-compose'
 <paste result — expect zero hits>
 \`\`\`
 
@@ -532,7 +532,7 @@ $ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b|
 
 <Fill in after `RELEASE.md` §3 step 7. The shape (per `TEST.md`):
 
-- **Dev URL** — `http://10.8.0.13:<port>` (the snapshot, in its
+- **Dev URL** — `http://10.8.0.1:<port>` (the snapshot, in its
   own container / volume / image, all suffixed with the release
   slug — separate from prod's `8080` / `ppg-data` /
   `ppg-dashboard:latest`).
@@ -573,7 +573,7 @@ $ git grep -nE 'gnrs\.brkh\.work|10\.8\.0\.13|laode@|/home/laode/ppg|ppg-data\b|
 | Tests (static)          | `go test ./...`, `pnpm --dir web/app typecheck`        |
 | Verification grep       | §3 step 5                                              |
 | Open PR                 | `gh pr create --base main`                             |
-| Dev deploy + UI test    | §3 step 7 — `http://10.8.0.13:<port>`, `TEST.md` flow  |
+| Dev deploy + UI test    | §3 step 7 — `http://10.8.0.1:<port>`, `TEST.md` flow  |
 | PR body                 | Template in §5 (fill UI section after dev deploy)      |
 | Merge                   | **User-driven** — do not auto-merge                    |
 | Prod deploy?            | No — prod still tracks `jalur-yasril`                  |
