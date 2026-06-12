@@ -3,10 +3,10 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -25,9 +25,14 @@ func NewTeachers(teachers *store.Teachers) *Teachers {
 	return &Teachers{teachers: teachers, validator: validator.New()}
 }
 
+// teacherBody — JSON shape on the wire. `joinedAt` and `retiredAt` are
+// still accepted (and validated) but ignored after migration 041 dropped
+// the underlying columns from `users`. Keeping them in the schema avoids
+// breaking external clients that may still POST these fields.
 type teacherBody struct {
 	Name      string  `json:"name"      validate:"required,max=200"`
 	Nickname  *string `json:"nickname,omitempty"     validate:"omitempty,max=200"`
+	Gender    *string `json:"gender,omitempty"       validate:"omitempty,oneof=male female"`
 	Kelompok  string  `json:"kelompok"  validate:"required,max=200"`
 	Desa      string  `json:"desa"      validate:"required,max=200"`
 	Daerah    string  `json:"daerah"    validate:"required,max=200"`
@@ -35,6 +40,24 @@ type teacherBody struct {
 	RetiredAt *string `json:"retiredAt,omitempty"    validate:"omitempty,datetime=2006-01-02"`
 	Status    string  `json:"status"    validate:"required,oneof=active retired"`
 	Notes     *string `json:"notes,omitempty"        validate:"omitempty,max=2000"`
+	// Shared profile + biodata fields (same set as studentBody per the
+	// unified-user mechanism).
+	DateOfBirth       *string `json:"dateOfBirth,omitempty"       validate:"omitempty,datetime=2006-01-02"`
+	NoHP              *string `json:"noHp,omitempty"              validate:"omitempty,max=64"`
+	Alamat            *string `json:"alamat,omitempty"            validate:"omitempty,max=500"`
+	Level             *string `json:"level,omitempty"             validate:"omitempty,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
+	ParentName        *string `json:"parentName,omitempty"        validate:"omitempty,max=200"`
+	ParentTitle       *string `json:"parentTitle,omitempty"       validate:"omitempty,max=80"`
+	ParentPhone       *string `json:"parentPhone,omitempty"       validate:"omitempty,max=64"`
+	ParentPhoneRegion *string `json:"parentPhoneRegion,omitempty" validate:"omitempty,oneof=ID SG US CA"`
+	ParentEmail       *string `json:"parentEmail,omitempty"       validate:"omitempty,email"`
+	UserCode          *string `json:"userCode,omitempty"          validate:"omitempty,max=40"`
+	TempatLahir       *string `json:"tempatLahir,omitempty"       validate:"omitempty,max=120"`
+	Pendidikan        *string `json:"pendidikan,omitempty"        validate:"omitempty,max=80"`
+	Pekerjaan         *string `json:"pekerjaan,omitempty"         validate:"omitempty,max=80"`
+	Urutan            *int    `json:"urutan,omitempty"            validate:"omitempty,gte=0,lte=100000"`
+	HideDob           *bool   `json:"hideDob,omitempty"`
+	TglDaftar         *string `json:"tglDaftar,omitempty"         validate:"omitempty,datetime=2006-01-02"`
 }
 
 func (h *Teachers) parse(r *http.Request) (store.TeacherInput, error) {
@@ -47,27 +70,52 @@ func (h *Teachers) parse(r *http.Request) (store.TeacherInput, error) {
 	}
 
 	in := store.TeacherInput{
-		Name:     strings.TrimSpace(b.Name),
-		Nickname: trimPtr(b.Nickname),
-		Kelompok: strings.TrimSpace(b.Kelompok),
-		Desa:     strings.TrimSpace(b.Desa),
-		Daerah:   strings.TrimSpace(b.Daerah),
-		Status:   model.TeacherStatus(b.Status),
-		Notes:    trimPtr(b.Notes),
+		Name:              strings.TrimSpace(b.Name),
+		Nickname:          trimPtr(b.Nickname),
+		Gender:            trimPtr(b.Gender),
+		Kelompok:          strings.TrimSpace(b.Kelompok),
+		Desa:              strings.TrimSpace(b.Desa),
+		Daerah:            strings.TrimSpace(b.Daerah),
+		Status:            model.TeacherStatus(b.Status),
+		Notes:             trimPtr(b.Notes),
+		NoHP:              trimPtr(b.NoHP),
+		Alamat:            trimPtr(b.Alamat),
+		ParentName:        trimPtr(b.ParentName),
+		ParentTitle:       trimPtr(b.ParentTitle),
+		ParentPhone:       trimPtr(b.ParentPhone),
+		ParentPhoneRegion: trimPtr(b.ParentPhoneRegion),
+		ParentEmail:       trimPtr(b.ParentEmail),
+		UserCode:          trimPtr(b.UserCode),
+		TempatLahir:       trimPtr(b.TempatLahir),
+		Pendidikan:        trimPtr(b.Pendidikan),
+		Pekerjaan:         trimPtr(b.Pekerjaan),
 	}
-	if b.JoinedAt != nil && *b.JoinedAt != "" {
-		t, err := time.Parse("2006-01-02", *b.JoinedAt)
-		if err != nil {
-			return store.TeacherInput{}, err
-		}
-		in.JoinedAt = &t
+	if b.Level != nil && *b.Level != "" {
+		l := model.StudentLevel(*b.Level)
+		in.Level = &l
 	}
-	if b.RetiredAt != nil && *b.RetiredAt != "" {
-		t, err := time.Parse("2006-01-02", *b.RetiredAt)
-		if err != nil {
-			return store.TeacherInput{}, err
-		}
-		in.RetiredAt = &t
+	if t, err := parseOptionalDate(b.DateOfBirth); err != nil {
+		return store.TeacherInput{}, err
+	} else {
+		in.DateOfBirth = t
+	}
+	if b.Urutan != nil {
+		in.Urutan = *b.Urutan
+	}
+	if b.HideDob != nil {
+		in.HideDob = *b.HideDob
+	}
+	if t, err := parseOptionalDate(b.TglDaftar); err != nil {
+		return store.TeacherInput{}, err
+	} else {
+		in.TglDaftar = t
+	}
+	// JoinedAt / RetiredAt are intentionally dropped — the store no longer
+	// persists them after migration 041. Log at debug so the next "my
+	// retiredAt didn't save" bug surfaces when the caller bumps the level.
+	if b.JoinedAt != nil || b.RetiredAt != nil {
+		slog.Debug("teacher wire fields ignored after mig 041",
+			"joinedAt", b.JoinedAt, "retiredAt", b.RetiredAt)
 	}
 	return in, nil
 }

@@ -9,10 +9,15 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/fadhilkurnia/ppg-dashboard/internal/model"
 )
 
+// Students is a thin facade over the users table for the /api/students
+// endpoint group. Generus are stored as users with role='murid' since
+// migration 008; this facade preserves the existing model.Student / StudentInput
+// contract so the frontend Generus pages keep working unchanged.
 type Students struct {
 	db *sql.DB
 }
@@ -26,22 +31,36 @@ type StudentInput struct {
 	Nickname    *string
 	DateOfBirth *time.Time
 	Gender      string
-	Level       model.StudentLevel
-	Kelompok    string
-	City        *string
-	JoinedAt    *time.Time
-	LeftAt      *time.Time
-	LeaveReason *string
-	Status      model.StudentStatus
-	ParentName  *string
-	ParentPhone *string
-	ParentEmail *string
+	Level       *model.StudentLevel
+	Kelompok    *string
+	// Status maps to User.Active — "active" → 1, "left" → 0. Joined/left
+	// dates and leave_reason were dropped in migration 041.
+	Status            model.StudentStatus
+	ParentName        *string
+	ParentTitle       *string
+	ParentPhone       *string
+	ParentPhoneRegion *string
+	ParentEmail       *string
+	// Shared profile + biodata fields (same set as TeacherInput per the
+	// unified-user mechanism).
+	NoHP        *string
+	Alamat      *string
+	Desa        *string
+	Daerah      *string
+	Notes       *string
+	UserCode    *string
+	TempatLahir *string
+	Pendidikan  *string
+	Pekerjaan   *string
+	Urutan      int
+	HideDob     bool
+	TglDaftar   *time.Time
 }
 
 type ListParams struct {
 	Query    string
-	Status   string // "", "active", "left"
-	Kelompok string // "" (no filter) or one of the canonical kelompoks
+	Status   string
+	Kelompok string
 	Limit    int
 	Offset   int
 }
@@ -51,9 +70,12 @@ type ListResult struct {
 	Total int             `json:"total"`
 }
 
-const selectStudent = `SELECT id, name, nickname, date_of_birth, gender, level, kelompok, city,
-	joined_at, left_at, leave_reason, status, parent_name, parent_phone, parent_email,
-	created_at, updated_at FROM students`
+const selectStudentCols = `id, name, nickname, date_of_birth, gender, level, kelompok, active,
+	parent_name, parent_title, parent_phone, parent_phone_region, parent_email,
+	no_hp, alamat, desa, daerah, notes,
+	user_code, tempat_lahir, pendidikan, pekerjaan,
+	urutan, hide_dob, tgl_daftar,
+	photo_path, created_at, updated_at`
 
 func (s *Students) Create(ctx context.Context, in StudentInput) (*model.Student, error) {
 	if in.Status == "" {
@@ -61,18 +83,54 @@ func (s *Students) Create(ctx context.Context, in StudentInput) (*model.Student,
 	}
 	id := ulid.Make().String()
 	now := time.Now().UTC()
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO students
-		   (id, name, nickname, date_of_birth, gender, level, kelompok, city,
-		    joined_at, left_at, leave_reason, status,
-		    parent_name, parent_phone, parent_email,
-		    created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, in.Name, in.Nickname,
-		nullableDate(in.DateOfBirth), in.Gender, string(in.Level), in.Kelompok, in.City,
-		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason,
-		string(in.Status), in.ParentName, in.ParentPhone, in.ParentEmail,
-		now, now)
+
+	nickname := ""
+	if in.Nickname != nil {
+		nickname = *in.Nickname
+	}
+	email, err := uniqueDefaultEmail(ctx, s.db, emailLocalPart(nickname, in.Name), id)
+	if err != nil {
+		return nil, fmt.Errorf("generate default email: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte("changeme"), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash default password: %w", err)
+	}
+
+	active := 1
+	if in.Status == model.StudentLeft {
+		active = 0
+	}
+	hideDobInt := 0
+	if in.HideDob {
+		hideDobInt = 1
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`INSERT INTO users (
+		   id, email, password, name, role, active,
+		   nickname, date_of_birth, gender, kelompok,
+		   level, parent_name, parent_title, parent_phone, parent_phone_region, parent_email,
+		   no_hp, alamat, desa, daerah, notes,
+		   user_code, tempat_lahir, pendidikan, pekerjaan,
+		   urutan, hide_dob, tgl_daftar,
+		   created_at, updated_at
+		 ) VALUES (?, ?, ?, ?, 'murid', ?,
+		           ?, ?, ?, ?,
+		           ?, ?, ?, ?, ?, ?,
+		           ?, ?, ?, ?, ?,
+		           ?, ?, ?, ?,
+		           ?, ?, ?,
+		           ?, ?)`,
+		id, email, string(hash), in.Name, active,
+		in.Nickname, nullableDate(in.DateOfBirth), in.Gender, in.Kelompok,
+		nullableLevel(in.Level), in.ParentName, in.ParentTitle, in.ParentPhone, in.ParentPhoneRegion, in.ParentEmail,
+		in.NoHP, in.Alamat, in.Desa, in.Daerah, in.Notes,
+		in.UserCode, in.TempatLahir, in.Pendidikan, in.Pekerjaan,
+		in.Urutan, hideDobInt, nullableDate(in.TglDaftar),
+		now, now,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +138,8 @@ func (s *Students) Create(ctx context.Context, in StudentInput) (*model.Student,
 }
 
 func (s *Students) Get(ctx context.Context, id string) (*model.Student, error) {
-	row := s.db.QueryRowContext(ctx, selectStudent+` WHERE id = ?`, id)
+	row := s.db.QueryRowContext(ctx,
+		`SELECT `+selectStudentCols+` FROM users WHERE id = ? AND role = 'murid'`, id)
 	return scanStudent(row)
 }
 
@@ -88,18 +147,34 @@ func (s *Students) Update(ctx context.Context, id string, in StudentInput) (*mod
 	if in.Status == "" {
 		in.Status = model.StudentActive
 	}
+	active := 1
+	if in.Status == model.StudentLeft {
+		active = 0
+	}
 	now := time.Now().UTC()
+	hideDobInt := 0
+	if in.HideDob {
+		hideDobInt = 1
+	}
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE students SET
-		   name = ?, nickname = ?, date_of_birth = ?, gender = ?, level = ?, kelompok = ?, city = ?,
-		   joined_at = ?, left_at = ?, leave_reason = ?, status = ?,
-		   parent_name = ?, parent_phone = ?, parent_email = ?, updated_at = ?
-		 WHERE id = ?`,
+		`UPDATE users SET
+		   name = ?, nickname = ?, date_of_birth = ?, gender = ?, level = ?, kelompok = ?,
+		   active = ?,
+		   parent_name = ?, parent_title = ?, parent_phone = ?, parent_phone_region = ?, parent_email = ?,
+		   no_hp = ?, alamat = ?, desa = ?, daerah = ?, notes = ?,
+		   user_code = ?, tempat_lahir = ?, pendidikan = ?, pekerjaan = ?,
+		   urutan = ?, hide_dob = ?, tgl_daftar = ?,
+		   updated_at = ?
+		 WHERE id = ? AND role = 'murid'`,
 		in.Name, in.Nickname,
-		nullableDate(in.DateOfBirth), in.Gender, string(in.Level), in.Kelompok, in.City,
-		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason,
-		string(in.Status), in.ParentName, in.ParentPhone, in.ParentEmail,
-		now, id)
+		nullableDate(in.DateOfBirth), in.Gender, nullableLevel(in.Level), in.Kelompok,
+		active,
+		in.ParentName, in.ParentTitle, in.ParentPhone, in.ParentPhoneRegion, in.ParentEmail,
+		in.NoHP, in.Alamat, in.Desa, in.Daerah, in.Notes,
+		in.UserCode, in.TempatLahir, in.Pendidikan, in.Pekerjaan,
+		in.Urutan, hideDobInt, nullableDate(in.TglDaftar),
+		now, id,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +189,8 @@ func (s *Students) Update(ctx context.Context, id string, in StudentInput) (*mod
 }
 
 func (s *Students) Delete(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM students WHERE id = ?`, id)
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM users WHERE id = ? AND role = 'murid'`, id)
 	if err != nil {
 		return err
 	}
@@ -136,7 +212,7 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 		p.Offset = 0
 	}
 
-	var clauses []string
+	clauses := []string{"role = 'murid'"}
 	var args []any
 	if q := strings.TrimSpace(p.Query); q != "" {
 		clauses = append(clauses, "(name LIKE ? OR nickname LIKE ?)")
@@ -144,27 +220,27 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 		args = append(args, like, like)
 	}
 	if p.Status != "" {
-		clauses = append(clauses, "status = ?")
-		args = append(args, p.Status)
+		clauses = append(clauses, "active = ?")
+		if p.Status == "active" {
+			args = append(args, 1)
+		} else {
+			args = append(args, 0)
+		}
 	}
 	if p.Kelompok != "" {
 		clauses = append(clauses, "kelompok = ?")
 		args = append(args, p.Kelompok)
 	}
-
-	where := ""
-	if len(clauses) > 0 {
-		where = " WHERE " + strings.Join(clauses, " AND ")
-	}
+	where := " WHERE " + strings.Join(clauses, " AND ")
 
 	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM students`+where, args...).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`+where, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("count students: %w", err)
 	}
 
 	listArgs := append(append([]any{}, args...), p.Limit, p.Offset)
 	rows, err := s.db.QueryContext(ctx,
-		selectStudent+where+` ORDER BY name ASC LIMIT ? OFFSET ?`,
+		`SELECT `+selectStudentCols+` FROM users`+where+` ORDER BY name ASC LIMIT ? OFFSET ?`,
 		listArgs...)
 	if err != nil {
 		return nil, err
@@ -197,47 +273,47 @@ type LevelKelompokCell struct {
 }
 
 type StudentStats struct {
-	Total       int                 `json:"total"`       // every row
-	ActiveTotal int                 `json:"activeTotal"` // status='active'
-	// All distributions below count active rows only — that's the dashboard's
-	// primary focus. ByStatus is the exception: it keeps the active/left
-	// split so callers can still see the inactive count.
-	ByGender   []Bucket            `json:"byGender"`
-	ByStatus   []Bucket            `json:"byStatus"`
-	ByLevel    []Bucket            `json:"byLevel"`
-	ByKelompok []Bucket            `json:"byKelompok"`
-	Matrix     []LevelKelompokCell `json:"matrix"`
+	Total       int                 `json:"total"`
+	ActiveTotal int                 `json:"activeTotal"`
+	ByGender    []Bucket            `json:"byGender"`
+	ByStatus    []Bucket            `json:"byStatus"`
+	ByLevel     []Bucket            `json:"byLevel"`
+	ByKelompok  []Bucket            `json:"byKelompok"`
+	Matrix      []LevelKelompokCell `json:"matrix"`
 }
 
-// Stats produces the aggregates the dashboard needs in one round trip.
-// Buckets are returned in canonical order (Caberawit → Pra Nikah for level,
-// California → Canada for kelompok), with a trailing zero-count entry for
-// any canonical value that has no rows.
 func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	out := &StudentStats{}
 
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM students`).Scan(&out.Total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = 'murid'`).Scan(&out.Total); err != nil {
 		return nil, err
 	}
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM students WHERE status = 'active'`).Scan(&out.ActiveTotal); err != nil {
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM users WHERE role = 'murid' AND active = 1`).Scan(&out.ActiveTotal); err != nil {
 		return nil, err
 	}
 
-	gender, err := s.groupCount(ctx,
-		`SELECT gender, COUNT(*) FROM students WHERE status = 'active' GROUP BY gender`)
+	gender, err := groupCount(ctx, s.db,
+		`SELECT COALESCE(gender, ''), COUNT(*) FROM users
+		  WHERE role = 'murid' AND active = 1 GROUP BY gender`)
 	if err != nil {
 		return nil, err
 	}
 	out.ByGender = orderedBuckets(gender, []string{"female", "male"})
 
-	status, err := s.groupCount(ctx, `SELECT status, COUNT(*) FROM students GROUP BY status`)
+	// Status is binary: active=1 → "active", active=0 → "left" (synthesised
+	// after migration 041 dropped membership_status).
+	status, err := groupCount(ctx, s.db,
+		`SELECT CASE WHEN active = 1 THEN 'active' ELSE 'left' END, COUNT(*)
+		   FROM users WHERE role = 'murid' GROUP BY active`)
 	if err != nil {
 		return nil, err
 	}
 	out.ByStatus = orderedBuckets(status, []string{"active", "left"})
 
-	level, err := s.groupCount(ctx,
-		`SELECT level, COUNT(*) FROM students WHERE status = 'active' GROUP BY level`)
+	level, err := groupCount(ctx, s.db,
+		`SELECT COALESCE(level, ''), COUNT(*) FROM users
+		  WHERE role = 'murid' AND active = 1 GROUP BY level`)
 	if err != nil {
 		return nil, err
 	}
@@ -246,19 +322,21 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 		string(model.LevelPraRemaja),
 		string(model.LevelRemaja),
 		string(model.LevelPraNikah),
+		"",
 	})
 
-	kelompok, err := s.groupCount(ctx,
-		`SELECT kelompok, COUNT(*) FROM students WHERE status = 'active' GROUP BY kelompok`)
+	kelompok, err := groupCount(ctx, s.db,
+		`SELECT COALESCE(kelompok, ''), COUNT(*) FROM users
+		  WHERE role = 'murid' AND active = 1 GROUP BY kelompok`)
 	if err != nil {
 		return nil, err
 	}
-	out.ByKelompok = orderedBuckets(kelompok, model.StudentKelompoks)
+	out.ByKelompok = orderedBuckets(kelompok, append(append([]string{}, model.StudentKelompoks...), ""))
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT level, kelompok, COUNT(*)
-		   FROM students
-		  WHERE status = 'active'
+		`SELECT COALESCE(level, ''), COALESCE(kelompok, ''), COUNT(*)
+		   FROM users
+		  WHERE role = 'murid' AND active = 1
 		  GROUP BY level, kelompok`)
 	if err != nil {
 		return nil, err
@@ -274,8 +352,8 @@ func (s *Students) Stats(ctx context.Context) (*StudentStats, error) {
 	return out, rows.Err()
 }
 
-func (s *Students) groupCount(ctx context.Context, query string) (map[string]int, error) {
-	rows, err := s.db.QueryContext(ctx, query)
+func groupCount(ctx context.Context, db *sql.DB, query string) (map[string]int, error) {
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -313,29 +391,38 @@ func scanStudent(s scanner) (*model.Student, error) {
 
 func readStudent(s scanner) (*model.Student, error) {
 	var st model.Student
-	var status, level string
-	var dob, joinedAt, leftAt sql.NullTime
+	var active int
+	var dob sql.NullTime
+	var level sql.NullString
+	var hideDob int
+	var tglDaftar sql.NullString
+	var photoPath *string
 	if err := s.Scan(
-		&st.ID, &st.Name, &st.Nickname, &dob, &st.Gender, &level, &st.Kelompok, &st.City,
-		&joinedAt, &leftAt, &st.LeaveReason, &status,
-		&st.ParentName, &st.ParentPhone, &st.ParentEmail,
-		&st.CreatedAt, &st.UpdatedAt,
+		&st.ID, &st.Name, &st.Nickname, &dob, &st.Gender, &level, &st.Kelompok, &active,
+		&st.ParentName, &st.ParentTitle, &st.ParentPhone, &st.ParentPhoneRegion, &st.ParentEmail,
+		&st.NoHP, &st.Alamat, &st.Desa, &st.Daerah, &st.Notes,
+		&st.UserCode, &st.TempatLahir, &st.Pendidikan, &st.Pekerjaan,
+		&st.Urutan, &hideDob, &tglDaftar,
+		&photoPath, &st.CreatedAt, &st.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}
-	st.Status = model.StudentStatus(status)
-	st.Level = model.StudentLevel(level)
+	st.PhotoURL = model.PhotoURL(photoPath)
+	st.HideDob = hideDob == 1
+	st.TglDaftar = parseStoredDate(tglDaftar)
+	// Status is synthesised from active per the unified-user mechanism.
+	if active == 1 {
+		st.Status = model.StudentActive
+	} else {
+		st.Status = model.StudentLeft
+	}
 	if dob.Valid {
 		v := dob.Time
 		st.DateOfBirth = &v
 	}
-	if joinedAt.Valid {
-		v := joinedAt.Time
-		st.JoinedAt = &v
-	}
-	if leftAt.Valid {
-		v := leftAt.Time
-		st.LeftAt = &v
+	if level.Valid {
+		v := model.StudentLevel(level.String)
+		st.Level = &v
 	}
 	return &st, nil
 }

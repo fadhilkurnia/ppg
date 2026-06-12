@@ -1,8 +1,8 @@
 services:
   app:
     build: .
-    image: ppg-dashboard:latest
-    container_name: ppg-dashboard
+    image: gnrs:latest
+    container_name: gnrs
     ports:
       - "${PORT:-8080}:8080"
     environment:
@@ -14,19 +14,8 @@ services:
       SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
     volumes:
-      - ppg-data:/app/data
+      - gnrs-data:/app/data
     restart: unless-stopped
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: ppg-cloudflared
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      - app
-    restart: unless-stopped
-    profiles: ["tunnel"]
 
 volumes:
-  ppg-data:
+  gnrs-data:

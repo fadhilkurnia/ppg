@@ -30,7 +30,7 @@ type attendanceBody struct {
 	DurationMin *int    `json:"durationMin,omitempty" validate:"omitempty,min=0,max=1440"`
 	TeacherID   string  `json:"teacherId"          validate:"required,min=1"`
 	StudentID   string  `json:"studentId"          validate:"required,min=1"`
-	Status      string  `json:"status"             validate:"required,oneof=hadir izin_murid izin_guru by_vn"`
+	Status      string  `json:"status"             validate:"required,oneof=hadir izin_murid izin_guru by_vn alfa"`
 	Materi      *string `json:"materi,omitempty"   validate:"omitempty,max=20000"`
 }
 
@@ -60,7 +60,6 @@ func (h *Attendances) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
-
 	p := store.AttendanceListParams{
 		TeacherID: q.Get("teacherId"),
 		StudentID: q.Get("studentId"),
@@ -78,7 +77,6 @@ func (h *Attendances) List(w http.ResponseWriter, r *http.Request) {
 			p.DateTo = &t
 		}
 	}
-
 	res, err := h.attendances.List(r.Context(), p)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil daftar kehadiran")
@@ -145,4 +143,25 @@ func (h *Attendances) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
+}
+
+func (h *Attendances) Stats(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	p := store.AttendanceStatsParams{}
+	if v := strings.TrimSpace(q.Get("dateFrom")); v != "" {
+		if t, err := time.Parse("2006-01-02", v); err == nil {
+			p.DateFrom = &t
+		}
+	}
+	if v := strings.TrimSpace(q.Get("dateTo")); v != "" {
+		if t, err := time.Parse("2006-01-02", v); err == nil {
+			p.DateTo = &t
+		}
+	}
+	stats, err := h.attendances.Stats(r.Context(), p)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menghitung statistik")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, stats)
 }

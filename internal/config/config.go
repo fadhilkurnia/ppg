@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -10,6 +11,7 @@ import (
 type Config struct {
 	Port            int
 	DatabasePath    string
+	PhotosDir       string
 	JWTSecret       []byte
 	JWTTTL          time.Duration
 	CookieSecure    bool
@@ -17,34 +19,20 @@ type Config struct {
 	SeedAdminUsername string
 	SeedAdminPass     string
 	Dev             bool
-	DynamicAPIPath  bool
-
-	// WhatsApp outbound. WhatsAppProvider="" disables sending entirely
-	// (handler uses a Noop sender). When enabled, Token must be set; the
-	// admin number receives every public /absen submission, and (if the
-	// submitter entered a number) they receive a confirmation copy.
-	WhatsAppProvider        string
-	WhatsAppToken           string
-	WhatsAppAdminNumber     string
-	WhatsAppSendToSubmitter bool
 }
 
 func Load() (Config, error) {
+	dbPath := getString("DATABASE_PATH", "./data/app.db")
 	c := Config{
 		Port:           getInt("PORT", 8080),
-		DatabasePath:   getString("DATABASE_PATH", "./data/app.db"),
+		DatabasePath:   dbPath,
+		PhotosDir:      getString("PHOTOS_DIR", filepath.Join(filepath.Dir(dbPath), "photos")),
 		JWTTTL:         getDuration("JWT_TTL", 24*time.Hour),
 		CookieSecure:   getBool("COOKIE_SECURE", false),
 		SeedAdminEmail:    os.Getenv("SEED_ADMIN_EMAIL"),
 		SeedAdminUsername: os.Getenv("SEED_ADMIN_USERNAME"),
 		SeedAdminPass:     os.Getenv("SEED_ADMIN_PASSWORD"),
 		Dev:            getBool("DEV", false),
-		DynamicAPIPath: getBool("DYNAMIC_API_PATH", false),
-
-		WhatsAppProvider:        getString("WHATSAPP_PROVIDER", ""),
-		WhatsAppToken:           os.Getenv("WHATSAPP_TOKEN"),
-		WhatsAppAdminNumber:     os.Getenv("WHATSAPP_ADMIN_NUMBER"),
-		WhatsAppSendToSubmitter: getBool("WHATSAPP_SEND_TO_SUBMITTER", true),
 	}
 
 	secret := os.Getenv("JWT_SECRET")

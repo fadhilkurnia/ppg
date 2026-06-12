@@ -2,7 +2,7 @@
 .gitignore
 .dockerignore
 README.md
-RULES.md
+PODMAN.md
 Makefile
 
 # Local data and env
@@ -17,7 +17,6 @@ data/
 # Frontend artifacts (we rebuild them inside the image)
 web/app/node_modules/
 web/app/dist/
-.pnpm-store/
 
 # tsc artifacts
 **/*.tsbuildinfo

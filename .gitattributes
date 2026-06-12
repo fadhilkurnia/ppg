@@ -1,0 +1,21 @@
+# Normalize all text files to LF in the repository.
+# Without this, files committed from a Windows worktree land as CRLF and
+# every line shows as changed against the LF-based tracks.
+* text=auto eol=lf
+
+# Explicit binaries (never normalize).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.db binary
+*.tar binary
+*.gz binary
+*.zip binary

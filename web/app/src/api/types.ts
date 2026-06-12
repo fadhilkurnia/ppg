@@ -8,13 +8,12 @@ export type User = {
   role: Role
   createdAt: string
   updatedAt: string
-}
-
-// AuthMe is the server response shape for /api/auth/login and /api/auth/me.
-// It extends User with the API base for the current session (either the
-// canonical "/api" or a dynamic per-session prefix like "/a3f8d2e1b9c7").
-export type AuthMe = User & {
-  apiBase: string
+  // Optional profile fields exposed by the backend on /api/auth/me.
+  nickname?: string | null
+  timezone?: string | null
+  noHp?: string | null
+  alamat?: string | null
+  photoUrl?: string | null
 }
 
 export const STUDENT_LEVELS = ['Caberawit', 'Pra Remaja', 'Remaja', 'Pra Nikah'] as const
@@ -31,16 +30,32 @@ export type Student = {
   nickname?: string
   dateOfBirth?: string
   gender: 'male' | 'female'
-  level: StudentLevel
-  kelompok: StudentKelompok
-  city?: string
+  level?: StudentLevel
+  kelompok?: StudentKelompok
   joinedAt?: string
   leftAt?: string
   leaveReason?: string
   status: StudentStatus
   parentName?: string
+  parentTitle?: string
   parentPhone?: string
+  parentPhoneRegion?: 'ID' | 'SG' | 'US' | 'CA'
   parentEmail?: string
+  // Shared profile + biodata fields (same set as Teacher per the
+  // unified-user mechanism).
+  noHp?: string
+  alamat?: string
+  desa?: string
+  daerah?: string
+  notes?: string
+  userCode?: string
+  tempatLahir?: string
+  pendidikan?: string
+  pekerjaan?: string
+  urutan?: number
+  hideDob?: boolean
+  tglDaftar?: string
+  photoUrl?: string
   createdAt: string
   updatedAt: string
 }
@@ -55,16 +70,29 @@ export type StudentInput = {
   nickname?: string
   dateOfBirth?: string
   gender: 'male' | 'female'
-  level: StudentLevel
-  kelompok: StudentKelompok
-  city?: string
+  level?: StudentLevel
+  kelompok?: StudentKelompok
   joinedAt?: string
   leftAt?: string
   leaveReason?: string
   status: StudentStatus
   parentName?: string
+  parentTitle?: string
   parentPhone?: string
+  parentPhoneRegion?: 'ID' | 'SG' | 'US' | 'CA'
   parentEmail?: string
+  noHp?: string
+  alamat?: string
+  desa?: string
+  daerah?: string
+  notes?: string
+  userCode?: string
+  tempatLahir?: string
+  pendidikan?: string
+  pekerjaan?: string
+  urutan?: number
+  hideDob?: boolean
+  tglDaftar?: string
 }
 
 export type TeacherStatus = 'active' | 'retired'
@@ -73,6 +101,7 @@ export type Teacher = {
   id: string
   name: string
   nickname?: string
+  gender?: 'male' | 'female'
   kelompok: string
   desa: string
   daerah: string
@@ -80,6 +109,25 @@ export type Teacher = {
   retiredAt?: string
   status: TeacherStatus
   notes?: string
+  // Shared profile + biodata fields (same set as Student per the
+  // unified-user mechanism).
+  dateOfBirth?: string
+  noHp?: string
+  alamat?: string
+  level?: StudentLevel
+  parentName?: string
+  parentTitle?: string
+  parentPhone?: string
+  parentPhoneRegion?: 'ID' | 'SG' | 'US' | 'CA'
+  parentEmail?: string
+  userCode?: string
+  tempatLahir?: string
+  pendidikan?: string
+  pekerjaan?: string
+  urutan?: number
+  hideDob?: boolean
+  tglDaftar?: string
+  photoUrl?: string
   createdAt: string
   updatedAt: string
 }
@@ -89,48 +137,10 @@ export type TeacherList = {
   total: number
 }
 
-export const ATTENDANCE_STATUSES = ['hadir', 'izin_murid', 'izin_guru', 'by_vn'] as const
-export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number]
-
-export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
-  hadir: 'Hadir',
-  izin_murid: 'Izin (Murid)',
-  izin_guru: 'Izin (Guru)',
-  by_vn: 'Via Voice Note',
-}
-
-export type Attendance = {
-  id: string
-  date: string
-  durationMin?: number
-  teacherId: string
-  teacherName: string
-  studentId: string
-  studentName: string
-  status: AttendanceStatus
-  materi?: string
-  submittedPhone?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export type AttendanceList = {
-  items: Attendance[]
-  total: number
-}
-
-export type AttendanceInput = {
-  date: string
-  durationMin?: number
-  teacherId: string
-  studentId: string
-  status: AttendanceStatus
-  materi?: string
-}
-
 export type TeacherInput = {
   name: string
   nickname?: string
+  gender?: 'male' | 'female'
   kelompok: string
   desa: string
   daerah: string
@@ -138,4 +148,20 @@ export type TeacherInput = {
   retiredAt?: string
   status: TeacherStatus
   notes?: string
+  dateOfBirth?: string
+  noHp?: string
+  alamat?: string
+  level?: StudentLevel
+  parentName?: string
+  parentTitle?: string
+  parentPhone?: string
+  parentPhoneRegion?: 'ID' | 'SG' | 'US' | 'CA'
+  parentEmail?: string
+  userCode?: string
+  tempatLahir?: string
+  pendidikan?: string
+  pekerjaan?: string
+  urutan?: number
+  hideDob?: boolean
+  tglDaftar?: string
 }

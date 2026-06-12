@@ -1,3 +1,71 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    /* iOS Safari < 15.4 (no svh): fill the visible viewport, excluding the
+       browser toolbars, so the bottom nav isn't hidden behind the URL bar. */
+    height: -webkit-fill-available;
+    overflow: hidden;
+  }
+
+  /* iOS Safari: size the app shell to the SMALL viewport (svh) — the height
+     when the toolbars are shown — so the bottom nav always sits above the
+     URL/tool bar regardless of its collapse state. `dvh` is dynamic and on a
+     non-scrolling shell can resolve to the large viewport, hiding the nav. */
+  @supports (height: 100svh) {
+    html,
+    body,
+    #root {
+      height: 100svh;
+    }
+  }
+
+  /* iOS Safari auto-zooms into any focused input/select/textarea whose
+     font-size is < 16px. Force form controls to 16px on touch devices to stop
+     the zoom-on-focus. Pinch-zoom still works (we don't touch maximum-scale).
+     !important overrides Tailwind's text-sm/text-xs on inputs. */
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Arabic typeface — Amiri preferred (Google Fonts), falls back to system
+     Arabic faces. Matches sitrac-v3's --font-arab so the Quran/Doa/Hadits
+     viewers render identically. */
+  :root {
+    --font-arab: 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', serif;
+  }
+}
+
+@layer utilities {
+  .font-arab {
+    font-family: var(--font-arab);
+    direction: rtl;
+    text-align: right;
+    line-height: 2;
+  }
+
+  /* Sitrac-style mushaf "paper" — cream background with gold double-border. */
+  .mushaf-page {
+    background: #fdfaf3;
+    border: 2px double #b08d57;
+    box-shadow: 0 6px 18px rgba(176, 141, 87, 0.25);
+    padding: 30px 26px;
+    border-radius: 4px;
+    min-height: 580px;
+  }
+  @media (max-width: 640px) {
+    .mushaf-page {
+      padding: 18px 14px;
+      min-height: 70vh;
+    }
+  }
+}

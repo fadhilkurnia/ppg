@@ -132,16 +132,19 @@ func parseRow(row []string) (store.TeacherInput, error) {
 		notes = &keterangan
 	}
 
+	// JoinedAt / RetiredAt are no longer persisted after migration 041 —
+	// the importer drops them silently.
+	_ = joinedAt
+	_ = retiredAt
+
 	return store.TeacherInput{
-		Name:      name,
-		Nickname:  nilIfEmpty(row[2]),
-		Kelompok:  kelompok,
-		Desa:      desa,
-		Daerah:    daerah,
-		JoinedAt:  joinedAt,
-		RetiredAt: retiredAt,
-		Status:    status,
-		Notes:     notes,
+		Name:     name,
+		Nickname: nilIfEmpty(row[2]),
+		Kelompok: kelompok,
+		Desa:     desa,
+		Daerah:   daerah,
+		Status:   status,
+		Notes:    notes,
 	}, nil
 }
 

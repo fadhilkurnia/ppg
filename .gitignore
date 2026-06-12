@@ -6,8 +6,17 @@
 
 # Go
 /server
+bin/*.exe
 *.test
 *.out
+
+# Compiled one-off CLI tools (rebuild from ./cmd)
+/import-historical
+/import-historical.exe
+/import-historical-linux
+/backfill-pencapaian
+/backfill-pencapaian.exe
+/backfill-pencapaian-linux
 
 # Frontend
 web/app/node_modules/
@@ -28,12 +37,16 @@ data/
 # CSV exports / imports (kept out of source)
 *.csv
 
-# Claude Code local state (per-machine worktrees, settings, etc.)
-.claude/
+# Local analysis artifacts (not source)
+nickname_mapping.md
+kehadiran.jpeg
+/excel/
 
-# IDE / OS
+# IDE / OS / Agent state
 .idea/
 .vscode/
+.claude/
+.seed/
 *.swp
 *.swo
 .DS_Store
@@ -46,3 +59,4 @@ web/app/src/routeTree.gen.ts
 *.tsbuildinfo
 web/app/vite.config.d.ts
 web/app/vite.config.js
+.gstack/

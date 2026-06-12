@@ -56,9 +56,7 @@ func TestTeachersCRUD(t *testing.T) {
 		t.Errorf("Daerah = %q, want Luwu Timur", got.Daerah)
 	}
 
-	retired := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	in := teacherInput("Alice Renamed", "Luwu Timur", model.TeacherRetired)
-	in.RetiredAt = &retired
 	updated, err := s.Update(ctx, created.ID, in)
 	if err != nil {
 		t.Fatalf("update: %v", err)
@@ -66,15 +64,64 @@ func TestTeachersCRUD(t *testing.T) {
 	if updated.Name != "Alice Renamed" || updated.Status != model.TeacherRetired {
 		t.Errorf("after update: %+v", updated)
 	}
-	if updated.RetiredAt == nil || !updated.RetiredAt.Equal(retired) {
-		t.Errorf("RetiredAt = %v, want %v", updated.RetiredAt, retired)
-	}
 
 	if err := s.Delete(ctx, created.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 	if _, err := s.Get(ctx, created.ID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Get after delete: err = %v, want ErrNotFound", err)
+	}
+}
+
+// TestTeachersSharedFieldsRoundTrip verifies the formerly murid-only / taaruf
+// fields now persist and read back through the guru facade (unified-user
+// mechanism: a teacher carries the same field set as a student).
+func TestTeachersSharedFieldsRoundTrip(t *testing.T) {
+	s := newTeachersDB(t)
+	ctx := context.Background()
+
+	level := model.LevelRemaja
+	parentName := "Pak Budi"
+	parentPhone := "0812345"
+	region := "ID"
+	dob := time.Date(1990, 5, 6, 0, 0, 0, 0, time.UTC)
+	pekerjaan := "Guru"
+
+	in := teacherInput("Shared", "Luwu Timur", model.TeacherActive)
+	in.Level = &level
+	in.ParentName = &parentName
+	in.ParentPhone = &parentPhone
+	in.ParentPhoneRegion = &region
+	in.DateOfBirth = &dob
+	in.Pekerjaan = &pekerjaan
+	in.Urutan = 3
+	in.HideDob = true
+
+	created, err := s.Create(ctx, in)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := s.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Level == nil || *got.Level != level {
+		t.Errorf("Level = %v, want %v", got.Level, level)
+	}
+	if got.ParentName == nil || *got.ParentName != parentName {
+		t.Errorf("ParentName = %v, want %q", got.ParentName, parentName)
+	}
+	if got.DateOfBirth == nil || !got.DateOfBirth.Equal(dob) {
+		t.Errorf("DateOfBirth = %v, want %v", got.DateOfBirth, dob)
+	}
+	if got.Pekerjaan == nil || *got.Pekerjaan != pekerjaan {
+		t.Errorf("Pekerjaan = %v, want %q", got.Pekerjaan, pekerjaan)
+	}
+	if got.Urutan != 3 {
+		t.Errorf("Urutan = %d, want 3", got.Urutan)
+	}
+	if !got.HideDob {
+		t.Errorf("HideDob = false, want true")
 	}
 }
 

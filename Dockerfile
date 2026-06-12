@@ -4,15 +4,14 @@
 FROM node:20-alpine AS frontend
 WORKDIR /web/app
 
-RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
-COPY web/app/package.json web/app/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY web/app/package.json web/app/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
 COPY web/app ./
-RUN pnpm build
+RUN npm run build
 
 # 2. Build the Go binary with the SPA embedded
-FROM golang:1.22-alpine AS backend
+FROM golang:1.25-alpine AS backend
 RUN apk add --no-cache build-base sqlite-dev
 WORKDIR /src
 

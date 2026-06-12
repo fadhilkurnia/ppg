@@ -11,25 +11,25 @@ api: ## Run only the Go API in dev mode (no embedded SPA)
 	DEV=1 go run ./cmd/server
 
 web: ## Run only the Vite dev server
-	pnpm --dir web/app dev
+	npm --prefix web/app run dev
 
 build: ## Build SPA, then Go binary with the SPA embedded
-	pnpm --dir web/app install --frozen-lockfile
-	pnpm --dir web/app build
+	npm --prefix web/app ci
+	npm --prefix web/app run build
 	CGO_ENABLED=1 go build -ldflags="-s -w" -o ./server ./cmd/server
 
 test: ## Run Go tests
 	go test ./... -count=1
 
 typecheck: ## Type-check the frontend
-	pnpm --dir web/app typecheck
+	npm --prefix web/app run typecheck
 
 docker: ## Build the Docker image
-	docker build -t ppg-dashboard:latest .
+	docker build -t gnrs:latest .
 
-docker-run: ## Run the latest image with .env (uses named volume ppg-data)
-	docker volume create ppg-data >/dev/null
-	docker run --rm -it --env-file .env -p 8080:8080 -v ppg-data:/app/data ppg-dashboard:latest
+docker-run: ## Run the latest image with .env (uses named volume gnrs-data)
+	docker volume create gnrs-data >/dev/null
+	docker run --rm -it --env-file .env -p 8080:8080 -v gnrs-data:/app/data gnrs:latest
 
 clean: ## Remove build artifacts
 	rm -rf ./server web/dist/* web/app/node_modules web/app/dist
