@@ -1,26 +1,28 @@
-import { ATTENDANCE_STATUS_LABELS, type Attendance } from '@/api/types'
+import { useTranslation } from 'react-i18next'
+import { type Attendance } from '@/api/types'
 
 export function AttendanceDetail({ attendance: a }: { attendance: Attendance }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-5 text-sm">
       <dl className="grid gap-4 sm:grid-cols-2">
-        <Row label="Tanggal" value={a.date.slice(0, 10)} />
-        <Row label="Status" value={ATTENDANCE_STATUS_LABELS[a.status]} />
-        <Row label="Pengajar" value={a.teacherName} />
-        <Row label="Generus" value={a.studentName} />
+        <Row label={t('sessions.detail.date')} value={a.date.slice(0, 10)} />
+        <Row label={t('sessions.detail.status')} value={t(`statusLabels.${a.status}`)} />
+        <Row label={t('sessions.detail.teacher')} value={a.teacherName} />
+        <Row label={t('sessions.detail.student')} value={a.studentName} />
         <Row
-          label="Durasi"
-          value={a.durationMin != null ? `${a.durationMin} menit` : '—'}
+          label={t('sessions.detail.duration')}
+          value={a.durationMin != null ? t('sessions.detail.durationMin', { min: a.durationMin }) : '\u2014'}
         />
       </dl>
       <div>
-        <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">Materi</div>
+        <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">{t('sessions.detail.materi')}</div>
         {a.materi ? (
           <pre className="whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-slate-50 p-3 font-sans text-sm text-slate-900">
             {a.materi}
           </pre>
         ) : (
-          <p className="text-slate-400">—</p>
+          <p className="text-slate-400">{'\u2014'}</p>
         )}
       </div>
     </div>

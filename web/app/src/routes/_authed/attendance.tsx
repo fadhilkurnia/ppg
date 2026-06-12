@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   CartesianGrid,
   Cell,
@@ -21,7 +23,7 @@ import {
   type StudentAggregate,
   type TeacherAggregate,
 } from '@/api/stats'
-import { ATTENDANCE_STATUS_LABELS, type AttendanceStatus } from '@/api/types'
+import { type AttendanceStatus } from '@/api/types'
 import { cn } from '@/lib/cn'
 
 const searchSchema = z.object({
@@ -33,24 +35,18 @@ export const Route = createFileRoute('/_authed/attendance')({
   component: AttendanceStatsPage,
 })
 
-/**
- * Resolve a `range` token into ISO `dateFrom`/`dateTo` strings, plus a
- * human-readable label for the UI. `all` (or any unknown token) returns
- * undefined bounds so the API sees no date filter.
- */
-function resolveRange(token: string | undefined, today = new Date()) {
+function resolveRange(token: string | undefined, t: TFunction<'attendance'>, today = new Date()) {
   const yyyy = today.getFullYear()
   const mm = String(today.getMonth() + 1).padStart(2, '0')
   const dd = String(today.getDate()).padStart(2, '0')
   const todayIso = `${yyyy}-${mm}-${dd}`
 
   if (token === 'ytd') {
-    return { dateFrom: `${yyyy}-01-01`, dateTo: todayIso, label: 'Tahun Ini' }
+    return { dateFrom: `${yyyy}-01-01`, dateTo: todayIso, label: t('rangeYtd') }
   }
   if (token === 'mtd') {
-    return { dateFrom: `${yyyy}-${mm}-01`, dateTo: todayIso, label: 'Bulan Ini' }
+    return { dateFrom: `${yyyy}-${mm}-01`, dateTo: todayIso, label: t('rangeMtd') }
   }
-  // Numeric year, e.g. "2024"
   if (token && /^\d{4}$/.test(token)) {
     return {
       dateFrom: `${token}-01-01`,
@@ -58,20 +54,21 @@ function resolveRange(token: string | undefined, today = new Date()) {
       label: token,
     }
   }
-  return { dateFrom: undefined, dateTo: undefined, label: 'Semua' }
+  return { dateFrom: undefined, dateTo: undefined, label: t('rangeAll') }
 }
 
 const STATUS_COLORS: Record<AttendanceStatus, string> = {
-  hadir: '#10b981',        // emerald-500
-  izin_murid: '#f59e0b',   // amber-500
-  izin_guru: '#f97316',    // orange-500
-  by_vn: '#0ea5e9',        // sky-500
+  hadir: '#10b981',
+  izin_murid: '#f59e0b',
+  izin_guru: '#f97316',
+  by_vn: '#0ea5e9',
 }
 
 function AttendanceStatsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate({ from: '/attendance' })
   const { range } = Route.useSearch()
-  const resolved = useMemo(() => resolveRange(range), [range])
+  const resolved = useMemo(() => resolveRange(range, t), [range, t])
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['stats', 'attendance', resolved.dateFrom ?? null, resolved.dateTo ?? null],
@@ -80,68 +77,68 @@ function AttendanceStatsPage() {
     staleTime: 60_000,
   })
 
-  if (isError) return <p className="text-red-600">Gagal memuat statistik kehadiran.</p>
-  if (isPending || !data) return <p className="text-slate-500">Memuat…</p>
+  if (isError) return <p className="text-red-600">{t('attendance.loadFailed')}</p>
+  if (isPending || !data) return <p className="text-slate-500">{t('common.loading')}</p>
 
   const activeToken = range ?? 'all'
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Kehadiran</h1>
+        <h1 className="text-2xl font-semibold">{t('attendance.title')}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Ringkasan dan analitik dari seluruh data Pengajian.
+          {t('attendance.subtitle')}
         </p>
       </div>
 
       <RangeFilter
         active={activeToken}
         availableYears={data.availableYears}
-        onChange={(t) =>
-          void navigate({ search: { range: t === 'all' ? undefined : t } })
+        onChange={(token) =>
+          void navigate({ search: { range: token === 'all' ? undefined : token } })
         }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
           icon={<CalendarCheck size={20} />}
-          label="Total Sesi"
+          label={t('attendance.totalSessions')}
           value={data.total.sessions.toLocaleString('id-ID')}
           subtitle={resolved.label}
         />
         <KPICard
           icon={<Clock size={20} />}
-          label="Total Jam Ngaji"
-          value={`${data.total.hours.toFixed(0).toLocaleString()} jam`}
+          label={t('attendance.totalHours')}
+          value={`${data.total.hours.toFixed(0).toLocaleString()} ${t('attendance.hoursUnit', { count: '' }).trim()}`}
           subtitle={resolved.label}
         />
         <KPICard
           icon={<Sparkles size={20} />}
-          label="Sesi 30 Hari Terakhir"
+          label={t('attendance.last30Days')}
           value={data.total.last30Days.toLocaleString('id-ID')}
-          subtitle="Tidak terpengaruh filter"
+          subtitle={t('attendance.last30DaysSubtitle')}
         />
         <KPICard
           icon={<Users size={20} />}
-          label="Pasangan Aktif (30hr)"
+          label={t('attendance.activePairs')}
           value={data.total.activePairs.toLocaleString('id-ID')}
-          subtitle="Generus × Pengajar"
+          subtitle={t('attendance.activePairsSubtitle')}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <ChartCard title="Sesi per Bulan" className="lg:col-span-2">
+        <ChartCard title={t('attendance.sessionsPerMonth')} className="lg:col-span-2">
           <MonthlyChart data={data.monthly} />
         </ChartCard>
-        <ChartCard title="Distribusi Status">
+        <ChartCard title={t('attendance.statusDistribution')}>
           <StatusDonut buckets={data.byStatus} total={data.total.sessions} />
         </ChartCard>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <ChartCard title="Per Generus">
+        <ChartCard title={t('attendance.perStudent')}>
           <StudentTable rows={data.byStudent} />
         </ChartCard>
-        <ChartCard title="Per Pengajar">
+        <ChartCard title={t('attendance.perTeacher')}>
           <TeacherTable rows={data.byTeacher} />
         </ChartCard>
       </div>
@@ -194,8 +191,9 @@ function ChartCard({
 /* --- monthly trend chart --- */
 
 function MonthlyChart({ data }: { data: { month: string; sessions: number; hours: number }[] }) {
+  const { t } = useTranslation()
   if (data.length === 0) {
-    return <p className="text-sm text-slate-500">Belum ada data.</p>
+    return <p className="text-sm text-slate-500">{t('attendance.noData')}</p>
   }
   return (
     <div style={{ width: '100%', height: 280 }}>
@@ -205,8 +203,8 @@ function MonthlyChart({ data }: { data: { month: string; sessions: number; hours
           <XAxis dataKey="month" stroke="#64748b" fontSize={11} interval="preserveStartEnd" />
           <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
           <Tooltip
-            formatter={(v: number, k: string) => (k === 'hours' ? [`${v.toFixed(1)} jam`, 'Jam'] : [v, 'Sesi'])}
-            labelFormatter={(label) => `Bulan ${label}`}
+            formatter={(v: number, k: string) => (k === 'hours' ? [t('attendance.hoursUnit', { count: v.toFixed(1) }), t('attendance.columnHours')] : [v, t('attendance.columnSessions')])}
+            labelFormatter={(label) => t('attendance.monthLabel', { label })}
           />
           <Line type="monotone" dataKey="sessions" stroke="#0f172a" strokeWidth={2} dot={false} />
         </LineChart>
@@ -224,15 +222,16 @@ function StatusDonut({
   buckets: { label: string; count: number }[]
   total: number
 }) {
+  const { t } = useTranslation()
   const data = buckets
     .filter((b) => b.count > 0)
     .map((b) => ({
-      name: ATTENDANCE_STATUS_LABELS[b.label as AttendanceStatus] ?? b.label,
+      name: t(`statusLabels.${b.label}`),
       key: b.label as AttendanceStatus,
       value: b.count,
     }))
   if (data.length === 0) {
-    return <p className="text-sm text-slate-500">Belum ada data.</p>
+    return <p className="text-sm text-slate-500">{t('attendance.noData')}</p>
   }
   return (
     <div className="flex flex-col items-center gap-4">
@@ -266,7 +265,7 @@ function StatusDonut({
               style={{ backgroundColor: STATUS_COLORS[b.label as AttendanceStatus] }}
             />
             <span className="truncate font-medium">
-              {ATTENDANCE_STATUS_LABELS[b.label as AttendanceStatus] ?? b.label}
+              {t(`statusLabels.${b.label}`)}
             </span>
             <span className="ml-auto text-slate-500">{b.count.toLocaleString('id-ID')}</span>
           </li>
@@ -282,6 +281,7 @@ type StudentSortKey = 'totalSessions' | 'hadirRate' | 'totalHours'
 type TeacherSortKey = 'totalSessions' | 'totalHours' | 'uniqueStudents'
 
 function StudentTable({ rows }: { rows: StudentAggregate[] }) {
+  const { t } = useTranslation()
   const [sortKey, setSortKey] = useState<StudentSortKey>('totalSessions')
   const [dir, setDir] = useState<'asc' | 'desc'>('desc')
 
@@ -308,17 +308,17 @@ function StudentTable({ rows }: { rows: StudentAggregate[] }) {
       <table className="min-w-full text-sm">
         <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
-            <th className="px-3 py-2">Nama</th>
+            <th className="px-3 py-2">{t('attendance.columnName')}</th>
             <SortHeader active={sortKey === 'totalSessions'} dir={dir} onClick={() => setSort('totalSessions')}>
-              Sesi
+              {t('attendance.columnSessions')}
             </SortHeader>
             <SortHeader active={sortKey === 'hadirRate'} dir={dir} onClick={() => setSort('hadirRate')}>
-              % Hadir
+              {t('attendance.columnHadirRate')}
             </SortHeader>
             <SortHeader active={sortKey === 'totalHours'} dir={dir} onClick={() => setSort('totalHours')}>
-              Jam
+              {t('attendance.columnHours')}
             </SortHeader>
-            <th className="px-3 py-2 text-right">Sesi Terakhir</th>
+            <th className="px-3 py-2 text-right">{t('attendance.columnLastSession')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -329,7 +329,7 @@ function StudentTable({ rows }: { rows: StudentAggregate[] }) {
               <td className="px-3 py-2 text-right tabular-nums">{s.hadirRate.toFixed(0)}%</td>
               <td className="px-3 py-2 text-right tabular-nums">{s.totalHours.toFixed(1)}</td>
               <td className="px-3 py-2 text-right font-mono text-xs text-slate-500">
-                {s.lastDate ?? '—'}
+                {s.lastDate ?? '\u2014'}
               </td>
             </tr>
           ))}
@@ -340,6 +340,7 @@ function StudentTable({ rows }: { rows: StudentAggregate[] }) {
 }
 
 function TeacherTable({ rows }: { rows: TeacherAggregate[] }) {
+  const { t } = useTranslation()
   const [sortKey, setSortKey] = useState<TeacherSortKey>('totalSessions')
   const [dir, setDir] = useState<'asc' | 'desc'>('desc')
 
@@ -366,28 +367,28 @@ function TeacherTable({ rows }: { rows: TeacherAggregate[] }) {
       <table className="min-w-full text-sm">
         <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
-            <th className="px-3 py-2">Nama</th>
+            <th className="px-3 py-2">{t('attendance.columnName')}</th>
             <SortHeader active={sortKey === 'totalSessions'} dir={dir} onClick={() => setSort('totalSessions')}>
-              Sesi
+              {t('attendance.columnSessions')}
             </SortHeader>
             <SortHeader active={sortKey === 'totalHours'} dir={dir} onClick={() => setSort('totalHours')}>
-              Jam
+              {t('attendance.columnHours')}
             </SortHeader>
             <SortHeader active={sortKey === 'uniqueStudents'} dir={dir} onClick={() => setSort('uniqueStudents')}>
-              # Generus
+              {t('attendance.columnUniqueStudents')}
             </SortHeader>
-            <th className="px-3 py-2 text-right">Sesi Terakhir</th>
+            <th className="px-3 py-2 text-right">{t('attendance.columnLastSession')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {sorted.map((t) => (
-            <tr key={t.teacherId}>
-              <td className="px-3 py-2">{t.teacherName}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{t.totalSessions}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{t.totalHours.toFixed(1)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{t.uniqueStudents}</td>
+          {sorted.map((tr) => (
+            <tr key={tr.teacherId}>
+              <td className="px-3 py-2">{tr.teacherName}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{tr.totalSessions}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{tr.totalHours.toFixed(1)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{tr.uniqueStudents}</td>
               <td className="px-3 py-2 text-right font-mono text-xs text-slate-500">
-                {t.lastDate ?? '—'}
+                {tr.lastDate ?? '\u2014'}
               </td>
             </tr>
           ))}
@@ -418,7 +419,7 @@ function SortHeader({
         }`}
       >
         {children}
-        {active ? <span className="text-[10px]">{dir === 'asc' ? '▲' : '▼'}</span> : null}
+        {active ? <span className="text-[10px]">{dir === 'asc' ? '\u25B2' : '\u25BC'}</span> : null}
       </button>
     </th>
   )
@@ -435,16 +436,17 @@ function RangeFilter({
   availableYears: number[]
   onChange: (token: string) => void
 }) {
-  const years = [...availableYears].sort((a, b) => b - a) // newest first
+  const { t } = useTranslation()
+  const years = [...availableYears].sort((a, b) => b - a)
   const options: { token: string; label: string }[] = [
-    { token: 'all', label: 'Semua' },
-    { token: 'ytd', label: 'Tahun Ini' },
-    { token: 'mtd', label: 'Bulan Ini' },
+    { token: 'all', label: t('attendance.rangeAll') },
+    { token: 'ytd', label: t('attendance.rangeYtd') },
+    { token: 'mtd', label: t('attendance.rangeMtd') },
     ...years.map((y) => ({ token: String(y), label: String(y) })),
   ]
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs uppercase tracking-wide text-slate-500">Rentang waktu</span>
+      <span className="text-xs uppercase tracking-wide text-slate-500">{t('attendance.timeRange')}</span>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => (
           <button

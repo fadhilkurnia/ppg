@@ -1,6 +1,7 @@
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 
 import {
   STUDENT_KELOMPOKS,
@@ -13,35 +14,6 @@ import { Button } from './Button'
 import { Input } from './Input'
 import { Field } from './Field'
 
-const isoDateOrEmpty = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Gunakan format YYYY-MM-DD')
-  .optional()
-  .or(z.literal(''))
-
-const schema = z.object({
-  name: z.string().min(1, 'Wajib diisi').max(200),
-  nickname: z.string().max(200).optional().or(z.literal('')),
-  dateOfBirth: isoDateOrEmpty,
-  gender: z.enum(['male', 'female']),
-  level: z
-    .enum([...STUDENT_LEVELS, ''] as [string, ...string[]])
-    .refine((v) => v !== '', { message: 'Wajib diisi' }),
-  kelompok: z
-    .enum([...STUDENT_KELOMPOKS, ''] as [string, ...string[]])
-    .refine((v) => v !== '', { message: 'Wajib diisi' }),
-  city: z.string().max(200).optional().or(z.literal('')),
-  joinedAt: isoDateOrEmpty,
-  leftAt: isoDateOrEmpty,
-  leaveReason: z.string().max(500).optional().or(z.literal('')),
-  status: z.enum(['active', 'left']),
-  parentName: z.string().max(200).optional().or(z.literal('')),
-  parentPhone: z.string().max(64).optional().or(z.literal('')),
-  parentEmail: z.string().email('Format email tidak valid').optional().or(z.literal('')),
-})
-
-type FormValues = z.infer<typeof schema>
-
 type Props = {
   initial?: Student
   submitLabel: string
@@ -52,6 +24,37 @@ type Props = {
 }
 
 export function StudentForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: Props) {
+  const { t } = useTranslation()
+
+  const isoDateOrEmpty = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, t('students.form.dateInvalid'))
+    .optional()
+    .or(z.literal(''))
+
+  const schema = z.object({
+    name: z.string().min(1, t('students.form.nameRequired')).max(200),
+    nickname: z.string().max(200).optional().or(z.literal('')),
+    dateOfBirth: isoDateOrEmpty,
+    gender: z.enum(['male', 'female']),
+    level: z
+      .enum([...STUDENT_LEVELS, ''] as [string, ...string[]])
+      .refine((v) => v !== '', { message: t('students.form.levelRequired') }),
+    kelompok: z
+      .enum([...STUDENT_KELOMPOKS, ''] as [string, ...string[]])
+      .refine((v) => v !== '', { message: t('students.form.kelompokRequired') }),
+    city: z.string().max(200).optional().or(z.literal('')),
+    joinedAt: isoDateOrEmpty,
+    leftAt: isoDateOrEmpty,
+    leaveReason: z.string().max(500).optional().or(z.literal('')),
+    status: z.enum(['active', 'left']),
+    parentName: z.string().max(200).optional().or(z.literal('')),
+    parentPhone: z.string().max(64).optional().or(z.literal('')),
+    parentEmail: z.string().email(t('students.form.emailInvalid')).optional().or(z.literal('')),
+  })
+
+  type FormValues = z.infer<typeof schema>
+
   const {
     register,
     control,
@@ -101,30 +104,30 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
       )}
       className="space-y-6"
     >
-      <Section title="Data Generus">
+      <Section title={t('students.form.sectionData')}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nama" htmlFor="name" error={errors.name?.message}>
+          <Field label={t('students.form.name')} htmlFor="name" error={errors.name?.message}>
             <Input id="name" {...register('name')} />
           </Field>
-          <Field label="Nama Panggilan" htmlFor="nickname" error={errors.nickname?.message}>
+          <Field label={t('students.form.nickname')} htmlFor="nickname" error={errors.nickname?.message}>
             <Input id="nickname" {...register('nickname')} />
           </Field>
-          <Field label="Tanggal Lahir" htmlFor="dateOfBirth" error={errors.dateOfBirth?.message}>
+          <Field label={t('students.form.dateOfBirth')} htmlFor="dateOfBirth" error={errors.dateOfBirth?.message}>
             <Input id="dateOfBirth" type="date" {...register('dateOfBirth')} />
           </Field>
-          <Field label="Jenis Kelamin" htmlFor="gender" error={errors.gender?.message}>
+          <Field label={t('students.form.gender')} htmlFor="gender" error={errors.gender?.message}>
             <Controller
               control={control}
               name="gender"
               render={({ field }) => (
                 <Select id="gender" {...field}>
-                  <option value="female">Perempuan</option>
-                  <option value="male">Laki-laki</option>
+                  <option value="female">{t('students.form.genderFemale')}</option>
+                  <option value="male">{t('students.form.genderMale')}</option>
                 </Select>
               )}
             />
           </Field>
-          <Field label="Jenjang" htmlFor="level" error={errors.level?.message}>
+          <Field label={t('students.form.level')} htmlFor="level" error={errors.level?.message}>
             <Controller
               control={control}
               name="level"
@@ -141,7 +144,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
             />
           </Field>
           <Field
-            label="Kelompok"
+            label={t('students.form.kelompok')}
             htmlFor="kelompok"
             error={errors.kelompok?.message}
           >
@@ -160,34 +163,34 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
               )}
             />
           </Field>
-          <Field label="Kota" htmlFor="city" error={errors.city?.message}>
-            <Input id="city" placeholder="cth. Chicago, Raleigh" {...register('city')} />
+          <Field label={t('students.form.city')} htmlFor="city" error={errors.city?.message}>
+            <Input id="city" placeholder={t('students.form.cityPlaceholder')} {...register('city')} />
           </Field>
         </div>
       </Section>
 
-      <Section title="Keanggotaan">
+      <Section title={t('students.form.sectionMembership')}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tanggal Masuk" htmlFor="joinedAt" error={errors.joinedAt?.message}>
+          <Field label={t('students.form.joinedAt')} htmlFor="joinedAt" error={errors.joinedAt?.message}>
             <Input id="joinedAt" type="date" {...register('joinedAt')} />
           </Field>
-          <Field label="Status" htmlFor="status" error={errors.status?.message}>
+          <Field label={t('students.form.status')} htmlFor="status" error={errors.status?.message}>
             <Controller
               control={control}
               name="status"
               render={({ field }) => (
                 <Select id="status" {...field}>
-                  <option value="active">Aktif</option>
-                  <option value="left">Keluar</option>
+                  <option value="active">{t('students.form.statusActive')}</option>
+                  <option value="left">{t('students.form.statusLeft')}</option>
                 </Select>
               )}
             />
           </Field>
-          <Field label="Tanggal Keluar" htmlFor="leftAt" error={errors.leftAt?.message}>
+          <Field label={t('students.form.leftAt')} htmlFor="leftAt" error={errors.leftAt?.message}>
             <Input id="leftAt" type="date" {...register('leftAt')} />
           </Field>
           <Field
-            label="Keterangan Keluar"
+            label={t('students.form.leaveReason')}
             htmlFor="leaveReason"
             error={errors.leaveReason?.message}
             className="sm:col-span-2"
@@ -197,16 +200,16 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
         </div>
       </Section>
 
-      <Section title="Orang Tua (opsional)">
+      <Section title={t('students.form.sectionParent')}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nama Orang Tua" htmlFor="parentName" error={errors.parentName?.message}>
+          <Field label={t('students.form.parentName')} htmlFor="parentName" error={errors.parentName?.message}>
             <Input id="parentName" {...register('parentName')} />
           </Field>
-          <Field label="Telepon Orang Tua" htmlFor="parentPhone" error={errors.parentPhone?.message}>
+          <Field label={t('students.form.parentPhone')} htmlFor="parentPhone" error={errors.parentPhone?.message}>
             <Input id="parentPhone" {...register('parentPhone')} />
           </Field>
           <Field
-            label="Email Orang Tua"
+            label={t('students.form.parentEmail')}
             htmlFor="parentEmail"
             error={errors.parentEmail?.message}
             className="sm:col-span-2"
@@ -219,11 +222,11 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
       {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Menyimpan…' : submitLabel}
+          {pending ? t('common.saving') : submitLabel}
         </Button>
         {onCancel ? (
           <Button type="button" variant="secondary" onClick={onCancel}>
-            Batal
+            {t('common.cancel')}
           </Button>
         ) : null}
       </div>

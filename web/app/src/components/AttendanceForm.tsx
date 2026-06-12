@@ -1,9 +1,11 @@
+import { useMemo } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 
-import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABELS, type Attendance, type AttendanceInput } from '@/api/types'
+import { ATTENDANCE_STATUSES, type Attendance, type AttendanceInput } from '@/api/types'
 import { listStudents } from '@/api/students'
 import { listTeachers } from '@/api/teachers'
 import { ApiError } from '@/api/client'
@@ -11,18 +13,14 @@ import { Button } from './Button'
 import { Input } from './Input'
 import { Field } from './Field'
 
-const schema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Gunakan format YYYY-MM-DD'),
-  durationMin: z
-    .union([z.string().length(0), z.coerce.number().int().min(0).max(1440)])
-    .optional(),
-  teacherId: z.string().min(1, 'Wajib dipilih'),
-  studentId: z.string().min(1, 'Wajib dipilih'),
-  status: z.enum(ATTENDANCE_STATUSES),
-  materi: z.string().max(20000).optional().or(z.literal('')),
-})
-
-type FormValues = z.infer<typeof schema>
+type FormValues = {
+  date: string
+  durationMin: string | number | undefined
+  teacherId: string
+  studentId: string
+  status: (typeof ATTENDANCE_STATUSES)[number]
+  materi: string
+}
 
 type Props = {
   initial?: Attendance
@@ -34,6 +32,23 @@ type Props = {
 }
 
 export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: Props) {
+  const { t } = useTranslation()
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, t('sessions.form.dateInvalid')),
+        durationMin: z
+          .union([z.string().length(0), z.coerce.number().int().min(0).max(1440)])
+          .optional(),
+        teacherId: z.string().min(1, t('sessions.form.requiredSelect')),
+        studentId: z.string().min(1, t('sessions.form.requiredSelect')),
+        status: z.enum(ATTENDANCE_STATUSES),
+        materi: z.string().max(20000).optional().or(z.literal('')),
+      }),
+    [t],
+  )
+
   const teachersQ = useQuery({
     queryKey: ['teachers', 'all-for-select'],
     queryFn: () => listTeachers({ status: 'active', limit: 200 }),
@@ -83,43 +98,43 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
       className="space-y-4"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Tanggal" htmlFor="date" error={errors.date?.message}>
+        <Field label={t('sessions.form.date')} htmlFor="date" error={errors.date?.message}>
           <Input id="date" type="date" {...register('date')} />
         </Field>
-        <Field label="Durasi (menit)" htmlFor="durationMin" error={errors.durationMin?.message}>
+        <Field label={t('sessions.form.durationMin')} htmlFor="durationMin" error={errors.durationMin?.message}>
           <Input
             id="durationMin"
             type="number"
             min={0}
             max={1440}
-            placeholder="cth. 45"
+            placeholder={t('sessions.form.durationPlaceholder')}
             {...register('durationMin')}
           />
         </Field>
-        <Field label="Pengajar" htmlFor="teacherId" error={errors.teacherId?.message}>
+        <Field label={t('sessions.form.teacher')} htmlFor="teacherId" error={errors.teacherId?.message}>
           <Controller
             control={control}
             name="teacherId"
             render={({ field }) => (
               <Select id="teacherId" {...field}>
-                <option value="">— Pilih pengajar —</option>
-                {teachersQ.data?.items.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                    {t.nickname ? ` (${t.nickname})` : ''}
+                <option value="">{t('sessions.form.selectTeacher')}</option>
+                {teachersQ.data?.items.map((tr) => (
+                  <option key={tr.id} value={tr.id}>
+                    {tr.name}
+                    {tr.nickname ? ` (${tr.nickname})` : ''}
                   </option>
                 ))}
               </Select>
             )}
           />
         </Field>
-        <Field label="Generus" htmlFor="studentId" error={errors.studentId?.message}>
+        <Field label={t('sessions.form.student')} htmlFor="studentId" error={errors.studentId?.message}>
           <Controller
             control={control}
             name="studentId"
             render={({ field }) => (
               <Select id="studentId" {...field}>
-                <option value="">— Pilih generus —</option>
+                <option value="">{t('sessions.form.selectStudent')}</option>
                 {studentsQ.data?.items.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -130,7 +145,7 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
             )}
           />
         </Field>
-        <Field label="Status" htmlFor="status" error={errors.status?.message}>
+        <Field label={t('sessions.form.status')} htmlFor="status" error={errors.status?.message}>
           <Controller
             control={control}
             name="status"
@@ -138,7 +153,7 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
               <Select id="status" {...field}>
                 {ATTENDANCE_STATUSES.map((s) => (
                   <option key={s} value={s}>
-                    {ATTENDANCE_STATUS_LABELS[s]}
+                    {t(`statusLabels.${s}`)}
                   </option>
                 ))}
               </Select>
@@ -146,7 +161,7 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
           />
         </Field>
         <Field
-          label="Materi"
+          label={t('sessions.form.materi')}
           htmlFor="materi"
           error={errors.materi?.message}
           className="sm:col-span-2"
@@ -161,17 +176,17 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-500">Memuat daftar pengajar dan generus…</p>
+        <p className="text-sm text-slate-500">{t('sessions.form.loadingOptions')}</p>
       ) : null}
       {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={pending || loading}>
-          {pending ? 'Menyimpan…' : submitLabel}
+          {pending ? t('common.saving') : submitLabel}
         </Button>
         {onCancel ? (
           <Button type="button" variant="secondary" onClick={onCancel}>
-            Batal
+            {t('common.cancel')}
           </Button>
         ) : null}
       </div>
