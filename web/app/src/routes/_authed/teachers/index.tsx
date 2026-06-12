@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search } from 'lucide-react'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 
 import {
   createTeacher,
@@ -38,6 +39,7 @@ export const Route = createFileRoute('/_authed/teachers/')({
 })
 
 function TeachersPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate({ from: '/teachers/' })
   const search = Route.useSearch()
   const { q = '', status, page = 1, view, edit, new: isNew } = search
@@ -61,9 +63,9 @@ function TeachersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teachers'] }),
   })
 
-  const handleDelete = (t: Teacher) => {
-    if (confirm(`Hapus ${t.name}? Tindakan ini tidak dapat dibatalkan.`)) {
-      deleteMutation.mutate(t.id)
+  const handleDelete = (teacher: Teacher) => {
+    if (confirm(t('common.confirmDelete', { name: teacher.name }))) {
+      deleteMutation.mutate(teacher.id)
     }
   }
 
@@ -73,11 +75,11 @@ function TeachersPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold">Pengajar</h1>
+        <h1 className="text-2xl font-semibold">{t('teachers.title')}</h1>
         {isAdmin ? (
           <Button onClick={() => goTo({ new: true })} className="self-start sm:self-auto">
             <Plus size={16} className="mr-1" />
-            Tambah Pengajar
+            {t('teachers.addNew')}
           </Button>
         ) : null}
       </div>
@@ -104,19 +106,19 @@ function TeachersPage() {
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           />
-          <Input name="q" defaultValue={q} placeholder="Cari nama atau panggilan" className="pl-9" />
+          <Input name="q" defaultValue={q} placeholder={t('teachers.searchPlaceholder')} className="pl-9" />
         </div>
         <select
           name="status"
           defaultValue={status ?? ''}
           className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
-          <option value="">Semua status</option>
-          <option value="active">Aktif</option>
-          <option value="retired">Purna</option>
+          <option value="">{t('common.allStatus')}</option>
+          <option value="active">{t('teachers.statusActive')}</option>
+          <option value="retired">{t('teachers.statusRetired')}</option>
         </select>
         <Button type="submit" variant="secondary" size="md">
-          Terapkan
+          {t('common.apply')}
         </Button>
       </form>
 
@@ -124,44 +126,44 @@ function TeachersPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-2">Nama</th>
-              <th className="hidden px-4 py-2 sm:table-cell">Panggilan</th>
-              <th className="hidden px-4 py-2 md:table-cell">Kelompok</th>
-              <th className="hidden px-4 py-2 md:table-cell">Daerah</th>
-              <th className="px-4 py-2">Status</th>
-              {isAdmin ? <th className="px-4 py-2 text-right">Aksi</th> : null}
+              <th className="px-4 py-2">{t('teachers.columnName')}</th>
+              <th className="hidden px-4 py-2 sm:table-cell">{t('teachers.columnNickname')}</th>
+              <th className="hidden px-4 py-2 md:table-cell">{t('teachers.columnKelompok')}</th>
+              <th className="hidden px-4 py-2 md:table-cell">{t('teachers.columnDaerah')}</th>
+              <th className="px-4 py-2">{t('teachers.columnStatus')}</th>
+              {isAdmin ? <th className="px-4 py-2 text-right">{t('common.actions')}</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
                 <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
-                  Memuat…
+                  {t('common.loading')}
                 </td>
               </tr>
             ) : data && data.items.length > 0 ? (
-              data.items.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50">
+              data.items.map((teacher) => (
+                <tr key={teacher.id} className="hover:bg-slate-50">
                   <td className="px-4 py-2">
                     <button
                       type="button"
-                      onClick={() => goTo({ view: t.id })}
+                      onClick={() => goTo({ view: teacher.id })}
                       className="text-left text-slate-900 hover:underline"
                     >
-                      {t.name}
+                      {teacher.name}
                     </button>
                   </td>
-                  <td className="hidden px-4 py-2 sm:table-cell">{t.nickname ?? '—'}</td>
-                  <td className="hidden px-4 py-2 md:table-cell">{t.kelompok}</td>
-                  <td className="hidden px-4 py-2 md:table-cell">{t.daerah}</td>
+                  <td className="hidden px-4 py-2 sm:table-cell">{teacher.nickname ?? '\u2014'}</td>
+                  <td className="hidden px-4 py-2 md:table-cell">{teacher.kelompok}</td>
+                  <td className="hidden px-4 py-2 md:table-cell">{teacher.daerah}</td>
                   <td className="px-4 py-2">
-                    <StatusPill status={t.status} />
+                    <StatusPill status={teacher.status} />
                   </td>
                   {isAdmin ? (
                     <td className="px-4 py-2 text-right">
                       <RowActions
-                        onEdit={() => goTo({ edit: t.id })}
-                        onDelete={() => handleDelete(t)}
+                        onEdit={() => goTo({ edit: teacher.id })}
+                        onDelete={() => handleDelete(teacher)}
                         deleteDisabled={deleteMutation.isPending}
                       />
                     </td>
@@ -171,7 +173,7 @@ function TeachersPage() {
             ) : (
               <tr>
                 <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
-                  Belum ada data Pengajar.
+                  {t('teachers.emptyState')}
                 </td>
               </tr>
             )}
@@ -181,7 +183,7 @@ function TeachersPage() {
 
       <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
         <span>
-          Halaman {page} dari {totalPages} · {total} total
+          {t('common.page', { current: page, total: totalPages, count: total })}
         </span>
         <div className="flex gap-2">
           <Button
@@ -190,7 +192,7 @@ function TeachersPage() {
             disabled={page <= 1}
             onClick={() => goTo({ page: Math.max(1, page - 1) })}
           >
-            Sebelumnya
+            {t('common.previous')}
           </Button>
           <Button
             variant="secondary"
@@ -198,7 +200,7 @@ function TeachersPage() {
             disabled={page >= totalPages}
             onClick={() => goTo({ page: Math.min(totalPages, page + 1) })}
           >
-            Berikutnya
+            {t('common.next')}
           </Button>
         </div>
       </div>
@@ -222,16 +224,17 @@ function TeachersPage() {
 }
 
 function StatusPill({ status }: { status: 'active' | 'retired' }) {
+  const { t } = useTranslation()
   if (status === 'active') {
     return (
       <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-        Aktif
+        {t('teachers.statusActive')}
       </span>
     )
   }
   return (
     <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-      Purna
+      {t('teachers.statusRetired')}
     </span>
   )
 }
@@ -251,6 +254,7 @@ function ViewModal({
   isAdmin: boolean
   onEdit: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const query = useQuery({
     queryKey: ['teachers', id],
     queryFn: () => getTeacher(id as string),
@@ -262,21 +266,21 @@ function ViewModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title={query.data?.name ?? 'Detail Pengajar'}
+      title={query.data?.name ?? t('teachers.detailTitle')}
     >
       {query.isPending ? (
-        <p className="text-slate-500">Memuat…</p>
+        <p className="text-slate-500">{t('common.loading')}</p>
       ) : query.isError || !query.data ? (
-        <p className="text-red-600">Gagal memuat data.</p>
+        <p className="text-red-600">{t('common.loadFailed')}</p>
       ) : (
         <>
           <TeacherDetail teacher={query.data} />
           {isAdmin ? (
             <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
               <Button variant="secondary" onClick={onClose}>
-                Tutup
+                {t('common.close')}
               </Button>
-              <Button onClick={() => onEdit(query.data!.id)}>Ubah</Button>
+              <Button onClick={() => onEdit(query.data!.id)}>{t('common.edit')}</Button>
             </div>
           ) : null}
         </>
@@ -296,6 +300,7 @@ function EditModal({
   onClose: () => void
   onSaved: (teacher: Teacher) => void
 }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const query = useQuery({
     queryKey: ['teachers', id],
@@ -313,15 +318,15 @@ function EditModal({
   })
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Ubah Pengajar">
+    <Modal open={open} onClose={onClose} size="xl" title={t('teachers.editTitle')}>
       {query.isPending ? (
-        <p className="text-slate-500">Memuat…</p>
+        <p className="text-slate-500">{t('common.loading')}</p>
       ) : query.isError || !query.data ? (
-        <p className="text-red-600">Gagal memuat data.</p>
+        <p className="text-red-600">{t('common.loadFailed')}</p>
       ) : (
         <TeacherForm
           initial={query.data}
-          submitLabel="Simpan"
+          submitLabel={t('common.save')}
           pending={mutation.isPending}
           error={mutation.error}
           onSubmit={(input) => mutation.mutate(input)}
@@ -333,6 +338,7 @@ function EditModal({
 }
 
 function NewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const mutation = useMutation({
     mutationFn: createTeacher,
@@ -343,9 +349,9 @@ function NewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   })
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Tambah Pengajar">
+    <Modal open={open} onClose={onClose} size="xl" title={t('teachers.newTitle')}>
       <TeacherForm
-        submitLabel="Simpan"
+        submitLabel={t('common.save')}
         pending={mutation.isPending}
         error={mutation.error}
         onSubmit={(input) => mutation.mutate(input)}

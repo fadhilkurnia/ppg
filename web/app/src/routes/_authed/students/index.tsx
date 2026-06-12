@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search } from 'lucide-react'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 
 import {
   createStudent,
@@ -40,6 +41,7 @@ export const Route = createFileRoute('/_authed/students/')({
 })
 
 function StudentsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate({ from: '/students/' })
   const search = Route.useSearch()
   const { q = '', status, kelompok, page = 1, view, edit, new: isNew } = search
@@ -68,7 +70,7 @@ function StudentsPage() {
   })
 
   const handleDelete = (s: Student) => {
-    if (confirm(`Hapus ${s.name}? Tindakan ini tidak dapat dibatalkan.`)) {
+    if (confirm(t('common.confirmDelete', { name: s.name }))) {
       deleteMutation.mutate(s.id)
     }
   }
@@ -79,11 +81,11 @@ function StudentsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold">Generus</h1>
+        <h1 className="text-2xl font-semibold">{t('students.title')}</h1>
         {isAdmin ? (
           <Button onClick={() => goTo({ new: true })} className="self-start sm:self-auto">
             <Plus size={16} className="mr-1" />
-            Tambah Generus
+            {t('students.addNew')}
           </Button>
         ) : null}
       </div>
@@ -113,23 +115,23 @@ function StudentsPage() {
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           />
-          <Input name="q" defaultValue={q} placeholder="Cari nama atau panggilan" className="pl-9" />
+          <Input name="q" defaultValue={q} placeholder={t('students.searchPlaceholder')} className="pl-9" />
         </div>
         <select
           name="status"
           defaultValue={status ?? ''}
           className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
-          <option value="">Semua status</option>
-          <option value="active">Aktif</option>
-          <option value="left">Keluar</option>
+          <option value="">{t('common.allStatus')}</option>
+          <option value="active">{t('students.statusActive')}</option>
+          <option value="left">{t('students.statusLeft')}</option>
         </select>
         <select
           name="kelompok"
           defaultValue={kelompok ?? ''}
           className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
-          <option value="">Semua kelompok</option>
+          <option value="">{t('students.filterKelompok')}</option>
           {STUDENT_KELOMPOKS.map((k) => (
             <option key={k} value={k}>
               {k}
@@ -137,7 +139,7 @@ function StudentsPage() {
           ))}
         </select>
         <Button type="submit" variant="secondary" size="md">
-          Terapkan
+          {t('common.apply')}
         </Button>
       </form>
 
@@ -145,21 +147,21 @@ function StudentsPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-2">Nama</th>
-              <th className="hidden px-4 py-2 sm:table-cell">Panggilan</th>
-              <th className="hidden px-4 py-2 sm:table-cell">L/P</th>
-              <th className="hidden px-4 py-2 sm:table-cell">Usia</th>
-              <th className="hidden px-4 py-2 md:table-cell">Jenjang</th>
-              <th className="hidden px-4 py-2 md:table-cell">Kelompok</th>
-              <th className="px-4 py-2">Status</th>
-              {isAdmin ? <th className="px-4 py-2 text-right">Aksi</th> : null}
+              <th className="px-4 py-2">{t('students.columnName')}</th>
+              <th className="hidden px-4 py-2 sm:table-cell">{t('students.columnNickname')}</th>
+              <th className="hidden px-4 py-2 sm:table-cell">{t('students.columnGender')}</th>
+              <th className="hidden px-4 py-2 sm:table-cell">{t('students.columnAge')}</th>
+              <th className="hidden px-4 py-2 md:table-cell">{t('students.columnLevel')}</th>
+              <th className="hidden px-4 py-2 md:table-cell">{t('students.columnKelompok')}</th>
+              <th className="px-4 py-2">{t('students.columnStatus')}</th>
+              {isAdmin ? <th className="px-4 py-2 text-right">{t('common.actions')}</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
                 <td colSpan={isAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
-                  Memuat…
+                  {t('common.loading')}
                 </td>
               </tr>
             ) : data && data.items.length > 0 ? (
@@ -201,7 +203,7 @@ function StudentsPage() {
             ) : (
               <tr>
                 <td colSpan={isAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
-                  Belum ada data Generus.
+                  {t('students.emptyState')}
                 </td>
               </tr>
             )}
@@ -211,7 +213,7 @@ function StudentsPage() {
 
       <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
         <span>
-          Halaman {page} dari {totalPages} · {total} total
+          {t('common.page', { current: page, total: totalPages, count: total })}
         </span>
         <div className="flex gap-2">
           <Button
@@ -220,7 +222,7 @@ function StudentsPage() {
             disabled={page <= 1}
             onClick={() => goTo({ page: Math.max(1, page - 1) })}
           >
-            Sebelumnya
+            {t('common.previous')}
           </Button>
           <Button
             variant="secondary"
@@ -228,7 +230,7 @@ function StudentsPage() {
             disabled={page >= totalPages}
             onClick={() => goTo({ page: Math.min(totalPages, page + 1) })}
           >
-            Berikutnya
+            {t('common.next')}
           </Button>
         </div>
       </div>
@@ -241,16 +243,17 @@ function StudentsPage() {
 }
 
 function StatusPill({ status }: { status: 'active' | 'left' }) {
+  const { t } = useTranslation()
   if (status === 'active') {
     return (
       <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-        Aktif
+        {t('students.statusActive')}
       </span>
     )
   }
   return (
     <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-      Keluar
+      {t('students.statusLeft')}
     </span>
   )
 }
@@ -270,6 +273,7 @@ function ViewModal({
   isAdmin: boolean
   onEdit: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const query = useQuery({
     queryKey: ['students', id],
     queryFn: () => getStudent(id as string),
@@ -281,21 +285,21 @@ function ViewModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title={query.data?.name ?? 'Detail Generus'}
+      title={query.data?.name ?? t('students.detailTitle')}
     >
       {query.isPending ? (
-        <p className="text-slate-500">Memuat…</p>
+        <p className="text-slate-500">{t('common.loading')}</p>
       ) : query.isError || !query.data ? (
-        <p className="text-red-600">Gagal memuat data.</p>
+        <p className="text-red-600">{t('common.loadFailed')}</p>
       ) : (
         <>
           <StudentDetail student={query.data} />
           {isAdmin ? (
             <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
               <Button variant="secondary" onClick={onClose}>
-                Tutup
+                {t('common.close')}
               </Button>
-              <Button onClick={() => onEdit(query.data!.id)}>Ubah</Button>
+              <Button onClick={() => onEdit(query.data!.id)}>{t('common.edit')}</Button>
             </div>
           ) : null}
         </>
@@ -315,6 +319,7 @@ function EditModal({
   onClose: () => void
   onSaved: (student: Student) => void
 }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const query = useQuery({
     queryKey: ['students', id],
@@ -332,15 +337,15 @@ function EditModal({
   })
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Ubah Generus">
+    <Modal open={open} onClose={onClose} size="xl" title={t('students.editTitle')}>
       {query.isPending ? (
-        <p className="text-slate-500">Memuat…</p>
+        <p className="text-slate-500">{t('common.loading')}</p>
       ) : query.isError || !query.data ? (
-        <p className="text-red-600">Gagal memuat data.</p>
+        <p className="text-red-600">{t('common.loadFailed')}</p>
       ) : (
         <StudentForm
           initial={query.data}
-          submitLabel="Simpan"
+          submitLabel={t('common.save')}
           pending={mutation.isPending}
           error={mutation.error}
           onSubmit={(input) => mutation.mutate(input)}
@@ -352,6 +357,7 @@ function EditModal({
 }
 
 function NewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const mutation = useMutation({
     mutationFn: createStudent,
@@ -362,9 +368,9 @@ function NewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   })
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Tambah Generus">
+    <Modal open={open} onClose={onClose} size="xl" title={t('students.newTitle')}>
       <StudentForm
-        submitLabel="Simpan"
+        submitLabel={t('common.save')}
         pending={mutation.isPending}
         error={mutation.error}
         onSubmit={(input) => mutation.mutate(input)}

@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { login } from '@/api/auth'
 import { ApiError } from '@/api/client'
@@ -28,16 +29,18 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
-const schema = z.object({
-  identifier: z.string().min(1, 'Email atau nama pengguna wajib diisi'),
-  password: z.string().min(1, 'Kata sandi wajib diisi'),
-})
-
-type FormValues = z.infer<typeof schema>
-
 function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const setMe = useSetMe()
+
+  const schema = z.object({
+    identifier: z.string().min(1, t('auth.emailOrUsernameRequired')),
+    password: z.string().min(1, t('auth.passwordRequired')),
+  })
+
+  type FormValues = z.infer<typeof schema>
+
   const {
     register,
     handleSubmit,
@@ -57,9 +60,9 @@ function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-6 text-xl font-semibold">Masuk</h1>
+        <h1 className="mb-6 text-xl font-semibold">{t('auth.login')}</h1>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
-          <Field label="Email atau nama pengguna" htmlFor="identifier" error={errors.identifier?.message}>
+          <Field label={t('auth.emailOrUsername')} htmlFor="identifier" error={errors.identifier?.message}>
             <Input
               id="identifier"
               type="text"
@@ -70,7 +73,7 @@ function LoginPage() {
               {...register('identifier')}
             />
           </Field>
-          <Field label="Kata sandi" htmlFor="password" error={errors.password?.message}>
+          <Field label={t('auth.password')} htmlFor="password" error={errors.password?.message}>
             <Input
               id="password"
               type="password"
@@ -80,7 +83,7 @@ function LoginPage() {
           </Field>
           {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
           <Button type="submit" className="w-full" disabled={mutation.isPending}>
-            {mutation.isPending ? 'Memproses…' : 'Masuk'}
+            {mutation.isPending ? t('common.processing') : t('auth.login')}
           </Button>
         </form>
       </div>

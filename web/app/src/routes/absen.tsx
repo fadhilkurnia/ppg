@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { CheckCircle2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { submitPublicAttendance } from '@/api/public'
 import type { PublicAttendanceInput } from '@/api/public'
@@ -13,6 +14,7 @@ export const Route = createFileRoute('/absen')({
 })
 
 function AbsenPage() {
+  const { t } = useTranslation()
   const [submitted, setSubmitted] = useState(false)
 
   const mutation = useMutation({
@@ -25,20 +27,21 @@ function AbsenPage() {
       <div className="mx-auto w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <header className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
-            Form Kegiatan Pengajian
+            {t('absen.title')}
           </h1>
-          <p className="mt-1 text-xs text-slate-500">*Semua data wajib diisi!</p>
+          <p className="mt-1 text-xs text-slate-500">{t('absen.required')}</p>
         </header>
 
         {submitted ? (
           <div className="space-y-4 text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" aria-hidden />
             <h2 className="text-lg font-semibold text-slate-900">
-              Laporan terkirim, terima kasih!
+              {t('absen.successTitle')}
             </h2>
             <p className="text-sm text-slate-600">
-              Notifikasi WhatsApp sedang dikirim ke admin
-              {mutation.data?.submittedPhone ? ' dan nomor Anda' : ''}.
+              {t('absen.successMessage', {
+                suffix: mutation.data?.submittedPhone ? t('absen.successMessageWithPhone') : '',
+              })}
             </p>
             <Button
               type="button"
@@ -48,12 +51,12 @@ function AbsenPage() {
                 setSubmitted(false)
               }}
             >
-              Kirim laporan lain
+              {t('absen.sendAnother')}
             </Button>
           </div>
         ) : (
           <PublicAttendanceForm
-            submitLabel="KIRIM LAPORAN"
+            submitLabel={t('absen.form.statusHadir')}
             pending={mutation.isPending}
             error={mutation.error}
             onSubmit={(input) => mutation.mutate(input)}
@@ -62,7 +65,7 @@ function AbsenPage() {
 
         <footer className="mt-8 flex flex-col items-center gap-2 border-t border-slate-200 pt-4 text-sm text-slate-500 sm:flex-row sm:justify-between">
           <a href="/" className="hover:underline">
-            ← Kembali
+            {t('absen.back')}
           </a>
           <a
             href="https://wa.me/628972529354"
@@ -70,7 +73,7 @@ function AbsenPage() {
             rel="noreferrer"
             className="hover:underline"
           >
-            Ada Pertanyaan!?
+            {t('absen.questions')}
           </a>
         </footer>
       </div>

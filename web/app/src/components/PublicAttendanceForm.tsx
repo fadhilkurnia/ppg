@@ -1,7 +1,9 @@
+import { useMemo } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 
 import { listPublicTeachers, listPublicStudents } from '@/api/public'
 import type { PublicAttendanceInput } from '@/api/public'
@@ -12,30 +14,6 @@ import { Field } from './Field'
 
 const phoneRe = /^(\+?62|0)\d{7,14}$/
 
-const statusOptions = [
-  { value: 'hadir', label: 'HADIR' },
-  { value: 'by_vn', label: 'By VN' },
-  { value: 'izin_guru', label: 'IZIN (GURU)' },
-  { value: 'izin_murid', label: 'IZIN (MURID)' },
-] as const
-
-const schema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Gunakan format YYYY-MM-DD'),
-  durationMin: z
-    .union([z.string().length(0), z.coerce.number().int().min(0).max(1440)])
-    .optional(),
-  teacherId: z.string().min(1, 'Wajib dipilih'),
-  studentId: z.string().min(1, 'Wajib dipilih'),
-  status: z.enum(['hadir', 'by_vn', 'izin_guru', 'izin_murid']),
-  materi: z.string().max(20000).optional().or(z.literal('')),
-  submittedPhone: z
-    .string()
-    .min(1, 'Wajib diisi')
-    .regex(phoneRe, 'Gunakan format 08… atau +62…'),
-})
-
-type FormValues = z.infer<typeof schema>
-
 type Props = {
   submitLabel: string
   pending?: boolean
@@ -43,7 +21,48 @@ type Props = {
   onSubmit: (input: PublicAttendanceInput) => void
 }
 
+type PublicFormValues = {
+  date: string
+  durationMin: string | number | undefined
+  teacherId: string
+  studentId: string
+  status: 'hadir' | 'by_vn' | 'izin_guru' | 'izin_murid'
+  materi: string
+  submittedPhone: string
+}
+
 export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: Props) {
+  const { t } = useTranslation()
+
+  const statusOptions = useMemo(
+    () => [
+      { value: 'hadir', label: t('absen.form.statusHadir') },
+      { value: 'by_vn', label: t('absen.form.statusByVn') },
+      { value: 'izin_guru', label: t('absen.form.statusIzinGuru') },
+      { value: 'izin_murid', label: t('absen.form.statusIzinMurid') },
+    ],
+    [t],
+  )
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, t('absen.form.dateInvalid')),
+        durationMin: z
+          .union([z.string().length(0), z.coerce.number().int().min(0).max(1440)])
+          .optional(),
+        teacherId: z.string().min(1, t('absen.form.requiredSelect')),
+        studentId: z.string().min(1, t('absen.form.requiredSelect')),
+        status: z.enum(['hadir', 'by_vn', 'izin_guru', 'izin_murid']),
+        materi: z.string().max(20000).optional().or(z.literal('')),
+        submittedPhone: z
+          .string()
+          .min(1, t('absen.form.required'))
+          .regex(phoneRe, t('absen.form.phoneInvalid')),
+      }),
+    [t],
+  )
+
   const teachersQ = useQuery({
     queryKey: ['public', 'teachers'],
     queryFn: listPublicTeachers,
@@ -60,7 +79,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormValues>({
+  } = useForm<PublicFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       date: new Date().toISOString().slice(0, 10),
@@ -95,43 +114,43 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
       className="space-y-4"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Tanggal" htmlFor="date" error={errors.date?.message}>
+        <Field label={t('absen.form.date')} htmlFor="date" error={errors.date?.message}>
           <Input id="date" type="date" {...register('date')} />
         </Field>
-        <Field label="Durasi (menit)" htmlFor="durationMin" error={errors.durationMin?.message}>
+        <Field label={t('absen.form.durationMin')} htmlFor="durationMin" error={errors.durationMin?.message}>
           <Input
             id="durationMin"
             type="number"
             min={0}
             max={1440}
-            placeholder="cth. 45"
+            placeholder={t('absen.form.durationPlaceholder')}
             {...register('durationMin')}
           />
         </Field>
-        <Field label="Nama Guru" htmlFor="teacherId" error={errors.teacherId?.message}>
+        <Field label={t('absen.form.teacher')} htmlFor="teacherId" error={errors.teacherId?.message}>
           <Controller
             control={control}
             name="teacherId"
             render={({ field }) => (
               <Select id="teacherId" {...field}>
-                <option value="">— Pilih guru —</option>
-                {teachersQ.data?.items.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                    {t.nickname ? ` (${t.nickname})` : ''}
+                <option value="">{t('absen.form.selectTeacher')}</option>
+                {teachersQ.data?.items.map((tr) => (
+                  <option key={tr.id} value={tr.id}>
+                    {tr.name}
+                    {tr.nickname ? ` (${tr.nickname})` : ''}
                   </option>
                 ))}
               </Select>
             )}
           />
         </Field>
-        <Field label="Nama Murid" htmlFor="studentId" error={errors.studentId?.message}>
+        <Field label={t('absen.form.student')} htmlFor="studentId" error={errors.studentId?.message}>
           <Controller
             control={control}
             name="studentId"
             render={({ field }) => (
               <Select id="studentId" {...field}>
-                <option value="">— Pilih murid —</option>
+                <option value="">{t('absen.form.selectStudent')}</option>
                 {studentsQ.data?.items.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -144,7 +163,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
         </Field>
       </div>
 
-      <Field label="Kehadiran" htmlFor="status-group" error={errors.status?.message}>
+      <Field label={t('absen.form.status')} htmlFor="status-group" error={errors.status?.message}>
         <Controller
           control={control}
           name="status"
@@ -175,7 +194,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
         />
       </Field>
 
-      <Field label="Materi" htmlFor="materi" error={errors.materi?.message}>
+      <Field label={t('absen.form.materi')} htmlFor="materi" error={errors.materi?.message}>
         <textarea
           id="materi"
           rows={6}
@@ -185,28 +204,28 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
       </Field>
 
       <Field
-        label="No. WhatsApp"
+        label={t('absen.form.phone')}
         htmlFor="submittedPhone"
         error={errors.submittedPhone?.message}
-        hint="Contoh: 081234567890 atau +6281234567890"
+        hint={t('absen.form.phoneHint')}
       >
         <Input
           id="submittedPhone"
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          placeholder="081234567890"
+          placeholder={t('absen.form.phonePlaceholder')}
           {...register('submittedPhone')}
         />
       </Field>
 
       {loading ? (
-        <p className="text-sm text-slate-500">Memuat daftar guru dan murid…</p>
+        <p className="text-sm text-slate-500">{t('absen.form.loadingOptions')}</p>
       ) : null}
       {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
 
       <Button type="submit" className="w-full" disabled={pending || loading}>
-        {pending ? 'Mengirim…' : submitLabel}
+        {pending ? t('absen.form.sending') : submitLabel}
       </Button>
     </form>
   )

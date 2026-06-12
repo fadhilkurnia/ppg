@@ -1,18 +1,20 @@
+import { useTranslation } from 'react-i18next'
 import type { Teacher } from '@/api/types'
 
 export function TeacherDetail({ teacher: t }: { teacher: Teacher }) {
-  const statusLabel = t.status === 'active' ? 'Aktif' : 'Purna'
+  const { t: tr } = useTranslation()
+  const statusLabel = t.status === 'active' ? tr('teachers.detail.statusActive') : tr('teachers.detail.statusRetired')
   return (
     <dl className="grid gap-4 text-sm sm:grid-cols-2">
-      <Row label="Nama Pengajar" value={t.name} />
-      <Row label="Nama Panggilan" value={t.nickname ?? '—'} />
-      <Row label="Kelompok" value={t.kelompok} />
-      <Row label="Desa" value={t.desa} />
-      <Row label="Daerah" value={t.daerah} className="sm:col-span-2" />
-      <Row label="Tanggal Masuk" value={t.joinedAt?.slice(0, 10) ?? '—'} />
-      <Row label="Tanggal Purna" value={t.retiredAt?.slice(0, 10) ?? '—'} />
-      <Row label="Status" value={statusLabel} />
-      <Row label="Keterangan" value={t.notes ?? '—'} className="sm:col-span-2" />
+      <Row label={tr('teachers.detail.name')} value={t.name} />
+      <Row label={tr('teachers.detail.nickname')} value={t.nickname ?? '—'} />
+      <Row label={tr('teachers.detail.kelompok')} value={t.kelompok} />
+      <Row label={tr('teachers.detail.desa')} value={t.desa} />
+      <Row label={tr('teachers.detail.daerah')} value={t.daerah} className="sm:col-span-2" />
+      <Row label={tr('teachers.detail.joinedAt')} value={t.joinedAt?.slice(0, 10) ?? '—'} />
+      <Row label={tr('teachers.detail.retiredAt')} value={t.retiredAt?.slice(0, 10) ?? '—'} />
+      <Row label={tr('teachers.detail.status')} value={statusLabel} />
+      <Row label={tr('teachers.detail.notes')} value={t.notes ?? '—'} className="sm:col-span-2" />
     </dl>
   )
 }
