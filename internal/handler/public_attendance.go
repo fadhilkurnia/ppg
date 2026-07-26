@@ -112,7 +112,7 @@ type publicAttendanceBody struct {
 // publicAttendanceResponse is the 201 payload returned to the SPA. The
 // embedded *Attendance flattens its fields to the top level via JSON
 // promotion; WaMeURL is the pre-built click-to-chat URL the form opens
-// after a successful submit. Empty when no admin number is configured.
+// after a successful submit, targeting the submitted destination number.
 type publicAttendanceResponse struct {
 	*model.Attendance
 	WaMeURL string `json:"waMeUrl"`
@@ -120,7 +120,7 @@ type publicAttendanceResponse struct {
 
 // Create handles `POST /api/public/attendances`. It persists the row,
 // formats the WhatsApp report body, and returns a wa.me URL pointing
-// at the submitter's own number that the SPA navigates to so WhatsApp
+// at the submitted destination number that the SPA navigates to so WhatsApp
 // opens with the report pre-filled and ready to send.
 func (h *PublicAttendance) Create(w http.ResponseWriter, r *http.Request) {
 	var b publicAttendanceBody
