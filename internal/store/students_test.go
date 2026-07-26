@@ -131,3 +131,17 @@ func TestStudentsCheckLevelEnum(t *testing.T) {
 		t.Error("expected CHECK constraint failure on bogus level, got nil")
 	}
 }
+
+func TestStudentsCreateWithOtherKelompok(t *testing.T) {
+	s := newTestDB(t)
+	in := sampleInput("Dihyah")
+	in.Kelompok = "Other"
+
+	created, err := s.Create(context.Background(), in)
+	if err != nil {
+		t.Fatalf("create with Other kelompok: %v", err)
+	}
+	if created.Kelompok != "Other" {
+		t.Errorf("Kelompok = %q, want Other", created.Kelompok)
+	}
+}
