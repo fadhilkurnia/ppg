@@ -45,7 +45,7 @@ Same backend as sitrac, but a **persona-first frontend redesign**: each role get
 A Vue 3 SPA deployed as a Cloudflare Worker. The Worker is a security gateway:
 
 - HttpOnly cookies (`gnrs_access`, `gnrs_refresh`) — tokens never reach browser JS.
-- **Dynamic per-session API path** (e.g. `/a3f8d2e1b9c7/*`) injected into the HTML, defeating naive CSRF.
+- **Dynamic per-session API path** (e.g. `/a3f8d2/*`) injected into the HTML, defeating naive CSRF.
 - Worker-to-backend authentication via `X-GNRS-Worker-Auth: <shared-secret>`.
 
 Domain model: users with `scope` (Indonesian geographic hierarchy), classes (`kelas`), class templates (`kelas_template`), materials (`materi`) with `basis_penilaian` (skill vs completion), material assignments with grade tracking, sessions (`sesi`) with `status` (upcoming / active / ended) and QR attendance proof. Bulk CSV CRUD for users, classes, materials, sessions. i18n (en / id).

@@ -18,7 +18,7 @@ const apiBasePlaceholder = "__API_BASE__"
 
 // Config configures the embedded SPA handler. APIBaseFor is invoked for
 // every request that serves index.html and must return the API base the
-// SPA should call (e.g. "/api" or "/a3f8d2e1b9c7"). Nil falls back to
+// SPA should call (e.g. "/api" or "/a3f8d2"). Nil falls back to
 // "/api" so the static SPA remains usable when the caller does not opt
 // into the dynamic-path feature.
 type Config struct {

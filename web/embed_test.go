@@ -14,13 +14,13 @@ func TestWriteIndex_SubstitutesPlaceholder(t *testing.T) {
 		`</head><body></body></html>`)
 
 	w := httptest.NewRecorder()
-	writeIndex(w, tpl, "/a3f8d2e1b9c7")
+	writeIndex(w, tpl, "/a3f8d2")
 
 	body := w.Body.String()
 	if strings.Contains(body, "__API_BASE__") {
 		t.Errorf("placeholder still present: %s", body)
 	}
-	if !strings.Contains(body, `content="/a3f8d2e1b9c7"`) {
+	if !strings.Contains(body, `content="/a3f8d2"`) {
 		t.Errorf("api base not substituted: %s", body)
 	}
 	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {

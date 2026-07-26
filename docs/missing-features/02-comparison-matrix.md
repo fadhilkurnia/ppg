@@ -167,11 +167,11 @@ Covered in [24](./24-bulk-operations.md).
 | Capability | ppgus | sitrac | sitrac-v3 | gnrs (FE) |
 |---|---|---|---|---|
 | JWT HS256 | ✓ | ✓ | ✓ | ✓ (proxied) |
-| HttpOnly + SameSite=Strict cookie | ✓ | ✓ | ✓ | ✓ |
+| HttpOnly + SameSite cookie | ✓ (Lax) | ✓ | ✓ | ✓ |
 | Refresh token rotation | ✗ | ◐ | ◐ | ✓ |
-| Dynamic per-session API path | ✗ | ✗ | ✗ | ✓ |
+| Dynamic per-session API path | ✓ | ✗ | ✗ | ✓ |
 | Shared secret for worker → backend | ✗ | ✗ | ✗ | ✓ |
-| CSRF protection beyond SameSite | ✗ | ✗ | ✗ | ✓ (path is the token) |
+| CSRF protection beyond SameSite | ✓ (dynamic path) | ✗ | ✗ | ✓ (path is the token) |
 | Rate limiting | ✗ | ✗ | ✗ | ✗ |
 | CSP / HSTS headers | ✗ | ✗ | ✗ | ✓ |
 | Audit on sensitive actions | ✗ | ✓ | ✓ | ✗ (backend-side) |
