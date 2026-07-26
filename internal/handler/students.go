@@ -33,7 +33,7 @@ type studentBody struct {
 	DateOfBirth *string `json:"dateOfBirth,omitempty"  validate:"omitempty,datetime=2006-01-02"`
 	Gender      string  `json:"gender"      validate:"required,oneof=male female"`
 	Level       string  `json:"level"                  validate:"required,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
-	Kelompok    string  `json:"kelompok"               validate:"required,oneof=California Chicago 'New Hampshire' Canada"`
+	Kelompok    string  `json:"kelompok"               validate:"required,oneof=California Chicago 'New Hampshire' Canada Other"`
 	City        *string `json:"city,omitempty"         validate:"omitempty,max=200"`
 	JoinedAt    *string `json:"joinedAt,omitempty"     validate:"omitempty,datetime=2006-01-02"`
 	LeftAt      *string `json:"leftAt,omitempty"       validate:"omitempty,datetime=2006-01-02"`
