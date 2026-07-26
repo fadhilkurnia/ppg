@@ -25,8 +25,9 @@ data/
 *.db-shm
 *.db-wal
 
-# CSV exports / imports (kept out of source)
+# Data exports / imports (kept out of source)
 *.csv
+*.zip
 
 # Claude Code local state (per-machine worktrees, settings, etc.)
 .claude/
