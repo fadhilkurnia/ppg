@@ -71,14 +71,14 @@ If the same `jti` is presented twice, the second presentation means an attacker 
 
 The application uses a per-session dynamic API prefix so browser code calls
 `/a3f8d2/auth/me` instead of the canonical `/api/auth/me`. This supplements
-the cookie's `SameSite=Strict` policy and frustrates automated scanners.
+the cookie's current `SameSite=Lax` policy and frustrates automated scanners.
 
 ### 3.1 Generation
 
 On `POST /api/auth/login`:
 
 1. Generate a random six-character lowercase base36 path containing at least one digit.
-2. Set cookie `auth_path=<apiPath>; Path=/; HttpOnly; SameSite=Strict; Max-Age=<sessionTTL>`.
+2. Set cookie `auth_path=<apiPath>; Path=/; HttpOnly; SameSite=Lax; Max-Age=<sessionTTL>`.
 3. Return `{ data: { user, apiBase: "/" + apiPath } }` (the worker / SPA bootstrap reads this).
 
 ### 3.2 Routing
@@ -228,7 +228,7 @@ ALTER TABLE users ADD COLUMN locked_until TEXT;
 |---|---|
 | Stolen access cookie | Short TTL (15 min); refresh rotation; logout revokes |
 | Stolen refresh cookie | One-time-use `jti`; rotation detects reuse |
-| CSRF | SameSite=Strict + (optional) dynamic API path |
+| CSRF | SameSite cookie policy + dynamic API path (enabled by default) |
 | XSS exfiltrating tokens | HttpOnly cookies (tokens never reach JS); CSP blocks inline scripts |
 | Clickjacking | X-Frame-Options=DENY, CSP frame-ancestors none |
 | Open redirect | Validate `redirect` query params against an allowlist of internal SPA routes |
