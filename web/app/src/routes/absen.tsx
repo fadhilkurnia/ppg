@@ -60,7 +60,7 @@ function AbsenPage() {
                   href={waMeUrl}
                   className="inline-flex h-12 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-base font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 sm:h-11 sm:text-sm"
                 >
-                  Kirim ke WhatsApp
+                  {t('absen.sendWa')}
                 </a>
               </>
             ) : (
