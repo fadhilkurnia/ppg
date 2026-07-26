@@ -14,7 +14,7 @@ the most recent migration (`009_create_attendances`).
 | [`students`](#students) | Generus — the youths in the program. | 32 |
 | [`teachers`](#teachers) | Pengajar — the mentors who run private sessions. | 29 |
 | [`attendances`](#attendances) | One row per teaching session (teacher × student × date). | 5,800+ |
-| `schema_migrations` | Internal bookkeeping for `golang-migrate`. Never edited by hand. | 9 |
+| `schema_migrations` | Internal bookkeeping for `golang-migrate`. Never edited by hand. | 13 |
 
 ## Entity relationship
 
@@ -106,10 +106,10 @@ CREATE TABLE students (
   nickname      TEXT,
   date_of_birth DATE,
   gender        TEXT NOT NULL CHECK (gender IN ('male','female')),
-  level         TEXT CHECK (level IS NULL OR level IN
+  level         TEXT NOT NULL CHECK (level IN
                   ('Caberawit','Pra Remaja','Remaja','Pra Nikah')),
   kelompok      TEXT NOT NULL CHECK (kelompok IN
-                  ('California','Chicago','New Hampshire','Canada')),
+                  ('California','Chicago','New Hampshire','Canada','Other')),
   city          TEXT,                                    -- finer-grained than kelompok
   joined_at     DATE,
   left_at       DATE,
@@ -138,8 +138,8 @@ CREATE INDEX idx_students_city     ON students(city);
 | `nickname` | TEXT, nullable | Single token or slash-separated (e.g., `Yasril / Dyka`); used to resolve attendance imports |
 | `date_of_birth` | DATE, nullable | Ages displayed in the UI are derived client-side via `lib/age.ts` |
 | `gender` | TEXT, NOT NULL, CHECK | `male` / `female`. Seeded from name heuristics on existing rows; UI labels are `Laki-laki` / `Perempuan` |
-| `level` | TEXT, nullable, CHECK | The four canonical jenjang: `Caberawit`, `Pra Remaja`, `Remaja`, `Pra Nikah` |
-| `kelompok` | TEXT, NOT NULL, CHECK | Four regional buckets: `California`, `Chicago`, `New Hampshire`, `Canada`. Required since migration 007 |
+| `level` | TEXT, NOT NULL, CHECK | The four canonical jenjang: `Caberawit`, `Pra Remaja`, `Remaja`, `Pra Nikah`. Required since migration 010 |
+| `kelompok` | TEXT, NOT NULL, CHECK | `California`, `Chicago`, `New Hampshire`, `Canada`, or the non-geographic fallback `Other`. Required since migration 007; `Other` added in migration 013 |
 | `city` | TEXT, nullable | Specific city (Chicago, Raleigh, Philadelphia, Toronto, Buffalo, Indianapolis, …). Decodes the region codes used in attendance source CSVs |
 | `joined_at` / `left_at` | DATE, nullable | ISO dates |
 | `leave_reason` | TEXT, nullable | Free text; common values include `Pulang Ke Indo` |
@@ -272,8 +272,8 @@ are localized separately.
 |---|---|---|---|
 | `users` | `role` | `admin`, `staff` | Default `staff` |
 | `students` | `gender` | `male`, `female` | Required |
-| `students` | `level` | `Caberawit`, `Pra Remaja`, `Remaja`, `Pra Nikah` | Nullable (also implicit "tidak diisi") |
-| `students` | `kelompok` | `California`, `Chicago`, `New Hampshire`, `Canada` | Required |
+| `students` | `level` | `Caberawit`, `Pra Remaja`, `Remaja`, `Pra Nikah` | Required |
+| `students` | `kelompok` | `California`, `Chicago`, `New Hampshire`, `Canada`, `Other` | Required |
 | `students` | `status` | `active`, `left` | Default `active` |
 | `teachers` | `status` | `active`, `retired` | Default `active` |
 | `attendances` | `status` | `hadir`, `izin_murid`, `izin_guru`, `by_vn` | UI labels: `Hadir` / `Izin (Murid)` / `Izin (Guru)` / `Via Voice Note` |
