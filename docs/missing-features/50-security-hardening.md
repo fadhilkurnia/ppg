@@ -69,36 +69,43 @@ If the same `jti` is presented twice, the second presentation means an attacker 
 
 ## 3. Dynamic per-session API path
 
-(Reference: gnrs's worker injects a 12-hex API path so that browser code calls `/a3f8d2e1b9c7/user/...` instead of `/api/user/...`. This makes CSRF tokens redundant and frustrates automated scanners.)
+The application uses a per-session dynamic API prefix so browser code calls
+`/a3f8d2/auth/me` instead of the canonical `/api/auth/me`. This supplements
+the cookie's `SameSite=Strict` policy and frustrates automated scanners.
 
 ### 3.1 Generation
 
 On `POST /api/auth/login`:
 
-1. Generate a 12-hex random path: `apiPath := hex.EncodeToString(random(6))`.
+1. Generate a random six-character lowercase base36 path containing at least one digit.
 2. Set cookie `auth_path=<apiPath>; Path=/; HttpOnly; SameSite=Strict; Max-Age=<sessionTTL>`.
 3. Return `{ data: { user, apiBase: "/" + apiPath } }` (the worker / SPA bootstrap reads this).
 
 ### 3.2 Routing
 
-Mount routes on **both** the canonical `/api` and the dynamic prefix. The dynamic prefix middleware extracts the prefix from the URL, validates it against the requester's `auth_path` cookie, then strips it and forwards internally to the canonical mux:
+The dynamic-prefix middleware extracts the prefix from the URL, validates it
+against the requester's `auth_path` cookie, then rewrites it internally to the
+canonical mux:
 
 ```go
-r.Use(dynamicAPIPath) // strips and validates
+r.Use(dynamicAPIPath) // gates /api and rewrites valid dynamic paths
 r.Mount("/api", apiRouter) // canonical
 ```
 
 Validation:
 
-- Must be 12 lowercase hex chars.
+- Must be six lowercase base36 characters with at least one digit.
 - Must match `auth_path` cookie.
 - If mismatch or absent, 403 `bad_api_path`.
+
+When enabled, direct `/api/*` access is limited to login bootstrap and public
+attendance endpoints. Other direct requests return `403 api_path_required`.
 
 ### 3.3 SPA bootstrap
 
 The embedded SPA reads the path from a `<meta name="ppgus-api-base">` tag the server injects into `index.html` at serve time. The server replaces `__API_BASE__` placeholder with `/` + apiPath.
 
-This is **optional**. If `DYNAMIC_API_PATH=false`, everything falls back to `/api/`.
+This is enabled by default. If `DYNAMIC_API_PATH=false`, everything falls back to `/api/`.
 
 ## 4. Shared-secret worker auth
 
@@ -208,7 +215,7 @@ ALTER TABLE users ADD COLUMN locked_until TEXT;
 | `JWT_TTL` | 15m | access |
 | `JWT_REFRESH_TTL` | 720h | refresh |
 | `COOKIE_SECURE` | false | set `Secure` flag |
-| `DYNAMIC_API_PATH` | false | enable §3 |
+| `DYNAMIC_API_PATH` | true | enable §3 |
 | `WORKER_AUTH_REQUIRED` | false | enforce X-PPGUS-Worker-Auth |
 | `WORKER_AUTH_SECRET` | — | shared secret |
 | `RATE_LIMIT_LOGIN_PER_IP` | `10:5m` | configurable |

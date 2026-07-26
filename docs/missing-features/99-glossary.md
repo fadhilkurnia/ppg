@@ -14,7 +14,7 @@ key-concepts: [bilingual-terms, acronyms, role-names, domain-vocabulary]
 - **Absensi** — attendance. In ppgus, both the legacy `attendances` table and the new `sesi_attendances` carry the concept.
 - **Active (sesi)** — a session that has started but not ended (status `active`).
 - **Admin** — system superuser role. See [12](./12-user-and-roles.md).
-- **API path (dynamic)** — a 12-hex per-session prefix injected by the gnrs Worker to mitigate CSRF. See [50](./50-security-hardening.md) §3.
+- **API path (dynamic)** — a six-character base36 per-session prefix used by the application to mitigate CSRF and automated scanning. See [50](./50-security-hardening.md) §3.
 - **Aktifitas** — activity (as in lesson "activity" entry in `compact_ajar`).
 - **Anak** — child. Used in the ortu (parent) UI: `/_authed/anak`.
 - **Archived** — soft-deleted status for organisational entities. Row stays; lists hide it.
