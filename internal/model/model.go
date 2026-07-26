@@ -28,18 +28,18 @@ const (
 )
 
 type Teacher struct {
-	ID         string        `json:"id"`
-	Name       string        `json:"name"`
-	Nickname   *string       `json:"nickname,omitempty"`
-	Kelompok   string        `json:"kelompok"`
-	Desa       string        `json:"desa"`
-	Daerah     string        `json:"daerah"`
-	JoinedAt   *time.Time    `json:"joinedAt,omitempty"`
-	RetiredAt  *time.Time    `json:"retiredAt,omitempty"`
-	Status     TeacherStatus `json:"status"`
-	Notes      *string       `json:"notes,omitempty"`
-	CreatedAt  time.Time     `json:"createdAt"`
-	UpdatedAt  time.Time     `json:"updatedAt"`
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	Nickname  *string       `json:"nickname,omitempty"`
+	Kelompok  string        `json:"kelompok"`
+	Desa      string        `json:"desa"`
+	Daerah    string        `json:"daerah"`
+	JoinedAt  *time.Time    `json:"joinedAt,omitempty"`
+	RetiredAt *time.Time    `json:"retiredAt,omitempty"`
+	Status    TeacherStatus `json:"status"`
+	Notes     *string       `json:"notes,omitempty"`
+	CreatedAt time.Time     `json:"createdAt"`
+	UpdatedAt time.Time     `json:"updatedAt"`
 }
 
 type StudentStatus string
@@ -60,7 +60,7 @@ const (
 
 // StudentKelompoks is the canonical list of valid kelompok values, mirrored
 // in the SQL CHECK constraint and the frontend dropdown.
-var StudentKelompoks = []string{"California", "Chicago", "New Hampshire", "Canada"}
+var StudentKelompoks = []string{"California", "Chicago", "New Hampshire", "Canada", "Other"}
 
 type AttendanceStatus string
 
