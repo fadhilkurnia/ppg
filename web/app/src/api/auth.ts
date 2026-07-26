@@ -5,6 +5,10 @@ import type { AuthMe, User } from './types'
 // login authenticates the user and pushes the server's apiBase into the
 // shared module state so subsequent calls use the dynamic prefix.
 export async function login(identifier: string, password: string): Promise<User> {
+  // Login is the bootstrap endpoint that issues a fresh dynamic prefix. Reset
+  // first so a stale in-memory prefix from another tab/session cannot trap
+  // this tab in a bad_api_path -> login -> bad_api_path loop.
+  setApiBase('/api')
   const res = await apiFetch<AuthMe>('/api/auth/login', {
     method: 'POST',
     body: { identifier, password },
