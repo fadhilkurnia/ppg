@@ -6,7 +6,9 @@ import type { Bucket } from '@/api/stats'
 import { type StudentKelompok } from '@/api/types'
 import { useTranslation } from '@/lib/i18n'
 
-const KELOMPOK_COORDS: Record<StudentKelompok, LatLngTuple> = {
+type MappedStudentKelompok = Exclude<StudentKelompok, 'Other'>
+
+const KELOMPOK_COORDS: Record<MappedStudentKelompok, LatLngTuple> = {
   California: [34.0522, -118.2437],     // Los Angeles
   Chicago: [41.8781, -87.6298],         // Chicago
   'New Hampshire': [43.2081, -71.5376], // Concord
@@ -28,8 +30,8 @@ export function StudentLocationMap({ buckets }: { buckets: Bucket[] }) {
   const { t } = useTranslation()
   const placed = buckets
     .filter(
-      (b): b is Bucket & { label: StudentKelompok } =>
-        b.count > 0 && (b.label as StudentKelompok) in KELOMPOK_COORDS,
+      (b): b is Bucket & { label: MappedStudentKelompok } =>
+        b.count > 0 && b.label in KELOMPOK_COORDS,
     )
 
   const max = placed.reduce((acc, b) => Math.max(acc, b.count), 1)

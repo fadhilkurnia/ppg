@@ -20,7 +20,7 @@ export type AuthMe = User & {
 export const STUDENT_LEVELS = ['Caberawit', 'Pra Remaja', 'Remaja', 'Pra Nikah'] as const
 export type StudentLevel = (typeof STUDENT_LEVELS)[number]
 
-export const STUDENT_KELOMPOKS = ['California', 'Chicago', 'New Hampshire', 'Canada'] as const
+export const STUDENT_KELOMPOKS = ['California', 'Chicago', 'New Hampshire', 'Canada', 'Other'] as const
 export type StudentKelompok = (typeof STUDENT_KELOMPOKS)[number]
 
 export type StudentStatus = 'active' | 'left'
