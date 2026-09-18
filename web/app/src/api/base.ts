@@ -19,6 +19,7 @@ function readMetaBase(): string {
 }
 
 function normalize(base: string): string {
+  if (!base || typeof base !== 'string') return CANONICAL_BASE
   if (!base.startsWith('/')) return `/${base}`
   if (base.length > 1 && base.endsWith('/')) return base.slice(0, -1)
   return base
@@ -44,6 +45,7 @@ export function setApiBase(base: string): void {
  *   stay untouched.
  */
 export function resolveApiPath(path: string): string {
+  if (!path || typeof path !== 'string') return path || ''
   if (path === CANONICAL_BASE) return currentBase
   if (path.startsWith(`${CANONICAL_BASE}/`)) {
     return currentBase + path.slice(CANONICAL_BASE.length)

@@ -21,7 +21,7 @@ export function AttendanceDetail({ attendance: a }: { attendance: Attendance }) 
           {t('sessions.detailMateri')}
         </div>
         {a.materi ? (
-          <pre className="whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-slate-50 p-3 font-sans text-sm text-slate-900">
+          <pre className="whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-slate-50 p-3 font-sans text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-100">
             {a.materi}
           </pre>
         ) : (
@@ -35,8 +35,8 @@ export function AttendanceDetail({ attendance: a }: { attendance: Attendance }) 
 function Row({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div className={className}>
-      <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-slate-900">{value}</dd>
+      <dt className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-slate-900 dark:text-slate-100">{value}</dd>
     </div>
   )
 }

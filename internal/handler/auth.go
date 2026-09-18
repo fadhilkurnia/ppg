@@ -21,21 +21,49 @@ const defaultAPIBase = "/api"
 
 type Auth struct {
 	users          *store.Users
+	userPhones     *store.UserPhones
+	challenges     *store.WAChallenges
+	waResets       *store.WAResetChallenges
+	pwResets       *store.PasswordResets
+	waOutbox       *store.WAOutbox
 	roles          *store.Roles
 	jwt            *auth.JWT
 	cookieSecure   bool
 	dynamicAPIPath bool
+	botPhone       string
+	appBaseURL     string
+	googleClientID string
 }
 
-func NewAuth(users *store.Users, roles *store.Roles, jwtSvc *auth.JWT, cookieSecure, dynamicAPIPath bool) *Auth {
+func NewAuth(
+	users *store.Users,
+	userPhones *store.UserPhones,
+	challenges *store.WAChallenges,
+	waResets *store.WAResetChallenges,
+	pwResets *store.PasswordResets,
+	waOutbox *store.WAOutbox,
+	roles *store.Roles,
+	jwtSvc *auth.JWT,
+	cookieSecure, dynamicAPIPath bool,
+	botPhone, appBaseURL, googleClientID string,
+) *Auth {
 	return &Auth{
 		users:          users,
+		userPhones:     userPhones,
+		challenges:     challenges,
+		waResets:       waResets,
+		pwResets:       pwResets,
+		waOutbox:       waOutbox,
 		roles:          roles,
 		jwt:            jwtSvc,
 		cookieSecure:   cookieSecure,
 		dynamicAPIPath: dynamicAPIPath,
+		botPhone:       botPhone,
+		appBaseURL:     appBaseURL,
+		googleClientID: strings.TrimSpace(googleClientID),
 	}
 }
+
 
 type loginRequest struct {
 	Identifier string `json:"identifier"`
@@ -239,4 +267,73 @@ func (a *Auth) clearCookie(w http.ResponseWriter, name string) {
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
+}
+
+type firstLoginRequest struct {
+	Username       *string `json:"username"`
+	NewPassword    string  `json:"newPassword"`
+	NewPasswordAlt string  `json:"new_password"`
+}
+
+func (a *Auth) FirstLogin(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.ClaimsFrom(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "no claims in context")
+		return
+	}
+
+	var req firstLoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "Format JSON tidak valid")
+		return
+	}
+
+	newPassword := strings.TrimSpace(req.NewPassword)
+	if newPassword == "" {
+		newPassword = strings.TrimSpace(req.NewPasswordAlt)
+	}
+	if len(newPassword) < 6 {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "Kata sandi baru minimal 6 karakter")
+		return
+	}
+
+	var unamePtr *string
+	if req.Username != nil {
+		cleanUname := strings.TrimSpace(*req.Username)
+		if cleanUname != "" {
+			taken, err := a.users.IsUsernameTaken(r.Context(), cleanUname, claims.UserID)
+			if err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal memeriksa nama pengguna")
+				return
+			}
+			if taken {
+				httpx.Error(w, http.StatusConflict, "username_taken", "Nama pengguna sudah digunakan")
+				return
+			}
+			unamePtr = &cleanUname
+		}
+	}
+
+	user, err := a.users.UpdateFirstLoginCredentials(r.Context(), claims.UserID, unamePtr, newPassword)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "Pengguna tidak ditemukan")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal memperbarui kata sandi")
+		return
+	}
+
+	if err := a.issueSession(r, w, user); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal memperbarui sesi")
+		return
+	}
+
+	apiBase := defaultAPIBase
+	if a.dynamicAPIPath {
+		if p, ok := auth.ReadAPIPathCookie(r); ok {
+			apiBase = "/" + p
+		}
+	}
+	httpx.JSON(w, http.StatusOK, authResponse{User: user, APIBase: apiBase})
 }

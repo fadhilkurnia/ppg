@@ -11,6 +11,9 @@ export const Route = createFileRoute('/')({
         queryFn: me,
       })
       if (user) {
+        if (user.role === 'guru' || user.role === 'teacher') {
+          throw redirect({ to: '/portal-guru' })
+        }
         throw redirect({ to: '/dashboard' })
       }
     } catch (err) {

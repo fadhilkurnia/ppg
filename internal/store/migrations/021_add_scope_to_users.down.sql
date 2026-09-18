@@ -1,0 +1,3 @@
+ALTER TABLE users DROP COLUMN daerah;
+ALTER TABLE users DROP COLUMN desa;
+ALTER TABLE users DROP COLUMN kelompok;

@@ -1,13 +1,116 @@
-export type Role = 'admin' | 'staff'
+export type Role = 'admin' | 'staff' | 'guru' | 'murid' | 'teacher' | 'student' | 'coordinator' | 'parent'
 
 export type User = {
   id: string
   email: string
   username?: string
+  nickname?: string
+  phone?: string
+  daerah?: string
+  desa?: string
+  kelompok?: string
   name: string
   role: Role
+  status?: string
+  mustChangePassword?: boolean
+  must_change_password?: boolean
+  google_id?: string
+  googleId?: string
   createdAt: string
   updatedAt: string
+}
+
+export type UserList = {
+  items: User[]
+  total: number
+}
+
+export type CreateUserInput = {
+  email: string
+  username?: string
+  nickname?: string
+  phone?: string
+  password: string
+  name: string
+  roleId: string
+}
+
+export type UpdateUserInput = {
+  name?: string
+  nickname?: string
+  email?: string
+  username?: string
+  phone?: string
+  daerah?: string
+  desa?: string
+  kelompok?: string
+  role?: string
+  status?: string
+}
+
+export type RoleRecord = {
+  id: string
+  label: string
+  canLogin: boolean
+  manageableRoleIds: string[]
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type UserPhone = {
+  id: string
+  userId: string
+  phone: string
+  isPrimary: boolean
+  verifiedAt: string
+  createdAt: string
+}
+
+export type ForgotPasswordRequestResponse = {
+  ok: boolean
+  resetToken: string
+  maskedPhone: string
+  expiresAt: string
+}
+
+export type ResetPasswordWithOTPInput = {
+  resetToken: string
+  otp: string
+  newPassword: string
+  confirmPassword?: string
+}
+
+export type WAResetChallengeResponse = {
+  code: string
+  pollToken: string
+  waLink: string
+  messageText: string
+  botPhone: string
+  expiresAt: string
+}
+
+export type WAResetStatusResponse = {
+  status: 'pending' | 'otp_sent' | 'verified' | 'consumed' | 'expired'
+  phoneMasked?: string
+  userName?: string
+}
+
+export type VerifyResetWAOTPResponse = {
+  ok: boolean
+  resetSessionToken: string
+  user: User
+}
+
+export type CompleteResetWAPasswordInput = {
+  resetSessionToken: string
+  newPassword: string
+  confirmPassword?: string
+}
+
+export type GoogleConfigResponse = {
+  enabled: boolean
+  clientId: string
 }
 
 // AuthMe is the server response shape for /api/auth/login and /api/auth/me.
@@ -139,3 +242,31 @@ export type TeacherInput = {
   status: TeacherStatus
   notes?: string
 }
+
+export type StudentTeacher = {
+  id: string
+  studentId: string
+  teacherId: string
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type StudentTeacherDetail = {
+  id: string
+  studentId: string
+  studentName: string
+  studentNickname?: string
+  studentLevel: string
+  studentKelompok: string
+  studentStatus: string
+  teacherId: string
+  teacherName: string
+  teacherNickname?: string
+  teacherKelompok: string
+  teacherStatus: string
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+

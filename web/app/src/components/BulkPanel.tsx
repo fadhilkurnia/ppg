@@ -70,8 +70,8 @@ export function BulkPanel({ entity, isAdmin, invalidateKey, exportParams }: Prop
   return (
     <div className="space-y-6">
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-slate-900">{t('bulk.exportTitle')}</h3>
-        <p className="text-sm text-slate-600">{t('bulk.exportHint', { entity })}</p>
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('bulk.exportTitle')}</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400">{t('bulk.exportHint', { entity })}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -87,28 +87,28 @@ export function BulkPanel({ entity, isAdmin, invalidateKey, exportParams }: Prop
       </section>
 
       {isAdmin ? (
-        <section className="space-y-3 border-t border-slate-200 pt-5">
-          <h3 className="text-sm font-semibold text-slate-900">{t('bulk.importTitle')}</h3>
-          <p className="text-sm text-slate-600">{t('bulk.importHint')}</p>
+        <section className="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-5">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('bulk.importTitle')}</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t('bulk.importHint')}</p>
           {schemaQ.isPending ? (
-            <p className="text-xs text-slate-500">{t('bulk.loadingSchema')}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t('bulk.loadingSchema')}</p>
           ) : schemaQ.data ? (
             <ul className="flex flex-wrap gap-1.5">
               {schemaQ.data.headers.map((h) => (
                 <li
                   key={h}
-                  className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700"
+                  className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-xs text-slate-700 dark:text-slate-300"
                 >
                   {h}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-red-600">{t('bulk.schemaError')}</p>
+            <p className="text-xs text-red-600 dark:text-red-400">{t('bulk.schemaError')}</p>
           )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="flex-1 text-sm">
-              <span className="mb-1 block text-slate-700">{t('bulk.fileLabel')}</span>
+              <span className="mb-1 block text-slate-700 dark:text-slate-300">{t('bulk.fileLabel')}</span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -122,11 +122,11 @@ export function BulkPanel({ entity, isAdmin, invalidateKey, exportParams }: Prop
               />
             </label>
             <label className="text-sm sm:w-56">
-              <span className="mb-1 block text-slate-700">{t('bulk.modeLabel')}</span>
+              <span className="mb-1 block text-slate-700 dark:text-slate-300">{t('bulk.modeLabel')}</span>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as BulkMode)}
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
               >
                 {(Object.keys(modeLabels) as BulkMode[]).map((m) => (
                   <option key={m} value={m}>
@@ -167,7 +167,7 @@ export function ReportView({ report }: { report: BulkReport }) {
   const failed = results.filter((r) => r.outcome === 'failed')
 
   return (
-    <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+    <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50 p-3">
       <div className="flex flex-wrap gap-2 text-xs">
         <SummaryBadge label="Total" value={summary.total} tone="slate" />
         <SummaryBadge label="Created" value={summary.created} tone="emerald" />
@@ -177,10 +177,10 @@ export function ReportView({ report }: { report: BulkReport }) {
       </div>
       {failed.length > 0 ? (
         <details className="text-sm" open={failed.length <= 5}>
-          <summary className="cursor-pointer font-medium text-red-700">
+          <summary className="cursor-pointer font-medium text-red-700 dark:text-red-400">
             {t('bulk.rowsFailed', { n: failed.length })}
           </summary>
-          <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto pl-1 text-xs text-slate-700">
+          <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto pl-1 text-xs text-slate-700 dark:text-slate-300">
             {failed.map((r) => (
               <li key={r.row}>
                 <span className="font-mono">{t('bulk.rowPrefix', { n: r.row })}</span>{' '}
@@ -190,17 +190,17 @@ export function ReportView({ report }: { report: BulkReport }) {
           </ul>
         </details>
       ) : (
-        <p className="text-xs text-emerald-700">{t('bulk.rowsOk')}</p>
+        <p className="text-xs text-emerald-700 dark:text-emerald-400">{t('bulk.rowsOk')}</p>
       )}
     </div>
   )
 }
 
 const BADGE_TONES = {
-  slate: 'bg-slate-200 text-slate-800',
-  emerald: 'bg-emerald-100 text-emerald-800',
-  sky: 'bg-sky-100 text-sky-800',
-  red: 'bg-red-100 text-red-800',
+  slate: 'bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
+  emerald: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+  sky: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',
+  red: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300',
 } as const
 
 function SummaryBadge({

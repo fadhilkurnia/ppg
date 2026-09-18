@@ -202,34 +202,34 @@ function SessionsPage() {
         </div>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="max-h-[520px] overflow-auto rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 backdrop-blur-xs text-left text-xs uppercase tracking-wide text-slate-500 shadow-xs dark:border-slate-800 dark:bg-slate-800/95 dark:text-slate-400">
             <tr>
-              <th className="px-4 py-2">{t('sessions.colDate')}</th>
-              <th className="px-4 py-2">{t('sessions.colStudent')}</th>
-              <th className="hidden px-4 py-2 sm:table-cell">{t('sessions.colTeacher')}</th>
-              <th className="hidden px-4 py-2 md:table-cell">{t('sessions.colDuration')}</th>
-              <th className="px-4 py-2">{t('sessions.colStatus')}</th>
-              {isAdmin ? <th className="px-4 py-2 text-right">{t('sessions.colActions')}</th> : null}
+              <th className="px-4 py-2.5 whitespace-nowrap">{t('sessions.colDate')}</th>
+              <th className="px-4 py-2.5 whitespace-nowrap">{t('sessions.colStudent')}</th>
+              <th className="hidden px-4 py-2.5 sm:table-cell whitespace-nowrap">{t('sessions.colTeacher')}</th>
+              <th className="hidden px-4 py-2.5 md:table-cell whitespace-nowrap">{t('sessions.colDuration')}</th>
+              <th className="px-4 py-2.5 whitespace-nowrap">{t('sessions.colStatus')}</th>
+              {isAdmin ? <th className="px-4 py-2.5 text-right whitespace-nowrap">{t('sessions.colActions')}</th> : null}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {isPending ? (
               <tr>
-                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500 dark:text-slate-400">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : data && data.items.length > 0 ? (
               data.items.map((a) => (
-                <tr key={a.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-2 font-mono text-xs">{a.date.slice(0, 10)}</td>
+                <tr key={a.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <td className="px-4 py-2 font-mono text-xs text-slate-600 dark:text-slate-300">{a.date.slice(0, 10)}</td>
                   <td className="px-4 py-2">
                     <button
                       type="button"
                       onClick={() => goTo({ view: a.id })}
-                      className="text-left text-slate-900 hover:underline"
+                      className="text-left text-slate-900 hover:underline dark:text-slate-100"
                     >
                       {a.studentName}
                     </button>
@@ -315,7 +315,7 @@ function SelectFilter(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
     />
   )
 }
@@ -387,7 +387,7 @@ function ViewModal({
         <>
           <AttendanceDetail attendance={query.data} />
           {isAdmin ? (
-            <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800 pt-4">
               <Button variant="secondary" onClick={onClose}>
                 {t('common.close')}
               </Button>

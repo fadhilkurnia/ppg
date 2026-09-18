@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useQuery } from '@tanstack/react-query'
+import { GraduationCap } from 'lucide-react'
 
 import {
   STUDENT_KELOMPOKS,
@@ -9,10 +12,12 @@ import {
   type StudentInput,
 } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { getTeachersForStudent } from '@/api/studentTeachers'
 import { useTranslation, type TranslateFn } from '@/lib/i18n'
 import { Button } from './Button'
 import { Input } from './Input'
 import { Field } from './Field'
+import { AssignTeachersModal } from './AssignTeachersModal'
 
 const buildSchema = (t: TranslateFn) => {
   const isoDateOrEmpty = z
@@ -82,6 +87,13 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
   })
 
   const apiError = error instanceof ApiError ? error.message : null
+  const [assignTeachersOpen, setAssignTeachersOpen] = useState(false)
+
+  const { data: assignedTeachers } = useQuery({
+    queryKey: ['student-teachers', initial?.id],
+    queryFn: () => getTeachersForStudent(initial!.id),
+    enabled: !!initial?.id,
+  })
 
   return (
     <form
@@ -220,17 +232,69 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
         </div>
       </Section>
 
+      {initial ? (
+        <Section title={t('students.assignedTeachers') || 'Pengajar / Guru Pembimbing'}>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 p-3.5 sm:p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+              <div>
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Guru pembimbing yang terhubung dengan generus ini
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {assignedTeachers && assignedTeachers.length > 0
+                    ? `${assignedTeachers.length} guru pembimbing dipilih`
+                    : 'Belum ada guru pembimbing yang ditugaskan'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setAssignTeachersOpen(true)}
+                className="inline-flex items-center gap-1.5 self-start sm:self-auto border-teal-300 dark:border-teal-800 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40"
+              >
+                <GraduationCap size={15} />
+                <span>{t('students.manageTeachers') || 'Guru / Teacher'}</span>
+              </Button>
+            </div>
+
+            {assignedTeachers && assignedTeachers.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {assignedTeachers.map((tc) => (
+                  <span
+                    key={tc.id}
+                    className="inline-flex items-center gap-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-1 text-xs text-slate-800 dark:text-slate-200"
+                  >
+                    <span className="font-medium">{tc.name}</span>
+                    {tc.nickname && <span className="opacity-70">({tc.nickname})</span>}
+                    <span className="text-[10px] text-teal-600 dark:text-teal-400">• {tc.kelompok}</span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </Section>
+      ) : null}
+
       {apiError ? <p className="text-sm text-red-600">{apiError}</p> : null}
-      <div className="flex items-center gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? t('common.saving') : submitLabel}
-        </Button>
+      <div className="flex items-center justify-end gap-2 pt-2">
         {onCancel ? (
           <Button type="button" variant="secondary" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
         ) : null}
+        <Button type="submit" disabled={pending}>
+          {pending ? t('common.saving') : submitLabel}
+        </Button>
       </div>
+
+      {initial && assignTeachersOpen ? (
+        <AssignTeachersModal
+          student={initial}
+          open={assignTeachersOpen}
+          onClose={() => setAssignTeachersOpen(false)}
+        />
+      ) : null}
     </form>
   )
 }
@@ -238,7 +302,7 @@ export function StudentForm({ initial, submitLabel, pending, error, onSubmit, on
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <fieldset className="space-y-3">
-      <legend className="text-sm font-semibold text-slate-700">{title}</legend>
+      <legend className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</legend>
       {children}
     </fieldset>
   )
@@ -248,7 +312,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
     />
   )
 }

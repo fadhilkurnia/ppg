@@ -17,6 +17,17 @@
    * already paints over the native chrome, and stripping appearance on
    * a bare <button> would erase fallback affordances elsewhere.
    */
+  html {
+    overflow-y: auto;
+    overflow-y: overlay;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  html:not(.dark) {
+    color-scheme: light;
+  }
+
   input[type='text'],
   input[type='search'],
   input[type='tel'],
@@ -37,6 +48,56 @@
     /* Without background-clip: padding-box, iOS Safari paints the
      * background under the border, leaking a 1px sliver of color. */
     background-clip: padding-box;
+  }
+
+  /*
+   * iOS Safari auto-zooms whenever any form input/select/textarea has a
+   * font size < 16px when focused. Enforce 16px minimum font size on
+   * mobile screens (max-width: 768px) so tapping inputs never triggers
+   * unwanted auto-zoom.
+   */
+  @media screen and (max-width: 768px) {
+    input:not([type='checkbox']):not([type='radio']):not([type='button']):not([type='submit']):not([type='reset']):not([type='range']):not([type='file']),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /*
+   * Disable double-tap to zoom and tap delay on iOS Safari / touch devices,
+   * keeping native scrolling and panning responsive.
+   */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  .dark input[type='text'],
+  .dark input[type='search'],
+  .dark input[type='tel'],
+  .dark input[type='url'],
+  .dark input[type='email'],
+  .dark input[type='password'],
+  .dark input[type='number'],
+  .dark input[type='date'],
+  .dark input[type='time'],
+  .dark input[type='datetime-local'],
+  .dark input[type='month'],
+  .dark input[type='week'],
+  .dark select,
+  .dark textarea {
+    background-color: #0f172a;
+    color: #f8fafc;
+  }
+
+  .dark option,
+  .dark optgroup {
+    background-color: #0f172a;
+    color: #f8fafc;
   }
 
   /* Date/time inputs lay their value out as inline children inside a
@@ -74,6 +135,10 @@
     padding-right: 2rem !important;
   }
 
+  .dark select {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  }
+
   /* iOS Safari renders a 16x16 spinner on type=number that pushes the
    * value sideways. We've already added inputMode='numeric' for the
    * keypad, so kill the spinners as well. */
@@ -85,4 +150,88 @@
   input[type='number'] {
     -moz-appearance: textfield;
   }
+}
+
+/* =========================================================================
+   Universal Floating Auto-Hiding Scrollbar (Zero Layout Space)
+   ========================================================================= */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover {
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+html.is-scrolling * {
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+}
+
+.dark *:hover {
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.dark html.is-scrolling * {
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+/* WebKit / Chromium / Safari / Edge */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9999px;
+  transition: background-color 0.3s ease-out;
+}
+
+/* Floating auto-hide: only show thumb when actively scrolling or hovering */
+html.is-scrolling ::-webkit-scrollbar-thumb,
+*:hover::-webkit-scrollbar-thumb,
+html:hover::-webkit-scrollbar-thumb,
+body:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.45);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.8) !important;
+}
+
+.dark html.is-scrolling ::-webkit-scrollbar-thumb,
+.dark *:hover::-webkit-scrollbar-thumb,
+.dark html:hover::-webkit-scrollbar-thumb,
+.dark body:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(203, 213, 225, 0.6) !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
 }

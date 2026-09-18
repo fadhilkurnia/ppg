@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -8,16 +9,19 @@ import { listStudents } from '@/api/students'
 import { listTeachers } from '@/api/teachers'
 import { ApiError } from '@/api/client'
 import { useAttendanceStatusLabel, useTranslation, type TranslateFn } from '@/lib/i18n'
+import { cn } from '@/lib/cn'
 import { Button } from './Button'
 import { Input } from './Input'
 import { Field } from './Field'
 
 const buildSchema = (t: TranslateFn) =>
   z.object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, t('validation.isoDate')),
-    durationMin: z
-      .union([z.string().length(0), z.coerce.number().int().min(0).max(1440)])
-      .optional(),
+    date: z.string().min(1, t('validation.requiredDate')).regex(/^\d{4}-\d{2}-\d{2}$/, t('validation.isoDate')),
+    durationMin: z.coerce
+      .number({ invalid_type_error: t('validation.requiredDuration') })
+      .int()
+      .min(1, t('validation.requiredDuration'))
+      .max(1440),
     teacherId: z.string().min(1, t('validation.requiredSelect')),
     studentId: z.string().min(1, t('validation.requiredSelect')),
     status: z.enum(ATTENDANCE_STATUSES),
@@ -53,6 +57,8 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
     register,
     control,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(buildSchema(t)),
@@ -66,6 +72,15 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
     },
   })
 
+  const currentStatus = watch('status')
+  const isExcused = currentStatus === 'izin_murid' || currentStatus === 'izin_guru'
+
+  useEffect(() => {
+    if (isExcused) {
+      setValue('durationMin', 1)
+    }
+  }, [isExcused, setValue])
+
   const apiError = error instanceof ApiError ? error.message : null
   const loading = teachersQ.isPending || studentsQ.isPending
 
@@ -74,8 +89,9 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
       onSubmit={handleSubmit((v) =>
         onSubmit({
           date: v.date,
-          durationMin:
-            typeof v.durationMin === 'number' && Number.isFinite(v.durationMin)
+          durationMin: isExcused
+            ? 1
+            : typeof v.durationMin === 'number' && Number.isFinite(v.durationMin)
               ? v.durationMin
               : undefined,
           teacherId: v.teacherId,
@@ -88,7 +104,7 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t('sessions.fDate')} htmlFor="date" error={errors.date?.message}>
-          <Input id="date" type="date" {...register('date')} />
+          <Input id="date" type="date" required {...register('date')} />
         </Field>
         <Field
           label={t('sessions.fDuration')}
@@ -98,9 +114,12 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
           <Input
             id="durationMin"
             type="number"
-            min={0}
+            min={1}
             max={1440}
+            required
+            disabled={isExcused}
             placeholder={t('sessions.fDurationPh')}
+            className={cn(isExcused && 'bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-not-allowed opacity-75 font-semibold')}
             {...register('durationMin')}
           />
         </Field>
@@ -162,7 +181,7 @@ export function AttendanceForm({ initial, submitLabel, pending, error, onSubmit,
           <textarea
             id="materi"
             rows={8}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
             {...register('materi')}
           />
         </Field>
@@ -191,7 +210,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
     />
   )
 }

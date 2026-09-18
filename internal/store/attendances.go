@@ -125,12 +125,12 @@ func (a *Attendances) List(ctx context.Context, p AttendanceListParams) (*Attend
 	var clauses []string
 	var args []any
 	if p.DateFrom != nil {
-		clauses = append(clauses, "a.date >= ?")
-		args = append(args, p.DateFrom.UTC())
+		clauses = append(clauses, "substr(a.date, 1, 10) >= ?")
+		args = append(args, p.DateFrom.Format("2006-01-02"))
 	}
 	if p.DateTo != nil {
-		clauses = append(clauses, "a.date <= ?")
-		args = append(args, p.DateTo.UTC())
+		clauses = append(clauses, "substr(a.date, 1, 10) <= ?")
+		args = append(args, p.DateTo.Format("2006-01-02"))
 	}
 	if p.TeacherID != "" {
 		clauses = append(clauses, "a.teacher_id = ?")
@@ -190,6 +190,9 @@ type MonthlyBucket struct {
 	Month    string  `json:"month"`
 	Sessions int     `json:"sessions"`
 	Hours    float64 `json:"hours"`
+	Hadir    int     `json:"hadir"`
+	ByVN     int     `json:"byVn"`
+	Izin     int     `json:"izin"`
 }
 
 type StudentAggregate struct {
@@ -212,13 +215,26 @@ type TeacherAggregate struct {
 }
 
 type AttendanceStatsParams struct {
-	DateFrom *time.Time
-	DateTo   *time.Time
+	DateFrom  *time.Time
+	DateTo    *time.Time
+	TeacherID *string
+	StudentID *string
+}
+
+type WeeklyBucket struct {
+	Week     string  `json:"week"`
+	Label    string  `json:"label"`
+	Sessions int     `json:"sessions"`
+	Hours    float64 `json:"hours"`
+	Hadir    int     `json:"hadir"`
+	ByVN     int     `json:"byVn"`
+	Izin     int     `json:"izin"`
 }
 
 type AttendanceStats struct {
 	Total          AttendanceTotals   `json:"total"`
 	Monthly        []MonthlyBucket    `json:"monthly"`
+	Weekly         []WeeklyBucket     `json:"weekly"`
 	ByStatus       []Bucket           `json:"byStatus"`
 	ByStudent      []StudentAggregate `json:"byStudent"`
 	ByTeacher      []TeacherAggregate `json:"byTeacher"`
@@ -234,6 +250,7 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 	// the TS client treats these as plain arrays and crashes on null.
 	out := &AttendanceStats{
 		Monthly:        []MonthlyBucket{},
+		Weekly:         []WeeklyBucket{},
 		ByStudent:      []StudentAggregate{},
 		ByTeacher:      []TeacherAggregate{},
 		AvailableYears: []int{},
@@ -242,13 +259,21 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 	// Build the WHERE clause once.
 	var clauses []string
 	var args []any
+	if p.TeacherID != nil && *p.TeacherID != "" {
+		clauses = append(clauses, "teacher_id = ?")
+		args = append(args, *p.TeacherID)
+	}
+	if p.StudentID != nil && *p.StudentID != "" {
+		clauses = append(clauses, "student_id = ?")
+		args = append(args, *p.StudentID)
+	}
 	if p.DateFrom != nil {
-		clauses = append(clauses, "date >= ?")
-		args = append(args, p.DateFrom.UTC())
+		clauses = append(clauses, "substr(date, 1, 10) >= ?")
+		args = append(args, p.DateFrom.Format("2006-01-02"))
 	}
 	if p.DateTo != nil {
-		clauses = append(clauses, "date <= ?")
-		args = append(args, p.DateTo.UTC())
+		clauses = append(clauses, "substr(date, 1, 10) <= ?")
+		args = append(args, p.DateTo.Format("2006-01-02"))
 	}
 	where := ""
 	if len(clauses) > 0 {
@@ -269,15 +294,36 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 	// Last 30 days and active pairs are intentionally NOT filtered by the
 	// user-selected date range — they always report the "currently active"
 	// view so the KPIs stay meaningful when the user picks e.g. 2024.
+	last30Where := " WHERE date >= date('now', '-30 days')"
+	var last30Args []any
+	if p.TeacherID != nil && *p.TeacherID != "" {
+		last30Where += " AND teacher_id = ?"
+		last30Args = append(last30Args, *p.TeacherID)
+	}
+	if p.StudentID != nil && *p.StudentID != "" {
+		last30Where += " AND student_id = ?"
+		last30Args = append(last30Args, *p.StudentID)
+	}
 	if err := a.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM attendances WHERE date >= date('now', '-30 days')`,
+		`SELECT COUNT(*) FROM attendances`+last30Where,
+		last30Args...,
 	).Scan(&out.Total.Last30Days); err != nil {
 		return nil, fmt.Errorf("last30: %w", err)
 	}
+	activePairsWhere := " WHERE date >= date('now', '-30 days')"
+	var activePairsArgs []any
+	if p.TeacherID != nil && *p.TeacherID != "" {
+		activePairsWhere += " AND teacher_id = ?"
+		activePairsArgs = append(activePairsArgs, *p.TeacherID)
+	}
+	if p.StudentID != nil && *p.StudentID != "" {
+		activePairsWhere += " AND student_id = ?"
+		activePairsArgs = append(activePairsArgs, *p.StudentID)
+	}
 	if err := a.db.QueryRowContext(ctx,
 		`SELECT COUNT(DISTINCT teacher_id || '|' || student_id)
-		   FROM attendances
-		  WHERE date >= date('now', '-30 days')`,
+		   FROM attendances`+activePairsWhere,
+		activePairsArgs...,
 	).Scan(&out.Total.ActivePairs); err != nil {
 		return nil, fmt.Errorf("active pairs: %w", err)
 	}
@@ -285,7 +331,10 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 	monthlyRows, err := a.db.QueryContext(ctx,
 		`SELECT strftime('%Y-%m', date) AS month,
 		        COUNT(*) AS sessions,
-		        COALESCE(SUM(duration_min), 0) / 60.0 AS hours
+		        COALESCE(SUM(duration_min), 0) / 60.0 AS hours,
+		        COUNT(CASE WHEN status = 'hadir' THEN 1 END) AS hadir,
+		        COUNT(CASE WHEN status = 'by_vn' THEN 1 END) AS by_vn,
+		        COUNT(CASE WHEN status IN ('izin_guru', 'izin_murid', 'izin', 'excused') THEN 1 END) AS izin
 		   FROM attendances`+where+`
 		  GROUP BY month
 		  ORDER BY month ASC`, args...)
@@ -295,13 +344,72 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 	defer monthlyRows.Close()
 	for monthlyRows.Next() {
 		var m MonthlyBucket
-		if err := monthlyRows.Scan(&m.Month, &m.Sessions, &m.Hours); err != nil {
+		if err := monthlyRows.Scan(&m.Month, &m.Sessions, &m.Hours, &m.Hadir, &m.ByVN, &m.Izin); err != nil {
 			return nil, err
 		}
 		out.Monthly = append(out.Monthly, m)
 	}
 	if err := monthlyRows.Err(); err != nil {
 		return nil, err
+	}
+
+	if p.DateFrom != nil && p.DateTo != nil && p.DateFrom.Year() == p.DateTo.Year() && p.DateFrom.Month() == p.DateTo.Month() {
+		weeklyRows, err := a.db.QueryContext(ctx,
+			`SELECT CASE
+			          WHEN CAST(strftime('%d', date) AS INT) <= 7 THEN 'w1'
+			          WHEN CAST(strftime('%d', date) AS INT) <= 14 THEN 'w2'
+			          WHEN CAST(strftime('%d', date) AS INT) <= 21 THEN 'w3'
+			          WHEN CAST(strftime('%d', date) AS INT) <= 28 THEN 'w4'
+			          ELSE 'w5'
+			        END AS week_code,
+			        COUNT(*) AS sessions,
+			        COALESCE(SUM(duration_min), 0) / 60.0 AS hours,
+			        COUNT(CASE WHEN status = 'hadir' THEN 1 END) AS hadir,
+			        COUNT(CASE WHEN status = 'by_vn' THEN 1 END) AS by_vn,
+			        COUNT(CASE WHEN status IN ('izin_guru', 'izin_murid', 'izin', 'excused') THEN 1 END) AS izin
+			   FROM attendances`+where+`
+			  GROUP BY week_code
+			  ORDER BY week_code ASC`, args...)
+		if err == nil {
+			defer weeklyRows.Close()
+			weekMap := map[string]WeeklyBucket{}
+			for weeklyRows.Next() {
+				var code string
+				var sess int
+				var hrs float64
+				var hadir int
+				var byVn int
+				var izin int
+				if err := weeklyRows.Scan(&code, &sess, &hrs, &hadir, &byVn, &izin); err == nil {
+					weekMap[code] = WeeklyBucket{
+						Week:     code,
+						Sessions: sess,
+						Hours:    hrs,
+						Hadir:    hadir,
+						ByVN:     byVn,
+						Izin:     izin,
+					}
+				}
+			}
+			daysInMonth := time.Date(p.DateFrom.Year(), p.DateFrom.Month()+1, 0, 0, 0, 0, 0, time.UTC).Day()
+			numWeeks := 4
+			if daysInMonth > 28 {
+				numWeeks = 5
+			}
+			for w := 1; w <= numWeeks; w++ {
+				code := fmt.Sprintf("w%d", w)
+				label := fmt.Sprintf("Minggu %d", w)
+				out.Weekly = append(out.Weekly, WeeklyBucket{
+					Week:     code,
+					Label:    label,
+					Sessions: weekMap[code].Sessions,
+					Hours:    weekMap[code].Hours,
+					Hadir:    weekMap[code].Hadir,
+					ByVN:     weekMap[code].ByVN,
+					Izin:     weekMap[code].Izin,
+				})
+			}
+		}
 	}
 
 	statusRows, err := a.db.QueryContext(ctx,
@@ -327,12 +435,19 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 		out.ByStatus = append(out.ByStatus, Bucket{Label: s, Count: statusMap[s]})
 	}
 
-	// For the JOIN aggregations the date column must be qualified with `a.`.
+	// For the JOIN aggregations columns must be qualified with `a.`.
 	studentWhere := ""
 	studentArgs := args
-	if where != "" {
-		// rewrite "date >= ?" -> "a.date >= ?"
-		studentWhere = " WHERE " + strings.ReplaceAll(strings.Join(clauses, " AND "), "date ", "a.date ")
+	if len(clauses) > 0 {
+		var aClauses []string
+		for _, c := range clauses {
+			if strings.HasPrefix(c, "substr(date") {
+				aClauses = append(aClauses, "substr(a.date"+c[len("substr(date"):])
+			} else {
+				aClauses = append(aClauses, "a."+c)
+			}
+		}
+		studentWhere = " WHERE " + strings.Join(aClauses, " AND ")
 	}
 	_ = andExtra // reserved for future per-status aggregations
 

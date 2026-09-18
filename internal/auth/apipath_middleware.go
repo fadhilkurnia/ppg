@@ -19,6 +19,9 @@ const canonicalAPIPrefix = "/api"
 // must come through the dynamic prefix and the matching auth_path cookie.
 var directAPIAllowlist = []string{
 	"/api/auth/login",
+	"/api/auth/wa/",
+	"/api/auth/magic",
+	"/api/internal/",
 	"/api/public/",
 }
 

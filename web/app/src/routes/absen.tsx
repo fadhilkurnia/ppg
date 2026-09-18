@@ -38,11 +38,18 @@ function AbsenPage() {
     <div className="min-h-screen bg-slate-50 px-3 py-6 sm:px-4 sm:py-12">
       <div className="mx-auto w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
         <header className="mb-6 flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
-              {t('absen.heading')}
-            </h1>
-            <p className="mt-1.5 text-sm text-slate-500">{t('absen.note')}</p>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <img
+              src="/logo.png"
+              alt="PPG US"
+              className="h-12 w-12 object-contain rounded-full bg-white p-0.5 shadow-xs border border-slate-200 shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
+                {t('absen.heading')}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">{t('absen.note')}</p>
+            </div>
           </div>
           <LanguageSwitcher variant="compact" />
         </header>

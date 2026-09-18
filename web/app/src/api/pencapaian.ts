@@ -58,6 +58,43 @@ export function getClassReport(tingkatId: string, semester: number) {
   )
 }
 
+export type PencapaianNote = {
+  id: string
+  studentId: string
+  materiAjarId: string
+  note: string
+  status?: PencapaianStatus | null
+  nilaiAngka?: number | null
+  authorId?: string | null
+  authorName?: string | null
+  createdAt: string
+}
+
+export type CreatePencapaianNoteInput = {
+  studentId: string
+  materiAjarId: string
+  note: string
+  status?: PencapaianStatus | null
+  nilaiAngka?: number | null
+}
+
+export function listPencapaianNotes(studentId: string, materiAjarId: string) {
+  return apiFetch<PencapaianNote[]>(
+    `/api/pencapaian/notes?studentId=${encodeURIComponent(studentId)}&materiAjarId=${encodeURIComponent(materiAjarId)}`,
+  )
+}
+
+export function createPencapaianNote(input: CreatePencapaianNoteInput) {
+  return apiFetch<PencapaianNote>('/api/pencapaian/notes', {
+    method: 'POST',
+    body: input,
+  })
+}
+
+export function deletePencapaianNote(id: string) {
+  return apiFetch<void>(`/api/pencapaian/notes/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
 export async function importPencapaianMatrix(
   file: File,
   params: { studentId: string; tingkatId: string; semester: number },

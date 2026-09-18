@@ -1,23 +1,79 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Role string
 
 const (
 	RoleAdmin Role = "admin"
 	RoleStaff Role = "staff"
+	RoleGuru  Role = "guru"
+	RoleMurid Role = "murid"
 )
 
 type User struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Username  *string   `json:"username,omitempty"`
-	Password  string    `json:"-"`
-	Name      string    `json:"name"`
-	Role      Role      `json:"role"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID                 string    `json:"id"`
+	Email              string    `json:"email"`
+	Username           *string   `json:"username,omitempty"`
+	Nickname           *string   `json:"nickname,omitempty"`
+	Phone              *string   `json:"phone,omitempty"`
+	Daerah             *string   `json:"daerah,omitempty"`
+	Desa               *string   `json:"desa,omitempty"`
+	Kelompok           *string   `json:"kelompok,omitempty"`
+	Password           string    `json:"-"`
+	Name               string    `json:"name"`
+	Role               Role      `json:"role"`
+	Status             string    `json:"status,omitempty"`
+	MustChangePassword bool      `json:"mustChangePassword"`
+	GoogleID           *string   `json:"googleId,omitempty"`
+	CreatedAt          time.Time `json:"createdAt"`
+	UpdatedAt          time.Time `json:"updatedAt"`
+}
+
+type userAlias User
+
+func (u User) MarshalJSON() ([]byte, error) {
+	type userWithSnake struct {
+		userAlias
+		MustChangePasswordSnake bool `json:"must_change_password"`
+	}
+	return json.Marshal(userWithSnake{
+		userAlias:               userAlias(u),
+		MustChangePasswordSnake: u.MustChangePassword,
+	})
+}
+
+type UserPhone struct {
+	ID         string    `json:"id"`
+	UserID     string    `json:"userId"`
+	Phone      string    `json:"phone"`
+	IsPrimary  bool      `json:"isPrimary"`
+	VerifiedAt time.Time `json:"verifiedAt"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type PasswordResetChallenge struct {
+	ID         string    `json:"id"`
+	UserID     string    `json:"userId"`
+	OTPCode    string    `json:"-"`
+	Phone      string    `json:"phone"`
+	ResetToken string    `json:"resetToken"`
+	Status     string    `json:"status"`
+	ExpiresAt  time.Time `json:"expiresAt"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type WAOutboxItem struct {
+	ID        string     `json:"id"`
+	Phone     string     `json:"phone"`
+	Message   string     `json:"message"`
+	Status    string     `json:"status"`
+	Error     *string    `json:"error,omitempty"`
+	CreatedAt time.Time  `json:"createdAt"`
+	SentAt    *time.Time `json:"sentAt,omitempty"`
 }
 
 type TeacherStatus string
@@ -108,3 +164,31 @@ type Student struct {
 	CreatedAt   time.Time     `json:"createdAt"`
 	UpdatedAt   time.Time     `json:"updatedAt"`
 }
+
+type StudentTeacher struct {
+	ID        string    `json:"id"`
+	StudentID string    `json:"studentId"`
+	TeacherID string    `json:"teacherId"`
+	Notes     *string   `json:"notes,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type StudentTeacherDetail struct {
+	ID              string    `json:"id"`
+	StudentID       string    `json:"studentId"`
+	StudentName     string    `json:"studentName"`
+	StudentNickname *string   `json:"studentNickname,omitempty"`
+	StudentLevel    string    `json:"studentLevel"`
+	StudentKelompok string    `json:"studentKelompok"`
+	StudentStatus   string    `json:"studentStatus"`
+	TeacherID       string    `json:"teacherId"`
+	TeacherName     string    `json:"teacherName"`
+	TeacherNickname *string   `json:"teacherNickname,omitempty"`
+	TeacherKelompok string    `json:"teacherKelompok"`
+	TeacherStatus   string    `json:"teacherStatus"`
+	Notes           *string   `json:"notes,omitempty"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+

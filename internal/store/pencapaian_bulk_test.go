@@ -144,8 +144,8 @@ func TestPencapaianStreamRowsFilter(t *testing.T) {
 	if lines[0][1] != "Bulk Kid" {
 		t.Errorf("studentName = %q, want Bulk Kid", lines[0][1])
 	}
-	if lines[0][9] != "belum" {
-		t.Errorf("status = %q, want belum", lines[0][9])
+	if lines[0][10] != "belum" {
+		t.Errorf("status = %q, want belum", lines[0][10])
 	}
 	if lines[0][5] == "" || lines[0][7] == "" || lines[0][3] == "" {
 		t.Errorf("materi detail columns empty: %v", lines[0])
@@ -158,5 +158,65 @@ func TestPencapaianStreamRowsFilter(t *testing.T) {
 	})
 	if err != nil || len(none) != 0 {
 		t.Fatalf("filter mismatch: n=%d err=%v", len(none), err)
+	}
+}
+
+func TestPencapaianNotes(t *testing.T) {
+	b, studentID, materiID := newPencapaianBulkDB(t)
+	p := b.pencapaian
+	ctx := context.Background()
+
+	// 1. Initially empty
+	notes, err := p.ListNotes(ctx, studentID, materiID)
+	if err != nil {
+		t.Fatalf("list notes: %v", err)
+	}
+	if len(notes) != 0 {
+		t.Errorf("notes len = %d, want 0", len(notes))
+	}
+
+	// 2. Create note
+	st := "proses"
+	score := 85
+	created, err := p.CreateNote(ctx, CreateNoteInput{
+		StudentID:    studentID,
+		MateriAjarID: materiID,
+		Note:         "Bagus sekali, perlu sedikit latihan tajwid",
+		Status:       &st,
+		NilaiAngka:   &score,
+		AuthorName:   "Ust. Fadhil",
+	})
+	if err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+	if created.Note != "Bagus sekali, perlu sedikit latihan tajwid" {
+		t.Errorf("note = %q", created.Note)
+	}
+	if created.Status == nil || *created.Status != "proses" {
+		t.Errorf("status = %v", created.Status)
+	}
+	if created.NilaiAngka == nil || *created.NilaiAngka != 85 {
+		t.Errorf("nilaiAngka = %v", created.NilaiAngka)
+	}
+
+	// 3. List notes
+	notes, err = p.ListNotes(ctx, studentID, materiID)
+	if err != nil {
+		t.Fatalf("list notes: %v", err)
+	}
+	if len(notes) != 1 {
+		t.Fatalf("notes len = %d, want 1", len(notes))
+	}
+	if notes[0].Note != "Bagus sekali, perlu sedikit latihan tajwid" {
+		t.Errorf("first note = %q", notes[0].Note)
+	}
+
+	// 4. Verify pencapaian row has catatan updated
+	row, err := p.findByKey(ctx, studentID, materiID)
+	if err != nil {
+		t.Fatalf("find pencapaian: %v", err)
+	}
+	if row.Catatan == nil || *row.Catatan != "Bagus sekali, perlu sedikit latihan tajwid" {
+		t.Errorf("pencapaian.catatan = %v", row.Catatan)
 	}
 }

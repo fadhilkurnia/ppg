@@ -53,14 +53,30 @@ func Middleware(j *JWT) func(http.Handler) http.Handler {
 }
 
 func RequireRole(role model.Role) func(http.Handler) http.Handler {
+	return RequireAnyRole(role)
+}
+
+func RequireAnyRole(roles ...model.Role) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, ok := ClaimsFrom(r.Context())
-			if !ok || c.Role != role {
-				httpx.Error(w, http.StatusForbidden, "forbidden", "Akses tidak diizinkan")
+			if !ok {
+				httpx.Error(w, http.StatusUnauthorized, "unauthorized", "Sesi tidak valid")
 				return
 			}
-			next.ServeHTTP(w, r)
+			for _, role := range roles {
+				if c.Role == role {
+					next.ServeHTTP(w, r)
+					return
+				}
+				for _, rBinding := range c.Roles {
+					if rBinding == string(role) {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
+			}
+			httpx.Error(w, http.StatusForbidden, "forbidden", "Akses tidak diizinkan")
 		})
 	}
 }
@@ -69,3 +85,8 @@ func ClaimsFrom(ctx context.Context) (*Claims, bool) {
 	c, ok := ctx.Value(claimsKey).(*Claims)
 	return c, ok
 }
+
+func WithClaims(ctx context.Context, c *Claims) context.Context {
+	return context.WithValue(ctx, claimsKey, c)
+}
+

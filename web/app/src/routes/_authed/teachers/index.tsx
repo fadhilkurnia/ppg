@@ -1,8 +1,10 @@
+import { useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileSpreadsheet, Plus, Search } from 'lucide-react'
 import { z } from 'zod'
 
+import { listStudentTeachers } from '@/api/studentTeachers'
 import {
   createTeacher,
   deleteTeacher,
@@ -72,6 +74,22 @@ function TeachersPage() {
     }
   }
 
+  const { data: assignments } = useQuery({
+    queryKey: ['student-teachers'],
+    queryFn: () => listStudentTeachers(),
+    staleTime: 60_000,
+  })
+
+  const studentsByTeacher = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const item of assignments ?? []) {
+      const list = map.get(item.teacherId) || []
+      list.push(item.studentNickname || item.studentName)
+      map.set(item.teacherId, list)
+    }
+    return map
+  }, [assignments])
+
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -94,7 +112,7 @@ function TeachersPage() {
       </div>
 
       <form
-        className="flex flex-col gap-2 sm:flex-row sm:items-center"
+        className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
         onSubmit={(e) => {
           e.preventDefault()
           const fd = new FormData(e.currentTarget)
@@ -104,7 +122,9 @@ function TeachersPage() {
             search: {
               q: next || undefined,
               status:
-                nextStatus === 'active' || nextStatus === 'retired' ? nextStatus : undefined,
+                nextStatus === 'active' || nextStatus === 'retired'
+                  ? (nextStatus as 'active' | 'retired')
+                  : undefined,
               page: 1,
             },
           })
@@ -125,7 +145,7 @@ function TeachersPage() {
         <select
           name="status"
           defaultValue={status ?? ''}
-          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-base sm:text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
           <option value="">{t('teachers.allStatus')}</option>
           <option value="active">{t('status.active')}</option>
@@ -136,33 +156,34 @@ function TeachersPage() {
         </Button>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
             <tr>
               <th className="px-4 py-2">{t('teachers.colName')}</th>
               <th className="hidden px-4 py-2 sm:table-cell">{t('teachers.colNickname')}</th>
               <th className="hidden px-4 py-2 md:table-cell">{t('teachers.colKelompok')}</th>
               <th className="hidden px-4 py-2 md:table-cell">{t('teachers.colDaerah')}</th>
+              <th className="hidden px-4 py-2 lg:table-cell">{t('teachers.assignedStudents')}</th>
               <th className="px-4 py-2">{t('teachers.colStatus')}</th>
               {isAdmin ? <th className="px-4 py-2 text-right">{t('teachers.colActions')}</th> : null}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {isPending ? (
               <tr>
-                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-slate-500 dark:text-slate-400">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : data && data.items.length > 0 ? (
               data.items.map((tc) => (
-                <tr key={tc.id} className="hover:bg-slate-50">
+                <tr key={tc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <td className="px-4 py-2">
                     <button
                       type="button"
                       onClick={() => goTo({ view: tc.id })}
-                      className="text-left text-slate-900 hover:underline"
+                      className="text-left text-slate-900 hover:underline dark:text-slate-100"
                     >
                       {tc.name}
                     </button>
@@ -170,6 +191,27 @@ function TeachersPage() {
                   <td className="hidden px-4 py-2 sm:table-cell">{tc.nickname ?? '—'}</td>
                   <td className="hidden px-4 py-2 md:table-cell">{tc.kelompok}</td>
                   <td className="hidden px-4 py-2 md:table-cell">{tc.daerah}</td>
+                  <td className="hidden px-4 py-2 lg:table-cell">
+                    {(() => {
+                      const list = studentsByTeacher.get(tc.id) || []
+                      if (list.length === 0) {
+                        return <span className="text-slate-400 text-xs">—</span>
+                      }
+                      return (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                            {list.length} generus
+                          </span>
+                          <span
+                            className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]"
+                            title={list.join(', ')}
+                          >
+                            ({list.slice(0, 3).join(', ')}{list.length > 3 ? '...' : ''})
+                          </span>
+                        </div>
+                      )
+                    })()}
+                  </td>
                   <td className="px-4 py-2">
                     <StatusPill status={tc.status} />
                   </td>
@@ -186,7 +228,7 @@ function TeachersPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-slate-500">
                   {t('teachers.empty')}
                 </td>
               </tr>
@@ -296,7 +338,7 @@ function ViewModal({
         <>
           <TeacherDetail teacher={query.data} />
           {isAdmin ? (
-            <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800 pt-4">
               <Button variant="secondary" onClick={onClose}>
                 {t('common.close')}
               </Button>

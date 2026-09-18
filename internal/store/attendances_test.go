@@ -163,3 +163,43 @@ func TestAttendancesEnforceStatusEnum(t *testing.T) {
 		t.Error("expected CHECK constraint failure on bogus status")
 	}
 }
+
+func TestAttendancesStatsFilters(t *testing.T) {
+	a, student, teacher := newAttendancesDB(t)
+	ctx := context.Background()
+
+	dates := []string{"2025-01-15", "2025-05-01", "2025-12-31"}
+	dur := 60
+	for _, d := range dates {
+		parsed, _ := time.Parse("2006-01-02", d)
+		_, err := a.Create(ctx, AttendanceInput{
+			Date:        parsed,
+			TeacherID:   teacher.ID,
+			StudentID:   student.ID,
+			Status:      model.AttendanceHadir,
+			DurationMin: &dur,
+		})
+		if err != nil {
+			t.Fatalf("create attendance: %v", err)
+		}
+	}
+
+	from := time.Date(2025, 4, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
+	stats, err := a.Stats(ctx, AttendanceStatsParams{
+		DateFrom: &from,
+		DateTo:   &to,
+	})
+	if err != nil {
+		t.Fatalf("stats with date range failed: %v", err)
+	}
+	if stats.Total.Sessions != 1 {
+		t.Errorf("stats.Total.Sessions = %d, want 1", stats.Total.Sessions)
+	}
+	if len(stats.Monthly) != 1 || stats.Monthly[0].Month != "2025-05" {
+		t.Errorf("stats.Monthly = %+v, want 2025-05", stats.Monthly)
+	}
+	if len(stats.ByStudent) != 1 || stats.ByStudent[0].StudentID != student.ID {
+		t.Errorf("stats.ByStudent = %+v", stats.ByStudent)
+	}
+}

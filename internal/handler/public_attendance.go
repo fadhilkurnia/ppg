@@ -101,11 +101,11 @@ var phoneRe = regexp.MustCompile(`^(\+?62|0)\d{7,14}$`)
 
 type publicAttendanceBody struct {
 	Date           string  `json:"date"           validate:"required,datetime=2006-01-02"`
-	DurationMin    *int    `json:"durationMin,omitempty"   validate:"omitempty,min=0,max=1440"`
+	DurationMin    *int    `json:"durationMin"    validate:"required,min=1,max=1440"`
 	TeacherID      string  `json:"teacherId"      validate:"required,min=1"`
 	StudentID      string  `json:"studentId"      validate:"required,min=1"`
 	Status         string  `json:"status"         validate:"required,oneof=hadir izin_murid izin_guru by_vn"`
-	Materi         *string `json:"materi,omitempty"        validate:"omitempty,max=20000"`
+	Materi         *string `json:"materi,omitempty" validate:"omitempty,max=20000"`
 	SubmittedPhone string  `json:"submittedPhone" validate:"required"`
 }
 
