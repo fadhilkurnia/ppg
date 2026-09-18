@@ -51,6 +51,12 @@ func (h *Stats) Attendance(w http.ResponseWriter, r *http.Request) {
 			p.DateTo = &t
 		}
 	}
+	if v := strings.TrimSpace(q.Get("teacherId")); v != "" {
+		p.TeacherID = &v
+	}
+	if v := strings.TrimSpace(q.Get("studentId")); v != "" {
+		p.StudentID = &v
+	}
 	stats, err := h.attendances.Stats(r.Context(), p)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil ringkasan kehadiran")

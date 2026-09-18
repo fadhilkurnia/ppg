@@ -14,6 +14,9 @@ services:
       SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       BULK_MAX_BYTES: ${BULK_MAX_BYTES:-20971520}
+      DYNAMIC_API_PATH: ${DYNAMIC_API_PATH:-false}
+      WA_BOT_PHONE: ${WA_BOT_PHONE:-6287781485093}
+      APP_BASE_URL: ${APP_BASE_URL:-https://ppg.tail31c665.ts.net}
     volumes:
       - ppg-data:/app/data
     restart: unless-stopped

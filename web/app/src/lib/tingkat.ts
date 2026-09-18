@@ -68,3 +68,22 @@ export const SEMESTER_MONTHS: Record<number, number[]> = {
   1: [7, 8, 9, 10, 11, 12],
   2: [1, 2, 3, 4, 5, 6],
 }
+
+/**
+ * Normalizes sub-tema display names:
+ * - "A. Kefahaman Agama" / "Kefahaman Agama" -> "Faham Agama"
+ * - "1. Kemandirian Pribadi" -> "1. Pribadi"
+ * - "2. Kemandirian Dalam Keluarga" -> "2. Dalam Keluarga"
+ * - "3. Kemandirlan Dalam Lingkungan Jamaah dan Sekolah" -> "3. Dalam Lingkungan Jamaah dan Sekolah"
+ */
+export function formatSubTemaTitle(subTema: string | null | undefined): string {
+  if (!subTema) return ''
+  let cleaned = subTema.trim()
+  // Replace A. Kefahaman Agama or Kefahaman Agama with Faham Agama
+  cleaned = cleaned.replace(/^([A-Za-z]\.\s*)?kefahaman\s+agama/i, 'Faham Agama')
+  // Remove Kemandirian / Kemandirlan prefix from Kemandirian sub-points
+  cleaned = cleaned.replace(/^(\d+\.\s*)kemandi?r[ia]an\s+/i, '$1')
+  cleaned = cleaned.replace(/^kemandi?r[ia]an\s+/i, '')
+  return cleaned
+}
+

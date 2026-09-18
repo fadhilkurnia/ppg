@@ -107,13 +107,13 @@ function KPICard({
   subtitle?: string
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-3 text-slate-600">
-        <span className="rounded-md bg-slate-100 p-2">{icon}</span>
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+        <span className="rounded-md bg-slate-100 p-2 dark:bg-slate-800">{icon}</span>
         <span className="text-sm">{label}</span>
       </div>
-      <p className="mt-3 text-3xl font-semibold">{value}</p>
-      {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
+      <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+      {subtitle ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
     </div>
   )
 }
@@ -132,8 +132,8 @@ function GenderCard({ buckets }: { buckets: Bucket[] }) {
     }))
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-sm text-slate-600">{t('dashboard.byGender')}</div>
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="text-sm text-slate-600 dark:text-slate-400">{t('dashboard.byGender')}</div>
       <div className="mt-2 flex items-center gap-4">
         <div className="h-24 w-24 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
@@ -162,8 +162,8 @@ function GenderCard({ buckets }: { buckets: Bucket[] }) {
                 className="inline-block h-2.5 w-2.5 rounded-full"
                 style={{ backgroundColor: GENDER_COLORS[b.label] }}
               />
-              <span className="font-medium">{genderLabel(b.label)}</span>
-              <span className="text-slate-500">{b.count}</span>
+              <span className="font-medium text-slate-700 dark:text-slate-300">{genderLabel(b.label)}</span>
+              <span className="text-slate-500 dark:text-slate-400">{b.count}</span>
             </li>
           ))}
         </ul>
@@ -176,8 +176,8 @@ function GenderCard({ buckets }: { buckets: Bucket[] }) {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">{title}</h2>
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h2>
       {children}
     </div>
   )
@@ -317,15 +317,15 @@ function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
                 {k}
               </th>
             ))}
-            <th className="px-3 py-2 text-right text-slate-700">{t('dashboard.total')}</th>
+            <th className="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{t('dashboard.total')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {levels.map((l) => {
             const rowTotal = kelompoks.reduce((acc, k) => acc + (grid[l]?.[k] ?? 0), 0)
             return (
               <tr key={l}>
-                <th className="px-3 py-2 text-left font-medium text-slate-700">{l}</th>
+                <th className="px-3 py-2 text-left font-medium text-slate-700 dark:text-slate-200">{l}</th>
                 {kelompoks.map((k) => {
                   const n = grid[l]?.[k] ?? 0
                   return (
@@ -334,7 +334,7 @@ function LevelKelompokMatrix({ matrix }: { matrix: LevelKelompokCell[] }) {
                     </td>
                   )
                 })}
-                <td className="px-3 py-2 text-right font-semibold text-slate-700">
+                <td className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-200">
                   {rowTotal || '—'}
                 </td>
               </tr>

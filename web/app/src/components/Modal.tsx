@@ -1,7 +1,9 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useTranslation } from '@/lib/i18n'
+import { lockScroll, unlockScroll } from '@/lib/scrollLock'
 
 type Size = 'md' | 'lg' | 'xl'
 
@@ -13,39 +15,74 @@ const SIZE_CLASS: Record<Size, string> = {
 
 type Props = {
   open: boolean
-  onClose: () => void
+  onClose?: () => void
   title?: string
   size?: Size
+  closable?: boolean
+  zIndex?: string
   children: React.ReactNode
 }
 
-export function Modal({ open, onClose, title, size = 'lg', children }: Props) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  size = 'lg',
+  closable = true,
+  zIndex = 'z-[100]',
+  children,
+}: Props) {
   const { t } = useTranslation()
+  const [isRendered, setIsRendered] = useState(open)
+  const [isClosing, setIsClosing] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setIsRendered(true)
+      setIsClosing(false)
+    } else if (isRendered) {
+      setIsClosing(true)
+      const timer = setTimeout(() => {
+        setIsRendered(false)
+        setIsClosing(false)
+      }, 250)
+      return () => clearTimeout(timer)
+    }
+  }, [open, isRendered])
+
+  const handleDismiss = () => {
+    if (!closable || !onClose || isClosing) return
+    setIsClosing(true)
+    setTimeout(() => {
+      onClose()
+    }, 250)
+  }
+
   // Escape key closes the modal.
   useEffect(() => {
-    if (!open) return
+    if (!isRendered || !closable) return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleDismiss()
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [open, onClose])
+  }, [isRendered, isClosing, closable])
 
   // Lock body scroll while open.
   useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    if (!isRendered) return
+    lockScroll()
     return () => {
-      document.body.style.overflow = prev
+      unlockScroll()
     }
-  }, [open])
+  }, [isRendered])
 
-  if (!open) return null
+  if (!isRendered) return null
+  if (typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <div
-      className="!m-0 fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
+      className={cn('!m-0 fixed inset-0 flex items-end justify-center sm:items-center sm:p-4', zIndex)}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
@@ -53,30 +90,41 @@ export function Modal({ open, onClose, title, size = 'lg', children }: Props) {
       <button
         type="button"
         aria-label={t('common.close')}
-        className="absolute inset-0 cursor-default bg-slate-900/70 backdrop-blur-sm"
-        onClick={onClose}
+        className={cn(
+          'fixed inset-0 cursor-default bg-slate-950/70 backdrop-blur-sm',
+          isClosing ? 'animate-fade-out' : 'animate-fade-in',
+        )}
+        onClick={closable ? handleDismiss : undefined}
       />
       <div
         className={cn(
-          'relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-xl bg-white shadow-xl sm:rounded-xl',
+          'relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-800 dark:text-slate-100 sm:rounded-2xl',
           SIZE_CLASS[size],
+          isClosing
+            ? 'animate-slide-down-sheet sm:animate-modal-scale-out'
+            : 'animate-slide-up-sheet sm:animate-modal-scale',
         )}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 id="modal-title" className="truncate text-lg font-semibold">
+        <div className="mx-auto mt-2.5 h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700 sm:hidden shrink-0" />
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+          <h2 id="modal-title" className="truncate text-lg font-semibold text-slate-900 dark:text-slate-100">
             {title}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="-mr-2 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-            aria-label={t('common.close')}
-          >
-            <X size={18} />
-          </button>
+          {closable && (
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="-mr-2 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-all duration-150 hover:rotate-90 active:scale-90"
+              aria-label={t('common.close')}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 text-slate-900 dark:text-slate-100">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
+

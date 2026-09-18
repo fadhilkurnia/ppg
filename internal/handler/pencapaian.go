@@ -13,6 +13,7 @@ import (
 	"github.com/fadhilkurnia/ppg-dashboard/internal/auth"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/bulk"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/model"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 )
 
@@ -34,6 +35,14 @@ type pencapaianBody struct {
 	Catatan      *string `json:"catatan,omitempty" validate:"omitempty,max=2000"`
 }
 
+type noteBody struct {
+	StudentID    string  `json:"studentId"    validate:"required,min=1"`
+	MateriAjarID string  `json:"materiAjarId" validate:"required,min=1"`
+	Note         string  `json:"note"         validate:"required,min=1,max=2000"`
+	Status       *string `json:"status,omitempty" validate:"omitempty,oneof=belum proses tuntas"`
+	NilaiAngka   *int    `json:"nilaiAngka,omitempty" validate:"omitempty,min=0,max=100"`
+}
+
 // List returns one student's pencapaian across ALL tingkat (all-ages view).
 func (h *Pencapaian) List(w http.ResponseWriter, r *http.Request) {
 	studentID := r.URL.Query().Get("studentId")
@@ -47,6 +56,51 @@ func (h *Pencapaian) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, rows)
+}
+
+func (h *Pencapaian) ListNotes(w http.ResponseWriter, r *http.Request) {
+	studentID := r.URL.Query().Get("studentId")
+	materiAjarID := r.URL.Query().Get("materiAjarId")
+	if studentID == "" || materiAjarID == "" {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "studentId dan materiAjarId wajib diisi")
+		return
+	}
+	notes, err := h.p.ListNotes(r.Context(), studentID, materiAjarID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil catatan")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, notes)
+}
+
+func (h *Pencapaian) CreateNote(w http.ResponseWriter, r *http.Request) {
+	if !canManageAchievement(r) {
+		httpx.Error(w, http.StatusForbidden, "forbidden", "Akses tidak diizinkan")
+		return
+	}
+	var b noteBody
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "JSON tidak valid")
+		return
+	}
+	if err := h.validator.Struct(b); err != nil {
+		httpx.Error(w, http.StatusUnprocessableEntity, "validation", err.Error())
+		return
+	}
+	c, _ := auth.ClaimsFrom(r.Context())
+	note, err := h.p.CreateNote(r.Context(), store.CreateNoteInput{
+		StudentID:    b.StudentID,
+		MateriAjarID: b.MateriAjarID,
+		Note:         b.Note,
+		Status:       b.Status,
+		NilaiAngka:   b.NilaiAngka,
+		AuthorID:     c.UserID,
+	})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menyimpan catatan")
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, note)
 }
 
 // ClassReport returns the Khayri-style per-tingkat semester report.
@@ -80,6 +134,10 @@ func (h *Pencapaian) Upsert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c, _ := auth.ClaimsFrom(r.Context())
+	if b.Status == "belum" {
+		b.Tanggal = nil
+		b.NilaiAngka = nil
+	}
 	p, err := h.p.Upsert(r.Context(), store.PencapaianInput{
 		StudentID:    b.StudentID,
 		MateriAjarID: b.MateriAjarID,
@@ -97,8 +155,9 @@ func (h *Pencapaian) Upsert(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Pencapaian) Delete(w http.ResponseWriter, r *http.Request) {
-	if !canManageAchievement(r) {
-		httpx.Error(w, http.StatusForbidden, "forbidden", "Akses tidak diizinkan")
+	c, ok := auth.ClaimsFrom(r.Context())
+	if !ok || c.Role != model.RoleAdmin {
+		httpx.Error(w, http.StatusForbidden, "forbidden", "Hanya admin yang dapat menghapus riwayat penilaian")
 		return
 	}
 	err := h.p.Delete(r.Context(), chi.URLParam(r, "id"))
@@ -108,6 +167,24 @@ func (h *Pencapaian) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menghapus pencapaian")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Pencapaian) DeleteNote(w http.ResponseWriter, r *http.Request) {
+	c, ok := auth.ClaimsFrom(r.Context())
+	if !ok || c.Role != model.RoleAdmin {
+		httpx.Error(w, http.StatusForbidden, "forbidden", "Hanya admin yang dapat menghapus riwayat penilaian")
+		return
+	}
+	err := h.p.DeleteNote(r.Context(), chi.URLParam(r, "id"))
+	if errors.Is(err, store.ErrNotFound) {
+		httpx.Error(w, http.StatusNotFound, "not_found", "Catatan tidak ditemukan")
+		return
+	}
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menghapus catatan")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

@@ -38,6 +38,28 @@ type PencapaianInput struct {
 	RecordedBy   string
 }
 
+type PencapaianNote struct {
+	ID           string  `json:"id"`
+	StudentID    string  `json:"studentId"`
+	MateriAjarID string  `json:"materiAjarId"`
+	Note         string  `json:"note"`
+	Status       *string `json:"status,omitempty"`
+	NilaiAngka   *int    `json:"nilaiAngka,omitempty"`
+	AuthorID     *string `json:"authorId,omitempty"`
+	AuthorName   *string `json:"authorName,omitempty"`
+	CreatedAt    string  `json:"createdAt"`
+}
+
+type CreateNoteInput struct {
+	StudentID    string
+	MateriAjarID string
+	Note         string
+	Status       *string
+	NilaiAngka   *int
+	AuthorID     string
+	AuthorName   string
+}
+
 const pencapaianCols = `id, student_id, materi_ajar_id, status, nilai_angka, tanggal, catatan, recorded_by, updated_at`
 
 func scanPencapaian(s scanner) (*Pencapaian, error) {
@@ -223,4 +245,122 @@ func (s *PencapaianStore) ClassReport(ctx context.Context, tingkatID string, sem
 		}
 	}
 	return out, rows.Err()
+}
+
+func (s *PencapaianStore) ListNotes(ctx context.Context, studentID, materiAjarID string) ([]PencapaianNote, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT n.id, n.student_id, n.materi_ajar_id, n.note, n.status, n.nilai_angka, n.author_id,
+		       COALESCE(u.name, n.author_name, 'Guru') AS author_name, n.created_at
+		FROM pencapaian_notes n
+		LEFT JOIN users u ON u.id = n.author_id
+		WHERE n.student_id = ? AND n.materi_ajar_id = ?
+		ORDER BY n.created_at DESC`,
+		studentID, materiAjarID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []PencapaianNote
+	for rows.Next() {
+		var n PencapaianNote
+		var authorID, authorName, status sql.NullString
+		var nilaiAngka sql.NullInt64
+		if err := rows.Scan(
+			&n.ID, &n.StudentID, &n.MateriAjarID, &n.Note, &status, &nilaiAngka, &authorID,
+			&authorName, &n.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if status.Valid {
+			n.Status = &status.String
+		}
+		if nilaiAngka.Valid {
+			v := int(nilaiAngka.Int64)
+			n.NilaiAngka = &v
+		}
+		if authorID.Valid {
+			n.AuthorID = &authorID.String
+		}
+		if authorName.Valid {
+			n.AuthorName = &authorName.String
+		}
+		out = append(out, n)
+	}
+	if out == nil {
+		out = []PencapaianNote{}
+	}
+	return out, rows.Err()
+}
+
+func (s *PencapaianStore) CreateNote(ctx context.Context, in CreateNoteInput) (*PencapaianNote, error) {
+	id := ulid.Make().String()
+	var authorID any
+	if in.AuthorID != "" {
+		authorID = in.AuthorID
+	}
+	var authorName any
+	if in.AuthorName != "" {
+		authorName = in.AuthorName
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO pencapaian_notes (id, student_id, materi_ajar_id, note, status, nilai_angka, author_id, author_name, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+		id, in.StudentID, in.MateriAjarID, in.Note, in.Status, in.NilaiAngka, authorID, authorName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update or initialize pencapaian.catatan so the latest note is reflected on the main row
+	pencapaianID := ulid.Make().String()
+	_, _ = s.db.ExecContext(ctx, `
+		INSERT INTO pencapaian (id, student_id, materi_ajar_id, status, nilai_angka, catatan, recorded_by)
+		VALUES (?, ?, ?, COALESCE(?, 'belum'), ?, ?, ?)
+		ON CONFLICT(student_id, materi_ajar_id) DO UPDATE SET
+		  catatan = excluded.catatan,
+		  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+		pencapaianID, in.StudentID, in.MateriAjarID, in.Status, in.NilaiAngka, in.Note, authorID)
+
+	row := s.db.QueryRowContext(ctx, `
+		SELECT n.id, n.student_id, n.materi_ajar_id, n.note, n.status, n.nilai_angka, n.author_id,
+		       COALESCE(u.name, n.author_name, 'Guru') AS author_name, n.created_at
+		FROM pencapaian_notes n
+		LEFT JOIN users u ON u.id = n.author_id
+		WHERE n.id = ?`, id)
+
+	var n PencapaianNote
+	var aID, aName, st sql.NullString
+	var na sql.NullInt64
+	if err := row.Scan(
+		&n.ID, &n.StudentID, &n.MateriAjarID, &n.Note, &st, &na, &aID, &aName, &n.CreatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if st.Valid {
+		n.Status = &st.String
+	}
+	if na.Valid {
+		v := int(na.Int64)
+		n.NilaiAngka = &v
+	}
+	if aID.Valid {
+		n.AuthorID = &aID.String
+	}
+	if aName.Valid {
+		n.AuthorName = &aName.String
+	}
+	return &n, nil
+}
+
+func (s *PencapaianStore) DeleteNote(ctx context.Context, id string) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM pencapaian_notes WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

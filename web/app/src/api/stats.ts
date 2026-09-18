@@ -40,6 +40,9 @@ export type MonthlyBucket = {
   month: string
   sessions: number
   hours: number
+  hadir?: number
+  byVn?: number
+  izin?: number
 }
 
 export type StudentAggregate = {
@@ -61,9 +64,20 @@ export type TeacherAggregate = {
   lastDate?: string
 }
 
+export type WeeklyBucket = {
+  week: string
+  label: string
+  sessions: number
+  hours: number
+  hadir?: number
+  byVn?: number
+  izin?: number
+}
+
 export type AttendanceStats = {
   total: AttendanceTotals
   monthly: MonthlyBucket[]
+  weekly?: WeeklyBucket[]
   byStatus: Bucket[]
   byStudent: StudentAggregate[]
   byTeacher: TeacherAggregate[]
@@ -73,12 +87,16 @@ export type AttendanceStats = {
 export type AttendanceStatsQuery = {
   dateFrom?: string
   dateTo?: string
+  teacherId?: string
+  studentId?: string
 }
 
 export function getAttendanceStats(params: AttendanceStatsQuery = {}) {
   const q = new URLSearchParams()
   if (params.dateFrom) q.set('dateFrom', params.dateFrom)
   if (params.dateTo) q.set('dateTo', params.dateTo)
+  if (params.teacherId) q.set('teacherId', params.teacherId)
+  if (params.studentId) q.set('studentId', params.studentId)
   const qs = q.toString()
   return apiFetch<AttendanceStats>(`/api/stats/attendance${qs ? `?${qs}` : ''}`)
 }

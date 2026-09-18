@@ -19,6 +19,7 @@ import (
 	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/handler"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/httpx"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/model"
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 	"github.com/fadhilkurnia/ppg-dashboard/web"
 )
@@ -110,13 +111,33 @@ func run() error {
 		return fmt.Errorf("seed kurikulum: %w", err)
 	}
 
+	if _, err := store.SeedStudentTeachers(context.Background(), db); err != nil {
+		return fmt.Errorf("seed student teachers: %w", err)
+	}
+
 	users := store.NewUsers(db)
+	userPhones := store.NewUserPhones(db)
 	students := store.NewStudents(db)
 	teachers := store.NewTeachers(db)
+	studentTeachers := store.NewStudentTeachers(db)
 	attendances := store.NewAttendances(db)
 	roles := store.NewRoles(db)
 	kurikulum := store.NewKurikulum(db)
 	pencapaian := store.NewPencapaian(db)
+	waChallenges := store.NewWAChallenges(db)
+	waResets := store.NewWAResetChallenges(db)
+	pwResets := store.NewPasswordResets(db)
+	waOutbox := store.NewWAOutbox(db)
+
+	botPhone := os.Getenv("WA_BOT_PHONE")
+	if botPhone == "" {
+		botPhone = "6287781485093"
+	}
+	appBaseURL := os.Getenv("APP_BASE_URL")
+	if appBaseURL == "" {
+		appBaseURL = "https://ppg.tail31c665.ts.net"
+	}
+	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
 
 	if cfg.SeedAdminEmail != "" && cfg.SeedAdminPass != "" {
 		if err := store.SeedAdmin(context.Background(), users, cfg.SeedAdminEmail, cfg.SeedAdminUsername, cfg.SeedAdminPass); err != nil {
@@ -128,6 +149,8 @@ func run() error {
 
 	publicAttRL := httpx.NewIPRateLimiter(10, time.Minute)
 
+	authH := handler.NewAuth(users, userPhones, waChallenges, waResets, pwResets, waOutbox, roles, jwtSvc, cfg.CookieSecure, cfg.DynamicAPIPath, botPhone, appBaseURL, googleClientID)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -138,11 +161,26 @@ func run() error {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	r.Get("/magic", authH.MagicLogin)
 
 	r.Route("/api", func(api chi.Router) {
-		authH := handler.NewAuth(users, roles, jwtSvc, cfg.CookieSecure, cfg.DynamicAPIPath)
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
+		api.Get("/auth/google/config", authH.GetGoogleConfig)
+		api.Post("/auth/google/verify", authH.VerifyGoogleCredential)
+		api.Post("/auth/wa/challenge", authH.CreateWAChallenge)
+		api.Get("/auth/wa/poll", authH.PollWAChallenge)
+		api.Post("/auth/password/reset-challenge", authH.CreateResetWAChallenge)
+		api.Get("/auth/password/reset-challenge/status", authH.PollResetWAStatus)
+		api.Post("/auth/password/reset-challenge/verify-otp", authH.VerifyResetWAOTP)
+		api.Post("/auth/password/reset-challenge/complete", authH.CompleteResetWAPassword)
+		api.Post("/auth/password/forgot/request", authH.RequestPasswordReset)
+		api.Post("/auth/password/forgot/reset", authH.ResetPasswordWithOTP)
+		api.Post("/internal/wa-verify", authH.InternalWAVerify)
+		api.Get("/internal/wa-outbox", authH.GetPendingWAOutbox)
+		api.Post("/internal/wa-outbox/{id}/sent", authH.MarkWAOutboxSent)
+		api.Post("/internal/wa-outbox/{id}/failed", authH.MarkWAOutboxFailed)
+		api.Get("/auth/magic", authH.MagicLogin)
 
 		pubAttH := handler.NewPublicAttendance(attendances, students, teachers)
 		api.Get("/public/teachers", pubAttH.ListTeachers)
@@ -153,6 +191,13 @@ func run() error {
 		api.Group(func(p chi.Router) {
 			p.Use(authMw)
 			p.Get("/auth/me", authH.Me)
+			p.Post("/auth/me/first-login", authH.FirstLogin)
+			p.Post("/auth/me/wa/challenge", authH.CreateUserWAChallenge)
+			p.Delete("/auth/me/wa", authH.DeleteUserWAPhone)
+			p.Post("/auth/me/google/link", authH.LinkGoogleCredential)
+			p.Get("/auth/me/phones", authH.ListUserPhones)
+			p.Post("/auth/me/phones/{id}/primary", authH.SetPrimaryUserPhone)
+			p.Delete("/auth/me/phones/{id}", authH.DeleteUserPhone)
 
 			studentsH := handler.NewStudents(students)
 			p.Get("/students", studentsH.List)
@@ -161,6 +206,11 @@ func run() error {
 			teachersH := handler.NewTeachers(teachers)
 			p.Get("/teachers", teachersH.List)
 			p.Get("/teachers/{id}", teachersH.Get)
+
+			studentTeachersH := handler.NewStudentTeachers(studentTeachers)
+			p.Get("/student-teachers", studentTeachersH.List)
+			p.Get("/students/{id}/teachers", studentTeachersH.GetTeachersForStudent)
+			p.Get("/teachers/{id}/students", studentTeachersH.GetStudentsForTeacher)
 
 			statsH := handler.NewStats(students, teachers, attendances)
 			p.Get("/stats/dashboard", statsH.Dashboard)
@@ -186,10 +236,13 @@ func run() error {
 				adm.Post("/materi-ajar", kurikulumH.CreateMateriAjar)
 				adm.Put("/materi-ajar/{id}", kurikulumH.UpdateMateriAjar)
 				adm.Delete("/materi-ajar/{id}", kurikulumH.DeleteMateriAjar)
+				adm.Delete("/pencapaian/{id}", pencapaianH.Delete)
+				adm.Delete("/pencapaian/notes/{id}", pencapaianH.DeleteNote)
 			})
 
 			p.Post("/pencapaian", pencapaianH.Upsert)
-			p.Delete("/pencapaian/{id}", pencapaianH.Delete)
+			p.Get("/pencapaian/notes", pencapaianH.ListNotes)
+			p.Post("/pencapaian/notes", pencapaianH.CreateNote)
 
 			bulkH := handler.NewBulk(handler.BulkOptions{
 				MaxBytes:    handler.ParseMaxBytesEnv(os.Getenv("BULK_MAX_BYTES")),
@@ -199,9 +252,14 @@ func run() error {
 				Pencapaian:  store.NewPencapaianBulk(db, pencapaian),
 				Users:       store.NewUsersBulk(users),
 			})
-			// Per-entity literal routes: chi's radix tree prefers literal
-			// segments over params, so /students/export.csv out-ranks the
-			// /students/{id} route registered above.
+			usersH := handler.NewUsers(users, roles)
+			rolesH := handler.NewRoles(roles)
+
+			p.Get("/users/check-username", usersH.CheckUsername)
+			p.Patch("/users/{id}", usersH.Update)
+			p.Post("/users/{id}/password", usersH.Password)
+			p.With(auth.RequireAnyRole(model.RoleAdmin, model.RoleGuru, model.RoleTeacher, model.RoleStaff)).Post("/attendances", attendancesH.Create)
+
 			for _, entity := range handler.BulkEntities {
 				p.Get("/"+entity+"/export.csv", bulkH.ExportFor(entity))
 				p.Get("/"+entity+"/bulk/schema", bulkH.SchemaFor(entity))
@@ -209,6 +267,20 @@ func run() error {
 
 			p.Group(func(adm chi.Router) {
 				adm.Use(auth.RequireRole("admin"))
+				adm.Get("/users", usersH.List)
+				adm.Post("/users", usersH.Create)
+				adm.Get("/users/{id}", usersH.Get)
+				adm.Post("/users/{id}/archive", usersH.Archive)
+				adm.Post("/users/{id}/roles", usersH.AddRole)
+				adm.Delete("/users/{id}/roles/{roleId}", usersH.RemoveRole)
+
+				adm.Get("/roles", rolesH.List)
+				adm.Post("/roles", rolesH.Create)
+				adm.Get("/roles/{id}", rolesH.Get)
+				adm.Patch("/roles/{id}", rolesH.Update)
+				adm.Put("/roles/{id}", rolesH.Update)
+				adm.Delete("/roles/{id}", rolesH.Delete)
+
 				adm.Post("/students", studentsH.Create)
 				adm.Patch("/students/{id}", studentsH.Update)
 				adm.Delete("/students/{id}", studentsH.Delete)
@@ -217,9 +289,14 @@ func run() error {
 				adm.Patch("/teachers/{id}", teachersH.Update)
 				adm.Delete("/teachers/{id}", teachersH.Delete)
 
+				adm.Post("/student-teachers", studentTeachersH.Assign)
+				adm.Delete("/student-teachers", studentTeachersH.Unassign)
+				adm.Delete("/student-teachers/{id}", studentTeachersH.Unassign)
+				adm.Put("/students/{id}/teachers", studentTeachersH.SetTeachersForStudent)
+				adm.Put("/teachers/{id}/students", studentTeachersH.SetStudentsForTeacher)
+
 				adm.Post("/pencapaian/matrix/import", pencapaianH.MatrixImport)
 
-				adm.Post("/attendances", attendancesH.Create)
 				adm.Patch("/attendances/{id}", attendancesH.Update)
 				adm.Delete("/attendances/{id}", attendancesH.Delete)
 

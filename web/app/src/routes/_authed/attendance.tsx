@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CartesianGrid,
   Cell,
@@ -175,13 +175,13 @@ function KPICard({
   subtitle?: string
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-3 text-slate-600">
-        <span className="rounded-md bg-slate-100 p-2">{icon}</span>
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+        <span className="rounded-md bg-slate-100 p-2 dark:bg-slate-800">{icon}</span>
         <span className="text-sm">{label}</span>
       </div>
-      <p className="mt-3 text-3xl font-semibold">{value}</p>
-      {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
+      <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+      {subtitle ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
     </div>
   )
 }
@@ -196,8 +196,8 @@ function ChartCard({
   className?: string
 }) {
   return (
-    <div className={`rounded-lg border border-slate-200 bg-white p-5 shadow-sm ${className ?? ''}`}>
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">{title}</h2>
+    <div className={`min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className ?? ''}`}>
+      <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h2>
       {children}
     </div>
   )
@@ -205,29 +205,139 @@ function ChartCard({
 
 /* --- monthly trend chart --- */
 
+function formatMonthTick(mStr: string) {
+  try {
+    const parts = mStr.split('-')
+    if (parts.length === 2) {
+      const yrShort = parts[0].slice(-2)
+      const moIdx = parseInt(parts[1], 10) - 1
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+      const mo = months[moIdx] || parts[1]
+      return `${mo} '${yrShort}`
+    }
+    return mStr
+  } catch {
+    return mStr
+  }
+}
+
 function MonthlyChart({ data }: { data: { month: string; sessions: number; hours: number }[] }) {
   const { t } = useTranslation()
-  if (data.length === 0) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const scrollToLatest = () => {
+      el.scrollLeft = el.scrollWidth - el.clientWidth
+    }
+    scrollToLatest()
+    const timer = setTimeout(scrollToLatest, 60)
+    return () => clearTimeout(timer)
+  }, [data])
+
+  const totalSessions = data.reduce((acc, d) => acc + d.sessions, 0)
+
+  const { yMax, yTicks } = useMemo(() => {
+    const maxVal = Math.max(...data.map((d) => d.sessions), 0)
+    let upper = maxVal === 0 ? 4 : Math.ceil(maxVal * 1.15)
+    if (upper < 4) upper = 4
+    const step = Math.ceil(upper / 4)
+    const finalMax = step * 4
+    const ticks = [0, step, step * 2, step * 3, finalMax]
+    return { yMax: finalMax, yTicks: ticks }
+  }, [data])
+
+  if (data.length === 0 || totalSessions === 0) {
     return <p className="text-sm text-slate-500">{t('attendanceStats.monthlyEmpty')}</p>
   }
+
+  const Y_AXIS_WIDTH = 32
+  const calculatedWidth = Math.max(data.length * 52, 0)
+
   return (
-    <div style={{ width: '100%', height: 280 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
-          <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-          <XAxis dataKey="month" stroke="#64748b" fontSize={11} interval="preserveStartEnd" />
-          <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
-          <Tooltip
-            formatter={(v: number, k: string) =>
-              k === 'hours'
-                ? [t('attendanceStats.hoursUnit', { n: v.toFixed(1) }), t('attendanceStats.hoursTooltip')]
-                : [v, t('attendanceStats.sessionsTooltip')]
-            }
-            labelFormatter={(label) => t('attendanceStats.monthLabel', { label: String(label) })}
-          />
-          <Line type="monotone" dataKey="sessions" stroke="#0f172a" strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
+    <div className="relative w-full min-w-0 max-w-full h-[260px]">
+      {/* 1. Stationary Base: Fixed Y-Axis & Horizontal Grid Lines spanning 100% of the card */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart
+            data={data}
+            margin={{ top: 12, right: 12, bottom: 24, left: 0 }}
+          >
+            <CartesianGrid
+              stroke="#e2e8f0"
+              strokeDasharray="3 3"
+              className="stroke-slate-200 dark:stroke-slate-800"
+              vertical={false}
+            />
+            <YAxis
+              stroke="#64748b"
+              fontSize={10}
+              allowDecimals={false}
+              width={Y_AXIS_WIDTH}
+              domain={[0, yMax]}
+              ticks={yTicks}
+              tickMargin={3}
+              axisLine={false}
+              className="dark:[&_text]:fill-slate-400"
+            />
+            <XAxis dataKey="month" hide height={0} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* 2. Scrollable Foreground: Line, X-Axis dates, and Tooltip */}
+      <div
+        ref={scrollRef}
+        className="absolute top-0 bottom-0 right-0 overflow-x-auto overflow-y-hidden custom-scrollbar touch-pan-x z-10 border-l border-slate-200 dark:border-slate-800"
+        style={{
+          left: Y_AXIS_WIDTH,
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        <div style={{ width: calculatedWidth, minWidth: '100%', height: 260 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={data}
+              margin={{ top: 12, right: 12, bottom: 0, left: 0 }}
+            >
+              <YAxis
+                hide
+                width={0}
+                domain={[0, yMax]}
+                ticks={yTicks}
+              />
+              <XAxis
+                dataKey="month"
+                height={24}
+                stroke="#64748b"
+                fontSize={10}
+                tickMargin={4}
+                interval={0}
+                tickFormatter={formatMonthTick}
+                axisLine={{ stroke: '#cbd5e1' }}
+                className="dark:[&_line]:stroke-slate-700 dark:[&_text]:fill-slate-400"
+              />
+              <Tooltip
+                formatter={(v: number, k: string) =>
+                  k === 'hours'
+                    ? [t('attendanceStats.hoursUnit', { n: v.toFixed(1) }), t('attendanceStats.hoursTooltip')]
+                    : [v, t('attendanceStats.sessionsTooltip')]
+                }
+                labelFormatter={(label) => t('attendanceStats.monthLabel', { label: String(label) })}
+              />
+              <Line
+                type="monotone"
+                dataKey="sessions"
+                stroke="#4f46e5"
+                strokeWidth={2.5}
+                dot={{ r: 3.5, fill: '#4f46e5' }}
+                activeDot={{ r: 5.5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   )
 }
@@ -458,8 +568,8 @@ function RangeFilter({
   const years = [...availableYears].sort((a, b) => b - a) // newest first
   const options: { token: string; label: string }[] = [
     { token: 'all', label: t('attendanceStats.rangeAll') },
-    { token: 'ytd', label: t('attendanceStats.rangeYtd') },
     { token: 'mtd', label: t('attendanceStats.rangeMtd') },
+    { token: 'ytd', label: t('attendanceStats.rangeYtd') },
     ...years.map((y) => ({ token: String(y), label: String(y) })),
   ]
   return (
@@ -476,8 +586,8 @@ function RangeFilter({
             className={cn(
               'rounded-full border px-3 py-1 text-sm transition',
               opt.token === active
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50',
+                ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+                : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800',
             )}
           >
             {opt.label}

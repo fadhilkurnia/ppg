@@ -1,0 +1,1 @@
+-- No-op for sqlite column drop

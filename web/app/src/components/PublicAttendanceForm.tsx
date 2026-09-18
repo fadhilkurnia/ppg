@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -7,6 +8,7 @@ import { listPublicTeachers, listPublicStudents } from '@/api/public'
 import type { PublicAttendanceInput } from '@/api/public'
 import { ApiError } from '@/api/client'
 import { useTranslation, type TranslateFn } from '@/lib/i18n'
+import { cn } from '@/lib/cn'
 import { Button } from './Button'
 import { Input } from './Input'
 import { Field } from './Field'
@@ -15,10 +17,12 @@ const phoneRe = /^(\+?62|0)\d{7,14}$/
 
 const buildSchema = (t: TranslateFn) =>
   z.object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, t('validation.isoDate')),
-    durationMin: z
-      .union([z.string().length(0), z.coerce.number().int().min(0).max(1440)])
-      .optional(),
+    date: z.string().min(1, t('validation.requiredDate')).regex(/^\d{4}-\d{2}-\d{2}$/, t('validation.isoDate')),
+    durationMin: z.coerce
+      .number({ invalid_type_error: t('validation.requiredDuration') })
+      .int()
+      .min(1, t('validation.requiredDuration'))
+      .max(1440),
     teacherId: z.string().min(1, t('validation.requiredSelect')),
     studentId: z.string().min(1, t('validation.requiredSelect')),
     status: z.enum(['hadir', 'by_vn', 'izin_guru', 'izin_murid']),
@@ -61,6 +65,8 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
     register,
     control,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(buildSchema(t)),
@@ -75,6 +81,15 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
     },
   })
 
+  const currentStatus = watch('status')
+  const isExcused = currentStatus === 'izin_guru' || currentStatus === 'izin_murid'
+
+  useEffect(() => {
+    if (isExcused) {
+      setValue('durationMin', 1)
+    }
+  }, [isExcused, setValue])
+
   const apiError = error instanceof ApiError ? error.message : null
   const loading = teachersQ.isPending || studentsQ.isPending
 
@@ -83,8 +98,9 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
       onSubmit={handleSubmit((v) =>
         onSubmit({
           date: v.date,
-          durationMin:
-            typeof v.durationMin === 'number' && Number.isFinite(v.durationMin)
+          durationMin: isExcused
+            ? 1
+            : typeof v.durationMin === 'number' && Number.isFinite(v.durationMin)
               ? v.durationMin
               : undefined,
           teacherId: v.teacherId,
@@ -98,7 +114,7 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
     >
       <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
         <Field label={t('absen.fDate')} htmlFor="date" error={errors.date?.message}>
-          <Input id="date" type="date" className={inputMobile} {...register('date')} />
+          <Input id="date" type="date" required className={inputMobile} {...register('date')} />
         </Field>
         <Field
           label={t('absen.fDuration')}
@@ -109,10 +125,15 @@ export function PublicAttendanceForm({ submitLabel, pending, error, onSubmit }: 
             id="durationMin"
             type="number"
             inputMode="numeric"
-            min={0}
+            min={1}
             max={1440}
+            required
+            disabled={isExcused}
             placeholder={t('absen.fDurationPh')}
-            className={inputMobile}
+            className={cn(
+              inputMobile,
+              isExcused && 'bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-not-allowed opacity-75 font-semibold',
+            )}
             {...register('durationMin')}
           />
         </Field>

@@ -20,7 +20,7 @@ export function LanguageSwitcher({ variant = 'pill', className }: Props) {
         title={t('language.switchTo', { lang: other.label })}
         aria-label={t('language.switchTo', { lang: other.label })}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400',
+          'inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
           className,
         )}
       >
@@ -35,7 +35,7 @@ export function LanguageSwitcher({ variant = 'pill', className }: Props) {
       role="group"
       aria-label={t('language.label')}
       className={cn(
-        'inline-flex items-center rounded-md border border-slate-300 bg-white p-0.5 text-xs shadow-sm',
+        'inline-flex items-center rounded-md border border-slate-300 bg-white p-0.5 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-800',
         className,
       )}
     >
@@ -51,8 +51,8 @@ export function LanguageSwitcher({ variant = 'pill', className }: Props) {
             className={cn(
               'rounded px-2 py-1 font-medium transition',
               active
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100',
             )}
           >
             {l.short}

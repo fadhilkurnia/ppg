@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 )
@@ -90,5 +91,84 @@ func TestRolesBindingPrimaryMirror(t *testing.T) {
 	}
 	if primaryCount != 1 {
 		t.Errorf("primaryCount = %d, want 1", primaryCount)
+	}
+}
+
+func TestRolesCRUD(t *testing.T) {
+	r, u := newRolesDB(t)
+	ctx := context.Background()
+
+	// 1. Create
+	newRole, err := r.Create(ctx, CreateRoleInput{
+		ID:                "bendahara",
+		Label:             "Bendahara",
+		CanLogin:          true,
+		ManageableRoleIDs: []string{"student"},
+		SortOrder:         60,
+	})
+	if err != nil {
+		t.Fatalf("create role: %v", err)
+	}
+	if newRole.ID != "bendahara" || newRole.Label != "Bendahara" || !newRole.CanLogin {
+		t.Errorf("unexpected created role: %+v", newRole)
+	}
+
+	// 2. Duplicate Create should fail
+	_, err = r.Create(ctx, CreateRoleInput{
+		ID:    "bendahara",
+		Label: "Bendahara Duplicate",
+	})
+	if !errors.Is(err, ErrRoleConflict) {
+		t.Errorf("expected ErrRoleConflict, got %v", err)
+	}
+
+	// 3. Update
+	lbl := "Bendahara Keuangan"
+	cl := false
+	sort := 65
+	updated, err := r.Update(ctx, "bendahara", UpdateRoleInput{
+		Label:     &lbl,
+		CanLogin:  &cl,
+		SortOrder: &sort,
+	})
+	if err != nil {
+		t.Fatalf("update role: %v", err)
+	}
+	if updated.Label != "Bendahara Keuangan" || updated.CanLogin != false || updated.SortOrder != 65 {
+		t.Errorf("unexpected updated role: %+v", updated)
+	}
+
+	// 4. Delete system role should fail
+	err = r.Delete(ctx, "admin")
+	if !errors.Is(err, ErrSystemRole) {
+		t.Errorf("expected ErrSystemRole, got %v", err)
+	}
+
+	// 5. Delete role in use should fail
+	user, err := u.Create(ctx, "b@example.com", nil, "pass123", "Ben", "bendahara")
+	if err != nil {
+		t.Fatalf("create user with role: %v", err)
+	}
+	_ = user
+	err = r.Delete(ctx, "bendahara")
+	if !errors.Is(err, ErrRoleInUse) {
+		t.Errorf("expected ErrRoleInUse, got %v", err)
+	}
+
+	// 6. Delete role when not in use
+	anotherRole, err := r.Create(ctx, CreateRoleInput{
+		ID:    "keamanan",
+		Label: "Keamanan",
+	})
+	if err != nil {
+		t.Fatalf("create keamanan: %v", err)
+	}
+	_ = anotherRole
+	if err := r.Delete(ctx, "keamanan"); err != nil {
+		t.Fatalf("delete role: %v", err)
+	}
+	_, err = r.Get(ctx, "keamanan")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
 }

@@ -201,17 +201,24 @@ func (h *Kurikulum) parseMateriAjar(r *http.Request) (store.MateriAjarInput, err
 	}, nil
 }
 
-// canManageAchievement gates achievement writes to admin/coordinator/teacher.
+// canManageAchievement gates achievement writes to admin/coordinator/teacher/guru/staff.
 func canManageAchievement(r *http.Request) bool {
 	c, ok := auth.ClaimsFrom(r.Context())
 	if !ok {
 		return false
 	}
-	if c.Role == model.RoleAdmin {
+	allowed := map[model.Role]bool{
+		model.RoleAdmin: true,
+		model.RoleGuru:  true,
+		model.RoleStaff: true,
+		"teacher":       true,
+		"coordinator":   true,
+	}
+	if allowed[c.Role] {
 		return true
 	}
 	for _, role := range c.Roles {
-		if role == "admin" || role == "coordinator" || role == "teacher" {
+		if allowed[model.Role(role)] {
 			return true
 		}
 	}
